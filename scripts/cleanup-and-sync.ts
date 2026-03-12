@@ -1,6 +1,22 @@
 import { PrismaClient } from "@prisma/client";
-import { config } from "dotenv";
-config();
+import * as fs from "fs";
+import * as path from "path";
+
+// Load .env manually since dotenv v17 changed behavior
+const envPath = path.resolve(process.cwd(), ".env");
+const envContent = fs.readFileSync(envPath, "utf-8");
+for (const line of envContent.split("\n")) {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("#")) continue;
+  const eqIdx = trimmed.indexOf("=");
+  if (eqIdx === -1) continue;
+  const key = trimmed.slice(0, eqIdx).trim();
+  let val = trimmed.slice(eqIdx + 1).trim();
+  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+    val = val.slice(1, -1);
+  }
+  if (!process.env[key]) process.env[key] = val;
+}
 
 const prisma = new PrismaClient();
 
@@ -90,10 +106,17 @@ async function main() {
   const idMap = new Map(matched.filter(p => p.congressId && !p.congressId.startsWith("trump")).map(p => [p.congressId!, p.id]));
   console.log(`Matched politicians for vote sync: ${idMap.size}`);
 
-  // Fetch bills from 118th Congress
-  const billsData = await fetchJson(`${BASE}/bill/118?sort=updateDate+desc&limit=50`);
-  const bills = billsData.bills || [];
-  console.log(`Fetched ${bills.length} bills from 118th Congress`);
+  // Fetch House bills from 118th Congress — multiple pages for more coverage
+  const allBills: any[] = [];
+  for (let offset = 0; offset < 500; offset += 50) {
+    const data = await fetchJson(`${BASE}/bill/118/hr?sort=updateDate+desc&limit=50&offset=${offset}`);
+    const batch = data.bills || [];
+    allBills.push(...batch);
+    if (batch.length < 50) break;
+    await delay(500);
+  }
+  const bills = allBills;
+  console.log(`Fetched ${bills.length} House bills from 118th Congress`);
 
   let billsSynced = 0;
   let votesSynced = 0;
@@ -101,7 +124,7 @@ async function main() {
   const massieExamples: { bill: string; position: string }[] = [];
 
   for (const bill of bills) {
-    if (billsSynced >= 30) break;
+    if (billsSynced >= 50) break;
 
     try {
       await delay(500);
@@ -156,23 +179,44 @@ async function main() {
       billsSynced++;
       console.log(`  [${billsSynced}] ${formattedNum}: ${bill.title.slice(0, 60)}...`);
 
-      // Process roll call votes
+      // Deduplicate roll call votes (same roll call can appear in multiple actions)
+      const seenUrls = new Set<string>();
+      const uniqueVotes: { url: string; chamber: string; rollNumber: number }[] = [];
       for (const action of rollCalls) {
         for (const rv of action.recordedVotes || []) {
+          if (rv.url && !seenUrls.has(rv.url)) {
+            seenUrls.add(rv.url);
+            uniqueVotes.push(rv);
+          }
+        }
+      }
+
+      // Process roll call votes via House/Senate Clerk XML
+      for (const rv of uniqueVotes) {
           try {
             await delay(500);
-            const voteData = await fetchJson(
-              `${BASE}/vote/118/${rv.chamber.toLowerCase()}/${rv.sessionNumber}/${rv.rollNumber}`
-            );
-            const positions = voteData?.vote?.positions || [];
+            // The url field points to the clerk XML (e.g., https://clerk.house.gov/evs/2024/roll345.xml)
+            const xmlUrl = rv.url;
+            if (!xmlUrl) continue;
 
-            for (const pos of positions) {
-              const bioguideId = pos.member?.bioguideId;
-              if (!bioguideId) continue;
+            const xmlRes = await fetch(xmlUrl);
+            if (!xmlRes.ok) {
+              console.log(`    Warning: Failed to fetch ${xmlUrl}: ${xmlRes.status}`);
+              continue;
+            }
+            const xml = await xmlRes.text();
+
+            // Parse XML to extract votes — find all <recorded-vote> entries
+            const voteRegex = /<legislator[^>]+name-id="([^"]+)"[^>]*>[^<]*<\/legislator><vote>([^<]+)<\/vote>/g;
+            let match;
+            while ((match = voteRegex.exec(xml)) !== null) {
+              const bioguideId = match[1];
+              const voteText = match[2];
+
               const politicianId = idMap.get(bioguideId);
               if (!politicianId) continue;
 
-              const position = mapVotePosition(pos.votePosition || "Not Voting");
+              const position = mapVotePosition(voteText);
               try {
                 await prisma.vote.upsert({
                   where: { politicianId_billId: { politicianId, billId: dbBill.id } },
@@ -184,7 +228,7 @@ async function main() {
                 if (bioguideId === "M001184") {
                   massieVotes++;
                   if (massieExamples.length < 10) {
-                    massieExamples.push({ bill: formattedNum, position });
+                    massieExamples.push({ bill: `${formattedNum} (${bill.title.slice(0, 40)})`, position });
                   }
                 }
               } catch {}
@@ -192,7 +236,6 @@ async function main() {
           } catch (err: any) {
             console.log(`    Warning: Failed roll call ${rv.chamber} #${rv.rollNumber}: ${err.message?.slice(0, 80)}`);
           }
-        }
       }
     } catch (err: any) {
       console.log(`  Skipped ${bill.type}${bill.number}: ${err.message?.slice(0, 80)}`);
