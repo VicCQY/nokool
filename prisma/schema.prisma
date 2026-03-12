@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Country {
+  US
+  CA
+  UK
+  AU
+  FR
+  DE
+}
+
+enum PromiseStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  FULFILLED
+  PARTIAL
+  BROKEN
+}
+
+enum VotePosition {
+  YEA
+  NAY
+  ABSTAIN
+  ABSENT
+}
+
+enum DonorType {
+  INDIVIDUAL
+  CORPORATION
+  PAC
+  SUPER_PAC
+  UNION
+  NONPROFIT
+  TRADE_ASSOCIATION
+}
+
+model Politician {
+  id        String   @id @default(cuid())
+  name      String
+  country   Country
+  party     String
+  photoUrl  String?
+  termStart DateTime
+  termEnd   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  promises        Promise[]
+  votes           Vote[]
+  donations       Donation[]
+  lobbyingRecords LobbyingRecord[]
+
+  @@index([country])
+}
+
+model Promise {
+  id             String                @id @default(cuid())
+  title          String
+  description    String
+  category       String
+  dateMade       DateTime
+  sourceUrl      String?
+  status         PromiseStatus         @default(NOT_STARTED)
+  politicianId   String
+  politician     Politician            @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  statusChanges  PromiseStatusChange[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([politicianId])
+  @@index([status])
+  @@index([category])
+}
+
+model PromiseStatusChange {
+  id        String         @id @default(cuid())
+  promiseId String
+  promise   Promise        @relation(fields: [promiseId], references: [id], onDelete: Cascade)
+  oldStatus PromiseStatus?
+  newStatus PromiseStatus
+  changedAt DateTime       @default(now())
+  note      String?
+
+  @@index([promiseId])
+}
+
+model Bill {
+  id          String   @id @default(cuid())
+  title       String
+  summary     String
+  billNumber  String
+  category    String
+  country     Country
+  session     String
+  dateVoted   DateTime
+  sourceUrl   String?
+  votes       Vote[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Vote {
+  id           String       @id @default(cuid())
+  politicianId String
+  politician   Politician   @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  billId       String
+  bill         Bill         @relation(fields: [billId], references: [id], onDelete: Cascade)
+  position     VotePosition
+  createdAt    DateTime     @default(now())
+
+  @@unique([politicianId, billId])
+}
+
+model Donor {
+  id        String     @id @default(cuid())
+  name      String
+  type      DonorType
+  industry  String
+  country   Country
+  donations Donation[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Donation {
+  id            String     @id @default(cuid())
+  donorId       String
+  donor         Donor      @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  politicianId  String
+  politician    Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  amount        Float
+  date          DateTime
+  electionCycle String
+  sourceUrl     String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model LobbyingRecord {
+  id             String     @id @default(cuid())
+  lobbyistName   String
+  clientName     String
+  clientIndustry String
+  politicianId   String
+  politician     Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  issue          String
+  amount         Float
+  year           Int
+  sourceUrl      String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
