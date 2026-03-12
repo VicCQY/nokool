@@ -27,7 +27,7 @@ export function Footer() {
               About
             </Link>
             <a
-              href="https://antinfoil.blog"
+              href="https://www.antinfoil.blog"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"

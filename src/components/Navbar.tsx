@@ -65,7 +65,7 @@ export function Navbar() {
                 );
               })}
               <a
-                href="https://antinfoil.blog"
+                href="https://www.antinfoil.blog"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
@@ -151,7 +151,7 @@ export function Navbar() {
               );
             })}
             <a
-              href="https://antinfoil.blog"
+              href="https://www.antinfoil.blog"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setMenuOpen(false)}
