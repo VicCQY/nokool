@@ -7,6 +7,7 @@ import { SearchModal } from "./SearchModal";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
+  { href: "/politicians", label: "Politicians" },
   { href: "/compare", label: "Compare" },
   { href: "/about", label: "About" },
 ];
