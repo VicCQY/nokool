@@ -3,7 +3,6 @@ import { calculateFulfillment } from "@/lib/grades";
 import { PoliticianCard } from "@/components/PoliticianCard";
 import { COUNTRIES, type CountryCode } from "@/lib/countries";
 import { HeroSearch } from "@/components/HeroSearch";
-import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
