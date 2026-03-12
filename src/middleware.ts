@@ -33,6 +33,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Protect admin API routes (import, clear-data, etc.)
+  if (pathname.startsWith("/api/admin")) {
+    const session = request.cookies.get(COOKIE_NAME)?.value;
+    if (!isAuthenticatedFromValue(session)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
   // Protect write operations (POST/PUT/DELETE) on API routes
   if (
     (pathname.startsWith("/api/politicians") ||
@@ -57,6 +66,7 @@ export const config = {
     "/api/politicians/:path*",
     "/api/bills/:path*",
     "/api/donors/:path*",
+    "/api/admin/:path*",
     "/api/search",
   ],
 };
