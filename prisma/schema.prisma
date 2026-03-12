@@ -42,15 +42,16 @@ enum DonorType {
 }
 
 model Politician {
-  id        String   @id @default(cuid())
-  name      String
-  country   Country
-  party     String
-  photoUrl  String?
-  termStart DateTime
-  termEnd   DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  country     Country
+  party       String
+  photoUrl    String?
+  termStart   DateTime
+  termEnd     DateTime?
+  congressId  String?  @unique // Congress.gov bioguideId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   promises        Promise[]
   votes           Vote[]
   donations       Donation[]
@@ -103,6 +104,8 @@ model Bill {
   votes       Vote[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@unique([billNumber, country])
 }
 
 model Vote {
