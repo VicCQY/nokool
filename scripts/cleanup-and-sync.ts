@@ -1,0 +1,220 @@
+import { PrismaClient } from "@prisma/client";
+import { config } from "dotenv";
+config();
+
+const prisma = new PrismaClient();
+
+async function main() {
+  // Remove duplicate Trump (the one without congressId)
+  const dupes = await prisma.politician.findMany({
+    where: { name: "Donald Trump", congressId: null },
+  });
+  for (const d of dupes) {
+    await prisma.politician.delete({ where: { id: d.id } });
+    console.log(`Deleted duplicate Trump: ${d.id}`);
+  }
+
+  // Verify
+  const pols = await prisma.politician.findMany({
+    select: { name: true, congressId: true, branch: true, chamber: true },
+  });
+  console.log("\nPoliticians:", JSON.stringify(pols, null, 2));
+
+  // Now sync votes using the Congress API
+  console.log("\n--- Syncing 118th Congress votes (30 bills) ---\n");
+
+  const API_KEY = process.env.CONGRESS_API_KEY;
+  if (!API_KEY) {
+    console.error("CONGRESS_API_KEY not set!");
+    return;
+  }
+
+  const BASE = "https://api.congress.gov/v3";
+
+  async function fetchJson(url: string) {
+    const sep = url.includes("?") ? "&" : "?";
+    const fullUrl = `${url}${sep}api_key=${API_KEY}&format=json`;
+    const res = await fetch(fullUrl, { cache: "no-store" });
+    if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text().then(t => t.slice(0, 200))}`);
+    return res.json();
+  }
+
+  function delay(ms: number) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  function stripHtml(html: string) {
+    return html.replace(/<[^>]*>/g, "").trim();
+  }
+
+  function mapVotePosition(pos: string): "YEA" | "NAY" | "ABSTAIN" | "ABSENT" {
+    const p = pos.toLowerCase();
+    if (p === "yea" || p === "aye" || p === "yes") return "YEA";
+    if (p === "nay" || p === "no") return "NAY";
+    if (p === "not voting") return "ABSENT";
+    if (p === "present") return "ABSTAIN";
+    return "ABSENT";
+  }
+
+  const POLICY_MAP: Record<string, string> = {
+    "Economics and Public Finance": "Economy",
+    "Taxation": "Economy",
+    "Finance and Financial Sector": "Economy",
+    "Commerce": "Economy",
+    "Health": "Healthcare",
+    "Environmental Protection": "Environment",
+    "Energy": "Environment",
+    "Public Lands and Natural Resources": "Environment",
+    "Immigration": "Immigration",
+    "Education": "Education",
+    "Transportation and Public Works": "Infrastructure",
+    "Water Resources Development": "Infrastructure",
+    "International Affairs": "Foreign Policy",
+    "Armed Forces and National Security": "Foreign Policy",
+    "Crime and Law Enforcement": "Justice",
+    "Civil Rights and Liberties, Minority Issues": "Justice",
+    "Housing and Community Development": "Housing",
+    "Science, Technology, Communications": "Technology",
+  };
+
+  const TYPE_MAP: Record<string, string> = {
+    HR: "H.R.", S: "S.", HJRES: "H.J.Res.", SJRES: "S.J.Res.",
+    HCONRES: "H.Con.Res.", SCONRES: "S.Con.Res.", HRES: "H.Res.", SRES: "S.Res.",
+  };
+
+  // Get congressId -> politicianId map
+  const matched = await prisma.politician.findMany({
+    where: { country: "US", congressId: { not: null } },
+    select: { id: true, congressId: true, name: true },
+  });
+  const idMap = new Map(matched.filter(p => p.congressId && !p.congressId.startsWith("trump")).map(p => [p.congressId!, p.id]));
+  console.log(`Matched politicians for vote sync: ${idMap.size}`);
+
+  // Fetch bills from 118th Congress
+  const billsData = await fetchJson(`${BASE}/bill/118?sort=updateDate+desc&limit=50`);
+  const bills = billsData.bills || [];
+  console.log(`Fetched ${bills.length} bills from 118th Congress`);
+
+  let billsSynced = 0;
+  let votesSynced = 0;
+  let massieVotes = 0;
+  const massieExamples: { bill: string; position: string }[] = [];
+
+  for (const bill of bills) {
+    if (billsSynced >= 30) break;
+
+    try {
+      await delay(500);
+      const billType = bill.type.toLowerCase();
+      const billNumber = bill.number;
+
+      // Get actions
+      const actionsData = await fetchJson(`${BASE}/bill/118/${billType}/${billNumber}/actions?limit=100`);
+      const actions = actionsData.actions || [];
+      await delay(500);
+
+      const rollCalls = actions.filter((a: any) => a.recordedVotes && a.recordedVotes.length > 0);
+      if (rollCalls.length === 0) continue;
+
+      // Get bill detail for policy area
+      let policyArea: string | undefined;
+      try {
+        const detail = await fetchJson(`${BASE}/bill/118/${billType}/${billNumber}`);
+        policyArea = detail?.bill?.policyArea?.name;
+        await delay(500);
+      } catch {}
+
+      // Get summary
+      let summary = bill.title;
+      try {
+        const sumData = await fetchJson(`${BASE}/bill/118/${billType}/${billNumber}/summaries`);
+        const sums = sumData.summaries || [];
+        if (sums.length > 0) {
+          const sorted = sums.sort((a: any, b: any) => (a.text?.length || 0) - (b.text?.length || 0));
+          if (sorted[0]?.text) summary = stripHtml(sorted[0].text).slice(0, 2000);
+        }
+        await delay(500);
+      } catch {}
+
+      const formattedNum = `${TYPE_MAP[bill.type.toUpperCase()] || bill.type}${bill.number}`;
+      const category = POLICY_MAP[policyArea || ""] || "Other";
+      const firstRoll = rollCalls[0];
+      const voteDate = firstRoll.recordedVotes?.[0]?.date
+        ? new Date(firstRoll.recordedVotes[0].date)
+        : new Date(firstRoll.actionDate);
+
+      const dbBill = await prisma.bill.upsert({
+        where: { billNumber_country: { billNumber: formattedNum, country: "US" } },
+        update: { title: bill.title, summary, category, session: "118th Congress", dateVoted: voteDate },
+        create: {
+          title: bill.title, summary, billNumber: formattedNum, category,
+          country: "US", session: "118th Congress", dateVoted: voteDate,
+          sourceUrl: `https://www.congress.gov/bill/118th-congress/${billType === "hr" ? "house-bill" : "senate-bill"}/${billNumber}`,
+        },
+      });
+
+      billsSynced++;
+      console.log(`  [${billsSynced}] ${formattedNum}: ${bill.title.slice(0, 60)}...`);
+
+      // Process roll call votes
+      for (const action of rollCalls) {
+        for (const rv of action.recordedVotes || []) {
+          try {
+            await delay(500);
+            const voteData = await fetchJson(
+              `${BASE}/vote/118/${rv.chamber.toLowerCase()}/${rv.sessionNumber}/${rv.rollNumber}`
+            );
+            const positions = voteData?.vote?.positions || [];
+
+            for (const pos of positions) {
+              const bioguideId = pos.member?.bioguideId;
+              if (!bioguideId) continue;
+              const politicianId = idMap.get(bioguideId);
+              if (!politicianId) continue;
+
+              const position = mapVotePosition(pos.votePosition || "Not Voting");
+              try {
+                await prisma.vote.upsert({
+                  where: { politicianId_billId: { politicianId, billId: dbBill.id } },
+                  update: { position },
+                  create: { politicianId, billId: dbBill.id, position },
+                });
+                votesSynced++;
+
+                if (bioguideId === "M001184") {
+                  massieVotes++;
+                  if (massieExamples.length < 10) {
+                    massieExamples.push({ bill: formattedNum, position });
+                  }
+                }
+              } catch {}
+            }
+          } catch (err: any) {
+            console.log(`    Warning: Failed roll call ${rv.chamber} #${rv.rollNumber}: ${err.message?.slice(0, 80)}`);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.log(`  Skipped ${bill.type}${bill.number}: ${err.message?.slice(0, 80)}`);
+    }
+  }
+
+  console.log(`\n=== SYNC SUMMARY ===`);
+  console.log(`Bills synced: ${billsSynced}`);
+  console.log(`Total votes recorded: ${votesSynced}`);
+  console.log(`Massie votes: ${massieVotes}`);
+  console.log(`\nMassie's positions:`);
+  for (const ex of massieExamples) {
+    console.log(`  ${ex.bill}: ${ex.position}`);
+  }
+
+  // Final DB counts
+  const totalBills = await prisma.bill.count();
+  const totalVotes = await prisma.vote.count();
+  const massieDbVotes = await prisma.vote.count({
+    where: { politician: { congressId: "M001184" } },
+  });
+  console.log(`\nDB totals: ${totalBills} bills, ${totalVotes} votes, ${massieDbVotes} Massie votes`);
+}
+
+main().catch(console.error).finally(() => prisma.$disconnect());
