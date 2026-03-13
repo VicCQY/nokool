@@ -77,61 +77,66 @@ function generateTicks(
   const totalMs = end.getTime() - start.getTime();
   if (totalMs <= 0) return [];
   const ticks: { label: string; pct: number }[] = [];
+  const monthSpan =
+    (end.getFullYear() - start.getFullYear()) * 12 +
+    (end.getMonth() - start.getMonth());
+
+  function addTick(date: Date, label: string) {
+    if (date > start && date < end) {
+      const pct = ((date.getTime() - start.getTime()) / totalMs) * 100;
+      // Only add if not too close to edges (< 3% or > 97%)
+      if (pct > 3 && pct < 97) {
+        ticks.push({ label, pct });
+      }
+    }
+  }
 
   if (range === "3M") {
-    // Bi-weekly labels
+    // Bi-weekly labels (1st and 15th)
     const d = new Date(start);
     d.setDate(1);
-    d.setMonth(d.getMonth() + 1);
-    // Start from the 1st and 15th of each month
+    if (d < start) d.setMonth(d.getMonth() + 1);
     while (d <= end) {
       for (const day of [1, 15]) {
         const tick = new Date(d.getFullYear(), d.getMonth(), day);
-        if (tick > start && tick < end) {
-          const pct = ((tick.getTime() - start.getTime()) / totalMs) * 100;
-          ticks.push({
-            label: tick.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            }),
-            pct,
-          });
-        }
+        addTick(
+          tick,
+          tick.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        );
       }
       d.setMonth(d.getMonth() + 1);
     }
-  } else if (range === "6M" || range === "1Y") {
-    // Monthly labels
-    const d = new Date(start);
-    d.setDate(1);
-    d.setMonth(d.getMonth() + 1);
+  } else if (range === "6M" || monthSpan <= 12) {
+    // Monthly labels for 6M, 1Y, or any range that spans <= 12 months
+    const d = new Date(start.getFullYear(), start.getMonth() + 1, 1);
     while (d <= end) {
-      const pct = ((d.getTime() - start.getTime()) / totalMs) * 100;
-      ticks.push({
-        label: d.toLocaleDateString("en-US", {
+      addTick(
+        d,
+        d.toLocaleDateString("en-US", {
           month: "short",
-          year: range === "1Y" ? "2-digit" : undefined,
+          year: monthSpan > 6 ? "2-digit" : undefined,
         }),
-        pct,
-      });
+      );
       d.setMonth(d.getMonth() + 1);
+    }
+  } else if (monthSpan <= 36) {
+    // Quarterly labels for spans up to 3 years
+    const d = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    // Align to quarter boundaries (Jan, Apr, Jul, Oct)
+    while (d.getMonth() % 3 !== 0) d.setMonth(d.getMonth() + 1);
+    while (d <= end) {
+      addTick(
+        d,
+        d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+      );
+      d.setMonth(d.getMonth() + 3);
     }
   } else {
-    // "All" or "5Y" — place ticks at Jan 1st of each year (or every 2 years for long spans)
-    const yearSpan = end.getFullYear() - start.getFullYear();
-    const yearInterval = yearSpan > 10 ? 2 : 1;
-
-    // Start from the first full year after range start
-    const firstYear = start.getMonth() === 0 && start.getDate() === 1
-      ? start.getFullYear()
-      : start.getFullYear() + 1;
-
+    // Year labels for longer spans
+    const yearInterval = monthSpan > 120 ? 2 : 1;
+    const firstYear = start.getFullYear() + 1;
     for (let yr = firstYear; yr <= end.getFullYear(); yr += yearInterval) {
-      const tick = new Date(yr, 0, 1);
-      if (tick > start && tick < end) {
-        const pct = ((tick.getTime() - start.getTime()) / totalMs) * 100;
-        ticks.push({ label: String(yr), pct });
-      }
+      addTick(new Date(yr, 0, 1), String(yr));
     }
   }
 
@@ -224,28 +229,50 @@ export function PromiseTimeline({
 
   const now = useMemo(() => new Date(), []);
 
+  // Collect all data dates for range calculations
+  const allDataDates = useMemo(() => {
+    const dates: Date[] = [];
+    for (const p of promises) {
+      dates.push(new Date(p.dateMade));
+      for (const sc of p.statusChanges) {
+        dates.push(new Date(sc.changedAt));
+      }
+    }
+    return dates.sort((a, b) => a.getTime() - b.getTime());
+  }, [promises]);
+
   // Compute time range bounds
   const { rangeStart, rangeEnd } = useMemo(() => {
     const end = termEnd ? new Date(termEnd) : now;
 
-    if (activeRange === "All") {
-      // From earliest promise date (or termStart) to today
-      let earliest = new Date(termStart);
-      for (const p of promises) {
-        const d = new Date(p.dateMade);
-        if (d < earliest) earliest = d;
-      }
-      return { rangeStart: earliest, rangeEnd: end };
+    if (allDataDates.length === 0) {
+      return { rangeStart: new Date(termStart), rangeEnd: end };
     }
 
-    const start = subtractRange(end, activeRange);
-    // If the computed start is before termStart, just use termStart
-    const termStartDate = new Date(termStart);
-    return {
-      rangeStart: start < termStartDate ? termStartDate : start,
-      rangeEnd: end,
-    };
-  }, [activeRange, termStart, termEnd, promises, now]);
+    const earliestData = allDataDates[0];
+
+    if (activeRange === "All") {
+      // From earliest data date to today, with small padding
+      const padMs = (end.getTime() - earliestData.getTime()) * 0.03;
+      const padStart = new Date(earliestData.getTime() - padMs);
+      return { rangeStart: padStart, rangeEnd: end };
+    }
+
+    const requestedStart = subtractRange(end, activeRange);
+
+    // If requested range is longer than data span, tighten to fit data
+    // with some padding so markers don't sit at the very edges
+    if (requestedStart < earliestData) {
+      const dataSpan = end.getTime() - earliestData.getTime();
+      const padMs = dataSpan * 0.03;
+      return {
+        rangeStart: new Date(earliestData.getTime() - padMs),
+        rangeEnd: end,
+      };
+    }
+
+    return { rangeStart: requestedStart, rangeEnd: end };
+  }, [activeRange, termStart, termEnd, allDataDates, now]);
 
   const totalMs = rangeEnd.getTime() - rangeStart.getTime();
 
