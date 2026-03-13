@@ -69,6 +69,7 @@ model Politician {
   donations        Donation[]
   lobbyingRecords  LobbyingRecord[]
   executiveActions ExecutiveAction[]
+  newsArticles     NewsArticle[]
 
   @@index([country])
 }
@@ -191,6 +192,23 @@ model ExecutiveAction {
   @@index([politicianId])
   @@index([type])
   @@index([category])
+}
+
+model NewsArticle {
+  id           String     @id @default(cuid())
+  politicianId String
+  politician   Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  title        String
+  sourceName   String
+  sourceUrl    String
+  publishedAt  DateTime
+  summary      String
+  category     String
+  fetchedAt    DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+
+  @@index([politicianId])
+  @@index([fetchedAt])
 }
 
 model IssueWeight {

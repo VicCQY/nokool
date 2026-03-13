@@ -13,6 +13,7 @@ const LEGISLATIVE_TABS: Tab[] = [
   { key: "promises", label: "Promises", shortLabel: "Promises" },
   { key: "votes", label: "Voting Record", shortLabel: "Votes" },
   { key: "money", label: "Money Trail", shortLabel: "Money" },
+  { key: "news", label: "News", shortLabel: "News" },
 ];
 
 const EXECUTIVE_TABS: Tab[] = [
@@ -20,6 +21,7 @@ const EXECUTIVE_TABS: Tab[] = [
   { key: "promises", label: "Promises", shortLabel: "Promises" },
   { key: "actions", label: "Executive Actions", shortLabel: "Actions" },
   { key: "money", label: "Money Trail", shortLabel: "Money" },
+  { key: "news", label: "News", shortLabel: "News" },
 ];
 
 export function ProfileTabs({ branch }: { branch: string }) {

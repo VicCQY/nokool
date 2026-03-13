@@ -6,7 +6,6 @@ import { PromiseFilters } from "@/components/PromiseFilters";
 import { PromiseTimeline } from "@/components/PromiseTimeline";
 import { KoolAidMeter } from "@/components/KoolAidMeter";
 import { COUNTRIES } from "@/lib/countries";
-import { searchNews } from "@/lib/newsapi";
 import { PromiseStatus, VotePosition } from "@prisma/client";
 import { Suspense } from "react";
 import { ViewToggle } from "./ViewToggle";
@@ -17,6 +16,8 @@ import { VotePositionBadge } from "@/components/VotePositionBadge";
 import { SaysVsDoes } from "@/components/SaysVsDoes";
 import { MoneyTrail } from "@/components/MoneyTrail";
 import { ExecutiveActionsTab } from "@/components/ExecutiveActionsTab";
+import { NewsTab } from "@/components/NewsTab";
+import { isAuthenticated } from "@/lib/admin-auth";
 import Link from "next/link";
 import { CategoryBreakdownSection } from "@/components/CategoryBreakdownSection";
 import { getIssueWeights } from "@/lib/issue-weights-cache";
@@ -103,6 +104,9 @@ export default async function PoliticianPage({
   });
 
   if (!politician) notFound();
+
+  let isAdmin = false;
+  try { isAdmin = isAuthenticated(); } catch {}
 
   const issueWeights = await getIssueWeights();
   const termInfo = {
@@ -570,6 +574,11 @@ export default async function PoliticianPage({
           />
         )}
 
+        {/* ===== NEWS TAB ===== */}
+        {activeTab === "news" && (
+          <NewsTab politicianId={politician.id} isAdmin={isAdmin} />
+        )}
+
         {/* ===== MONEY TRAIL TAB ===== */}
         {activeTab === "money" && (
           <MoneyTrail
@@ -603,7 +612,7 @@ export default async function PoliticianPage({
   );
 }
 
-async function PromiseCard({
+function PromiseCard({
   promise,
 }: {
   promise: {
@@ -617,7 +626,6 @@ async function PromiseCard({
     weight: number;
   };
 }) {
-  const articles = await searchNews(promise.title);
   const severityLabel = SEVERITY_LABELS[promise.weight] || "Standard";
 
   return (
@@ -673,32 +681,6 @@ async function PromiseCard({
         {/* Expandable description */}
         <ExpandableDescription description={promise.description} />
       </div>
-
-      {/* Related news */}
-      {articles.length > 0 && (
-        <div className="border-t border-gray-100 px-5 py-3">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-            Related News
-          </h4>
-          <div className="space-y-1.5">
-            {articles.map((article, i) => (
-              <a
-                key={i}
-                href={article.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-sm text-[#2563EB] hover:underline"
-              >
-                {article.title}
-                <span className="text-gray-400">
-                  {" "}
-                  &mdash; {article.source.name}
-                </span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -91,6 +91,16 @@ export function AdminNav() {
                 Sync
               </Link>
               <Link
+                href="/admin/research"
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  pathname === "/admin/research"
+                    ? "bg-gray-100 text-gray-900"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                }`}
+              >
+                AI Research
+              </Link>
+              <Link
                 href="/admin/settings"
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   pathname === "/admin/settings"
