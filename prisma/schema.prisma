@@ -31,6 +31,15 @@ enum VotePosition {
   ABSENT
 }
 
+enum ExecutiveActionType {
+  EXECUTIVE_ORDER
+  PRESIDENTIAL_MEMORANDUM
+  PROCLAMATION
+  BILL_SIGNED
+  BILL_VETOED
+  POLICY_DIRECTIVE
+}
+
 enum DonorType {
   INDIVIDUAL
   CORPORATION
@@ -55,10 +64,11 @@ model Politician {
   chamber         String?  // "house" or "senate" — null for executive branch
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  promises        Promise[]
-  votes           Vote[]
-  donations       Donation[]
-  lobbyingRecords LobbyingRecord[]
+  promises         Promise[]
+  votes            Vote[]
+  donations        Donation[]
+  lobbyingRecords  LobbyingRecord[]
+  executiveActions ExecutiveAction[]
 
   @@index([country])
 }
@@ -162,6 +172,25 @@ model LobbyingRecord {
   sourceUrl      String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+}
+
+model ExecutiveAction {
+  id              String              @id @default(cuid())
+  politicianId    String
+  politician      Politician          @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  title           String
+  type            ExecutiveActionType
+  summary         String
+  category        String
+  dateIssued      DateTime
+  sourceUrl       String?
+  relatedPromises String[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([politicianId])
+  @@index([type])
+  @@index([category])
 }
 
 model IssueWeight {

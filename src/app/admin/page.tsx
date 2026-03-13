@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const politicians = await prisma.politician.findMany({
-    include: { _count: { select: { promises: true } } },
+    include: { _count: { select: { promises: true, executiveActions: true } } },
     orderBy: { name: "asc" },
   });
 
@@ -72,12 +72,21 @@ export default async function AdminPage() {
                   >
                     Promises
                   </Link>
-                  <Link
-                    href={`/admin/politician/${pol.id}/votes`}
-                    className="text-purple-600 hover:underline"
-                  >
-                    Votes
-                  </Link>
+                  {pol.branch === "executive" ? (
+                    <Link
+                      href={`/admin/politician/${pol.id}/executive-actions`}
+                      className="text-purple-600 hover:underline"
+                    >
+                      Actions
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/admin/politician/${pol.id}/votes`}
+                      className="text-purple-600 hover:underline"
+                    >
+                      Votes
+                    </Link>
+                  )}
                   <Link
                     href={`/admin/politician/${pol.id}/donations`}
                     className="text-amber-600 hover:underline"

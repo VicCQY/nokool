@@ -16,6 +16,7 @@ import { VoteFilters } from "./VoteFilters";
 import { VotePositionBadge } from "@/components/VotePositionBadge";
 import { SaysVsDoes } from "@/components/SaysVsDoes";
 import { MoneyTrail } from "@/components/MoneyTrail";
+import { ExecutiveActionsTab } from "@/components/ExecutiveActionsTab";
 import Link from "next/link";
 import { CategoryBreakdownSection } from "@/components/CategoryBreakdownSection";
 import { getIssueWeights } from "@/lib/issue-weights-cache";
@@ -71,7 +72,7 @@ export default async function PoliticianPage({
   params,
   searchParams,
 }: PageProps) {
-  const activeTab = searchParams.tab ?? "promises";
+  const activeTab = searchParams.tab ?? "saysvsdoes";
 
   const politician = await prisma.politician.findUnique({
     where: { id: params.id },
@@ -94,6 +95,9 @@ export default async function PoliticianPage({
       },
       lobbyingRecords: {
         orderBy: { amount: "desc" },
+      },
+      executiveActions: {
+        orderBy: { dateIssued: "desc" },
       },
     },
   });
@@ -305,8 +309,8 @@ export default async function PoliticianPage({
         </section>
       )}
 
-      {/* Vote Stats (only on votes tab) */}
-      {activeTab === "votes" && totalVotes > 0 && (
+      {/* Vote Stats (only on votes tab, legislative only) */}
+      {politician.branch !== "executive" && activeTab === "votes" && totalVotes > 0 && (
         <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 -mt-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -391,7 +395,7 @@ export default async function PoliticianPage({
       {/* Tabs */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8">
         <Suspense>
-          <ProfileTabs />
+          <ProfileTabs branch={politician.branch} />
         </Suspense>
       </section>
 
@@ -446,8 +450,8 @@ export default async function PoliticianPage({
           </>
         )}
 
-        {/* ===== VOTING RECORD TAB ===== */}
-        {activeTab === "votes" && (
+        {/* ===== VOTING RECORD TAB (legislative only) ===== */}
+        {politician.branch !== "executive" && activeTab === "votes" && (
           <>
             <div className="mb-6">
               <Suspense>
@@ -538,6 +542,30 @@ export default async function PoliticianPage({
                 category: v.bill.category,
                 dateVoted: v.bill.dateVoted.toISOString(),
               },
+            }))}
+            actions={politician.executiveActions.map((a) => ({
+              id: a.id,
+              title: a.title,
+              type: a.type,
+              category: a.category,
+              dateIssued: a.dateIssued.toISOString(),
+              relatedPromises: a.relatedPromises,
+            }))}
+            branch={politician.branch}
+          />
+        )}
+
+        {/* ===== EXECUTIVE ACTIONS TAB (executive only) ===== */}
+        {politician.branch === "executive" && activeTab === "actions" && (
+          <ExecutiveActionsTab
+            actions={politician.executiveActions.map((a) => ({
+              id: a.id,
+              title: a.title,
+              type: a.type,
+              summary: a.summary,
+              category: a.category,
+              dateIssued: a.dateIssued.toISOString(),
+              sourceUrl: a.sourceUrl,
             }))}
           />
         )}
