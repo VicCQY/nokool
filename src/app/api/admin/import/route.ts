@@ -50,8 +50,6 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
-    const clearFirst = formData.get("clearFirst") === "true";
-
     if (!file) {
       return NextResponse.json(
         { error: "No file uploaded" },
@@ -362,20 +360,6 @@ export async function POST(request: NextRequest) {
     // ── Step 5: Return errors or import ──
     if (errors.length > 0) {
       return NextResponse.json({ errors }, { status: 422 });
-    }
-
-    // If clearing first, delete all data
-    if (clearFirst) {
-      await prisma.$transaction([
-        prisma.promiseStatusChange.deleteMany(),
-        prisma.vote.deleteMany(),
-        prisma.donation.deleteMany(),
-        prisma.lobbyingRecord.deleteMany(),
-        prisma.promise.deleteMany(),
-        prisma.bill.deleteMany(),
-        prisma.donor.deleteMany(),
-        prisma.politician.deleteMany(),
-      ]);
     }
 
     // Upsert politicians

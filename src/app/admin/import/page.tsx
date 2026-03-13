@@ -36,7 +36,6 @@ function saveLastImport(result: ImportResult) {
 
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [clearFirst, setClearFirst] = useState(false);
   const [status, setStatus] = useState<
     "idle" | "importing" | "success" | "error" | "validation"
   >("idle");
@@ -77,7 +76,6 @@ export default function ImportPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("clearFirst", clearFirst ? "true" : "false");
 
       const res = await fetch("/api/admin/import", {
         method: "POST",
@@ -209,26 +207,6 @@ export default function ImportPage() {
             </>
           )}
         </div>
-
-        {/* Clear data checkbox */}
-        <label className="mt-5 flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={clearFirst}
-            onChange={(e) => setClearFirst(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-          />
-          <div>
-            <span className="text-sm font-medium text-gray-900">
-              Clear existing data first
-            </span>
-            <p className="text-xs text-red-500 mt-0.5">
-              This will delete ALL existing politicians, promises, votes,
-              donations, and lobbying records before importing. Cannot be
-              undone.
-            </p>
-          </div>
-        </label>
 
         {/* Import button */}
         <button
