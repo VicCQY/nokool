@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DonorType } from "@prisma/client";
 
 interface DonorData {
@@ -83,25 +83,40 @@ export function MoneyTrail({
   donations: DonationData[];
   lobbyingRecords: LobbyingData[];
 }) {
+  // Derive available cycles from data, sorted descending
+  const allCycles = useMemo(() => {
+    const cycles = Array.from(new Set(donations.map((d) => d.electionCycle))).sort(
+      (a, b) => b.localeCompare(a),
+    );
+    return cycles;
+  }, [donations]);
+
+  // Default to most recent cycle
+  const [selectedCycle, setSelectedCycle] = useState(allCycles[0] || "All");
   const [donorTypeFilter, setDonorTypeFilter] = useState("");
   const [industryFilter, setIndustryFilter] = useState("");
-  const [cycleFilter, setCycleFilter] = useState("");
   const [donorSort, setDonorSort] = useState("amount");
   const [showAllDonors, setShowAllDonors] = useState(false);
   const [expandedDonor, setExpandedDonor] = useState<string | null>(null);
   const [lobbyIndustryFilter, setLobbyIndustryFilter] = useState("");
 
-  // Stats
-  const totalDonations = donations.reduce((sum, d) => sum + d.amount, 0);
-  const uniqueDonors = new Set(donations.map((d) => d.donor.id)).size;
-  const largestDonation = donations.reduce(
+  // Filter donations by selected cycle
+  const cycleDonations = useMemo(() => {
+    if (selectedCycle === "All") return donations;
+    return donations.filter((d) => d.electionCycle === selectedCycle);
+  }, [donations, selectedCycle]);
+
+  // Stats (computed from cycle-filtered donations)
+  const totalDonations = cycleDonations.reduce((sum, d) => sum + d.amount, 0);
+  const uniqueDonors = new Set(cycleDonations.map((d) => d.donor.id)).size;
+  const largestDonation = cycleDonations.reduce(
     (max, d) => (d.amount > max.amount ? d : max),
-    donations[0] || { amount: 0, donor: { name: "N/A" } },
+    cycleDonations[0] || { amount: 0, donor: { name: "N/A" } },
   );
 
-  // Industry breakdown
+  // Industry breakdown (from cycle-filtered donations)
   const industryTotals: Record<string, number> = {};
-  for (const d of donations) {
+  for (const d of cycleDonations) {
     industryTotals[d.donor.industry] =
       (industryTotals[d.donor.industry] || 0) + d.amount;
   }
@@ -111,12 +126,12 @@ export function MoneyTrail({
   const topIndustry = sortedIndustries[0]?.[0] || "N/A";
   const maxIndustryAmount = sortedIndustries[0]?.[1] || 1;
 
-  // Aggregate donors
+  // Aggregate donors (from cycle-filtered donations)
   const donorMap = new Map<
     string,
     { donor: DonorData; total: number; count: number; donations: DonationData[] }
   >();
-  for (const d of donations) {
+  for (const d of cycleDonations) {
     const existing = donorMap.get(d.donor.id);
     if (existing) {
       existing.total += d.amount;
@@ -141,19 +156,6 @@ export function MoneyTrail({
   if (industryFilter) {
     donorList = donorList.filter((d) => d.donor.industry === industryFilter);
   }
-  if (cycleFilter) {
-    donorList = donorList
-      .map((d) => ({
-        ...d,
-        donations: d.donations.filter((don) => don.electionCycle === cycleFilter),
-        total: d.donations
-          .filter((don) => don.electionCycle === cycleFilter)
-          .reduce((s, don) => s + don.amount, 0),
-        count: d.donations.filter((don) => don.electionCycle === cycleFilter)
-          .length,
-      }))
-      .filter((d) => d.count > 0);
-  }
 
   // Sort donors
   if (donorSort === "amount") {
@@ -174,12 +176,9 @@ export function MoneyTrail({
 
   const displayedDonors = showAllDonors ? donorList : donorList.slice(0, 10);
 
-  // Get unique values for filters
-  const allCycles = Array.from(
-    new Set(donations.map((d) => d.electionCycle)),
-  ).sort();
+  // Unique industries for filter dropdown (from cycle-filtered data)
   const allIndustries = Array.from(
-    new Set(donations.map((d) => d.donor.industry)),
+    new Set(cycleDonations.map((d) => d.donor.industry)),
   ).sort();
   const lobbyIndustries = Array.from(
     new Set(lobbyingRecords.map((l) => l.clientIndustry)),
@@ -203,14 +202,39 @@ export function MoneyTrail({
 
   return (
     <div className="space-y-8">
+      {/* CYCLE SELECTOR */}
+      {donations.length > 0 && allCycles.length > 0 && (
+        <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 p-1 w-fit">
+          {[...allCycles, "All"].map((cycle) => (
+            <button
+              key={cycle}
+              onClick={() => {
+                setSelectedCycle(cycle);
+                setShowAllDonors(false);
+                setExpandedDonor(null);
+              }}
+              className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-all ${
+                selectedCycle === cycle
+                  ? "bg-white text-[#1A1A1A] shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {cycle}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* SECTION A — Stats */}
-      {donations.length > 0 && (
+      {cycleDonations.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-2xl font-bold text-[#1A1A1A]">
               {formatCurrency(totalDonations)}
             </p>
-            <p className="text-xs text-[#4A4A4A] mt-1">Total Received</p>
+            <p className="text-xs text-[#4A4A4A] mt-1">
+              Total Received{selectedCycle !== "All" ? ` (${selectedCycle})` : ""}
+            </p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-2xl font-bold text-[#1A1A1A]">{uniqueDonors}</p>
@@ -234,7 +258,7 @@ export function MoneyTrail({
       )}
 
       {/* SECTION B — Top Donors + Industry Breakdown */}
-      {donations.length > 0 && (
+      {cycleDonations.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left: Top Donors */}
           <div className="lg:col-span-3 rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -268,18 +292,6 @@ export function MoneyTrail({
                   ))}
                 </select>
                 <select
-                  value={cycleFilter}
-                  onChange={(e) => setCycleFilter(e.target.value)}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-[#4A4A4A] shadow-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
-                >
-                  <option value="">All Cycles</option>
-                  {allCycles.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <select
                   value={donorSort}
                   onChange={(e) => setDonorSort(e.target.value)}
                   className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-[#4A4A4A] shadow-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
@@ -295,6 +307,10 @@ export function MoneyTrail({
               {displayedDonors.map((item, i) => {
                 const typeStyle = DONOR_TYPE_COLORS[item.donor.type];
                 const isExpanded = expandedDonor === item.donor.id;
+                // Collect unique cycles for this donor's donations
+                const donorCycles = Array.from(
+                  new Set(item.donations.map((d) => d.electionCycle)),
+                ).sort((a, b) => b.localeCompare(a));
                 return (
                   <div key={item.donor.id}>
                     <button
@@ -316,6 +332,14 @@ export function MoneyTrail({
                           >
                             {DONOR_TYPE_LABELS[item.donor.type]}
                           </span>
+                          {selectedCycle === "All" && donorCycles.map((c) => (
+                            <span
+                              key={c}
+                              className="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500"
+                            >
+                              {c}
+                            </span>
+                          ))}
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {item.donor.industry} &middot; {item.count} donation
@@ -547,6 +571,23 @@ export function MoneyTrail({
             </p>
           )}
         </div>
+      )}
+
+      {/* DISCLAIMER */}
+      {donations.length > 0 && (
+        <p className="text-xs text-gray-400 leading-relaxed">
+          Donation data sourced from FEC filings. Figures reflect itemized
+          contributions and may not represent total fundraising. Visit{" "}
+          <a
+            href="https://www.fec.gov"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-gray-500"
+          >
+            fec.gov
+          </a>{" "}
+          for complete records.
+        </p>
       )}
     </div>
   );
