@@ -14,6 +14,14 @@ interface SyncResult {
   errors: string[];
 }
 
+interface FullSyncResult {
+  houseBills: number;
+  houseVotes: number;
+  senateBills: number;
+  senateVotes: number;
+  errors: string[];
+}
+
 interface FecMatchResult {
   matched: { name: string; fecCandidateId: string }[];
   unmatched: string[];
@@ -30,6 +38,7 @@ interface PoliticianInfo {
   id: string;
   name: string;
   fecCandidateId: string | null;
+  congressId: string | null;
 }
 
 function Spinner() {
@@ -50,6 +59,26 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+function Timer({ running }: { running: boolean }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!running) { setElapsed(0); return; }
+    const start = Date.now();
+    const interval = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(interval);
+  }, [running]);
+
+  if (!running) return null;
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  return (
+    <span className="text-xs text-gray-400 tabular-nums">
+      {mins}:{String(secs).padStart(2, "0")}
+    </span>
+  );
+}
+
 export default function SyncPage() {
   // ── Congress.gov state ──
   const [congress, setCongress] = useState(118);
@@ -62,53 +91,56 @@ export default function SyncPage() {
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [syncError, setSyncError] = useState("");
 
+  // ── Full sync state ──
+  const [fullSyncCongress, setFullSyncCongress] = useState(118);
+  const [fullSyncChamber, setFullSyncChamber] = useState<"both" | "house" | "senate">("both");
+  const [fullSyncing, setFullSyncing] = useState(false);
+  const [fullSyncResult, setFullSyncResult] = useState<FullSyncResult | null>(null);
+  const [fullSyncError, setFullSyncError] = useState("");
+
+  // ── Backfill state ──
+  const [backfilling, setBackfilling] = useState<string | null>(null);
+  const [backfillResults, setBackfillResults] = useState<Record<string, { newVotes: number; checked: number }>>({});
+
   // ── FEC state ──
   const [fecMatching, setFecMatching] = useState(false);
   const [fecMatchResult, setFecMatchResult] = useState<FecMatchResult | null>(null);
   const [fecMatchError, setFecMatchError] = useState("");
   const [politicians, setPoliticians] = useState<PoliticianInfo[]>([]);
   const [fecCycles, setFecCycles] = useState<number[]>([2024]);
-  const [fecSyncing, setFecSyncing] = useState<string | null>(null); // politicianId being synced
+  const [fecSyncing, setFecSyncing] = useState<string | null>(null);
   const [fecSyncResults, setFecSyncResults] = useState<Record<string, FecSyncResult>>({});
   const [fecSyncErrors, setFecSyncErrors] = useState<Record<string, string>>({});
 
-  // Load politicians list
   useEffect(() => {
     fetch("/api/politicians?country=US")
       .then((r) => r.json())
       .then((data) => {
         setPoliticians(
           data.map((p: PoliticianInfo) => ({
-            id: p.id,
-            name: p.name,
+            id: p.id, name: p.name,
             fecCandidateId: p.fecCandidateId,
+            congressId: p.congressId,
           }))
         );
       })
       .catch(() => {});
-  }, [fecMatchResult]);
+  }, [fecMatchResult, matchResult]);
 
   // ── Congress.gov handlers ──
   async function handleMatch() {
-    setMatching(true);
-    setMatchResult(null);
-    setMatchError("");
+    setMatching(true); setMatchResult(null); setMatchError("");
     try {
       const res = await fetch("/api/admin/sync/match-members", { method: "POST" });
       const data = await res.json();
       if (!res.ok) setMatchError(data.error || "Failed to match members");
       else setMatchResult(data);
-    } catch {
-      setMatchError("Network error");
-    } finally {
-      setMatching(false);
-    }
+    } catch { setMatchError("Network error"); }
+    finally { setMatching(false); }
   }
 
   async function handleSync() {
-    setSyncing(true);
-    setSyncResult(null);
-    setSyncError("");
+    setSyncing(true); setSyncResult(null); setSyncError("");
     setSyncStatus("Fetching bills and votes from Congress.gov...");
     try {
       const res = await fetch("/api/admin/sync/congress-votes", {
@@ -119,44 +151,55 @@ export default function SyncPage() {
       const data = await res.json();
       if (!res.ok) setSyncError(data.error || "Sync failed");
       else setSyncResult(data);
-    } catch {
-      setSyncError("Network error");
-    } finally {
-      setSyncing(false);
-      setSyncStatus("");
-    }
+    } catch { setSyncError("Network error"); }
+    finally { setSyncing(false); setSyncStatus(""); }
+  }
+
+  async function handleFullSync() {
+    setFullSyncing(true); setFullSyncResult(null); setFullSyncError("");
+    try {
+      const res = await fetch("/api/admin/sync/full-vote-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ congress: fullSyncCongress, chamber: fullSyncChamber }),
+      });
+      const data = await res.json();
+      if (!res.ok) setFullSyncError(data.error || "Full sync failed");
+      else setFullSyncResult(data);
+    } catch { setFullSyncError("Network error or timeout — the sync may still be running on the server"); }
+    finally { setFullSyncing(false); }
+  }
+
+  async function handleBackfill(polId: string) {
+    setBackfilling(polId);
+    try {
+      const res = await fetch("/api/admin/sync/backfill-votes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politicianId: polId }),
+      });
+      const data = await res.json();
+      if (res.ok) setBackfillResults(prev => ({ ...prev, [polId]: data }));
+    } catch {}
+    finally { setBackfilling(null); }
   }
 
   // ── FEC handlers ──
   async function handleFecMatch() {
-    setFecMatching(true);
-    setFecMatchResult(null);
-    setFecMatchError("");
+    setFecMatching(true); setFecMatchResult(null); setFecMatchError("");
     try {
       const res = await fetch("/api/admin/sync/match-fec", { method: "POST" });
       const data = await res.json();
       if (!res.ok) setFecMatchError(data.error || "Failed to match");
       else setFecMatchResult(data);
-    } catch {
-      setFecMatchError("Network error");
-    } finally {
-      setFecMatching(false);
-    }
+    } catch { setFecMatchError("Network error"); }
+    finally { setFecMatching(false); }
   }
 
   async function handleFecSync(polId: string) {
     setFecSyncing(polId);
-    setFecSyncResults((prev) => {
-      const next = { ...prev };
-      delete next[polId];
-      return next;
-    });
-    setFecSyncErrors((prev) => {
-      const next = { ...prev };
-      delete next[polId];
-      return next;
-    });
-
+    setFecSyncResults(prev => { const next = { ...prev }; delete next[polId]; return next; });
+    setFecSyncErrors(prev => { const next = { ...prev }; delete next[polId]; return next; });
     try {
       const res = await fetch("/api/admin/sync/fec-donations", {
         method: "POST",
@@ -164,22 +207,14 @@ export default function SyncPage() {
         body: JSON.stringify({ politicianId: polId, cycles: fecCycles }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setFecSyncErrors((prev) => ({ ...prev, [polId]: data.error || "Sync failed" }));
-      } else {
-        setFecSyncResults((prev) => ({ ...prev, [polId]: data }));
-      }
-    } catch {
-      setFecSyncErrors((prev) => ({ ...prev, [polId]: "Network error" }));
-    } finally {
-      setFecSyncing(null);
-    }
+      if (!res.ok) setFecSyncErrors(prev => ({ ...prev, [polId]: data.error || "Sync failed" }));
+      else setFecSyncResults(prev => ({ ...prev, [polId]: data }));
+    } catch { setFecSyncErrors(prev => ({ ...prev, [polId]: "Network error" })); }
+    finally { setFecSyncing(null); }
   }
 
   function toggleCycle(cycle: number) {
-    setFecCycles((prev) =>
-      prev.includes(cycle) ? prev.filter((c) => c !== cycle) : [...prev, cycle]
-    );
+    setFecCycles(prev => prev.includes(cycle) ? prev.filter(c => c !== cycle) : [...prev, cycle]);
   }
 
   return (
@@ -191,19 +226,13 @@ export default function SyncPage() {
 
       {/* ── Congress.gov Section ── */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 mb-8">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">
-          US Voting Records
-        </h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Pull real bill and vote data from Congress.gov
-        </p>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">US Voting Records</h2>
+        <p className="text-sm text-gray-500 mb-6">Pull real bill and vote data from Congress.gov</p>
 
         {/* Match Members */}
         <div className="mb-8">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Step 1 — Match Members</h3>
-          <p className="text-xs text-gray-400 mb-3">
-            Links US politicians to their Congress.gov member IDs.
-          </p>
+          <p className="text-xs text-gray-400 mb-3">Links US politicians to their Congress.gov member IDs.</p>
           <button onClick={handleMatch} disabled={matching} className="rounded-lg bg-[#0D0D0D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             {matching ? <span className="flex items-center gap-2"><Spinner />Matching...</span> : "Match Members"}
           </button>
@@ -211,29 +240,29 @@ export default function SyncPage() {
           {matchResult && (
             <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
               <p className="text-sm font-medium text-green-800 mb-2">{matchResult.matched.length} matched, {matchResult.unmatched.length} unmatched</p>
-              {matchResult.matched.length > 0 && <ul className="text-xs text-green-600 space-y-0.5">{matchResult.matched.map((m) => <li key={m.congressId}>{m.name} → {m.congressId}</li>)}</ul>}
-              {matchResult.unmatched.length > 0 && <ul className="text-xs text-yellow-600 mt-2 space-y-0.5">{matchResult.unmatched.map((name) => <li key={name}>{name}</li>)}</ul>}
+              {matchResult.matched.length > 0 && <ul className="text-xs text-green-600 space-y-0.5">{matchResult.matched.map(m => <li key={m.congressId}>{m.name} → {m.congressId}</li>)}</ul>}
+              {matchResult.unmatched.length > 0 && <ul className="text-xs text-yellow-600 mt-2 space-y-0.5">{matchResult.unmatched.map(name => <li key={name}>{name}</li>)}</ul>}
             </div>
           )}
         </div>
 
         <div className="border-t border-gray-100 mb-8" />
 
-        {/* Sync Votes */}
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Step 2 — Sync Votes</h3>
-          <p className="text-xs text-gray-400 mb-4">Fetch bills and roll call votes from Congress.gov.</p>
+        {/* Quick Sync Votes */}
+        <div className="mb-8">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Step 2a — Quick Sync</h3>
+          <p className="text-xs text-gray-400 mb-4">Fetch a limited batch of bills and roll call votes from Congress.gov.</p>
           <div className="flex flex-wrap gap-4 mb-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Congress</label>
-              <select value={congress} onChange={(e) => setCongress(Number(e.target.value))} disabled={syncing} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900">
-                <option value={118}>118th (2023–2025)</option>
-                <option value={119}>119th (2025–2027)</option>
+              <select value={congress} onChange={e => setCongress(Number(e.target.value))} disabled={syncing} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900">
+                <option value={118}>118th (2023-2025)</option>
+                <option value={119}>119th (2025-2027)</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Bills to sync</label>
-              <input type="number" value={limit} onChange={(e) => setLimit(Math.min(Math.max(Number(e.target.value) || 1, 1), 100))} disabled={syncing} min={1} max={100} className="w-24 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900" />
+              <input type="number" value={limit} onChange={e => setLimit(Math.min(Math.max(Number(e.target.value) || 1, 1), 100))} disabled={syncing} min={1} max={100} className="w-24 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900" />
             </div>
           </div>
           <button onClick={handleSync} disabled={syncing} className="rounded-lg bg-[#0D0D0D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
@@ -243,7 +272,7 @@ export default function SyncPage() {
           {syncError && <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-sm text-red-700">{syncError}</p></div>}
           {syncResult && (
             <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
-              <p className="text-sm font-medium text-green-800 mb-1">Synced {syncResult.billsSynced} bills, {syncResult.votesSynced} votes from the {congress}th Congress</p>
+              <p className="text-sm font-medium text-green-800 mb-1">Synced {syncResult.billsSynced} bills, {syncResult.votesSynced} votes</p>
               <p className="text-xs text-green-600">{syncResult.billsSkipped} bills skipped (no roll call votes)</p>
               {syncResult.errors.length > 0 && (
                 <div className="mt-2 max-h-40 overflow-y-auto">
@@ -254,61 +283,55 @@ export default function SyncPage() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* ── FEC Campaign Finance Section ── */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">
-          US Campaign Finance (FEC)
-        </h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Pull real campaign donation data from the Federal Election Commission
-        </p>
+        <div className="border-t border-gray-100 mb-8" />
 
-        {/* Match FEC Candidates */}
+        {/* Full Sync */}
         <div className="mb-8">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">
-            Step 1 — Match FEC Candidates
-          </h3>
-          <p className="text-xs text-gray-400 mb-3">
-            Links US politicians to their FEC candidate IDs. Required before syncing donations.
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Step 2b — Full Sync</h3>
+          <p className="text-xs text-gray-400 mb-2">
+            Fetch ALL roll call votes for a Congress directly from clerk.house.gov and senate.gov XML sources.
           </p>
-          <button
-            onClick={handleFecMatch}
-            disabled={fecMatching}
-            className="rounded-lg bg-[#0D0D0D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {fecMatching ? (
-              <span className="flex items-center gap-2"><Spinner />Matching...</span>
-            ) : (
-              "Match FEC Candidates"
-            )}
-          </button>
-
-          {fecMatchError && (
-            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
-              <p className="text-sm text-red-700">{fecMatchError}</p>
+          <p className="text-xs text-amber-600 mb-4">
+            This will fetch 1000+ roll call votes. May take 15-30 minutes. Already-synced votes are skipped automatically.
+          </p>
+          <div className="flex flex-wrap gap-4 mb-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Congress</label>
+              <select value={fullSyncCongress} onChange={e => setFullSyncCongress(Number(e.target.value))} disabled={fullSyncing} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900">
+                <option value={118}>118th (2023-2025)</option>
+                <option value={119}>119th (2025-2027)</option>
+              </select>
             </div>
-          )}
-
-          {fecMatchResult && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Chamber</label>
+              <select value={fullSyncChamber} onChange={e => setFullSyncChamber(e.target.value as any)} disabled={fullSyncing} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900">
+                <option value="both">Both Chambers</option>
+                <option value="house">House Only</option>
+                <option value="senate">Senate Only</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={handleFullSync} disabled={fullSyncing || syncing} className="rounded-lg bg-[#0D0D0D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              {fullSyncing ? <span className="flex items-center gap-2"><Spinner />Full Sync Running...</span> : "Full Sync"}
+            </button>
+            <Timer running={fullSyncing} />
+          </div>
+          {fullSyncError && <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-sm text-red-700">{fullSyncError}</p></div>}
+          {fullSyncResult && (
             <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
-              <p className="text-sm font-medium text-green-800 mb-2">
-                {fecMatchResult.matched.length} matched, {fecMatchResult.unmatched.length} unmatched
-              </p>
-              {fecMatchResult.matched.length > 0 && (
-                <ul className="text-xs text-green-600 space-y-0.5">
-                  {fecMatchResult.matched.map((m) => (
-                    <li key={m.fecCandidateId}>{m.name} → {m.fecCandidateId}</li>
-                  ))}
-                </ul>
-              )}
-              {fecMatchResult.unmatched.length > 0 && (
-                <ul className="text-xs text-yellow-600 mt-2 space-y-0.5">
-                  {fecMatchResult.unmatched.map((name) => (
-                    <li key={name}>{name}</li>
-                  ))}
-                </ul>
+              <p className="text-sm font-medium text-green-800 mb-1">Full sync complete</p>
+              <ul className="text-xs text-green-600 space-y-0.5">
+                <li>House: {fullSyncResult.houseBills} bills, {fullSyncResult.houseVotes} votes</li>
+                <li>Senate: {fullSyncResult.senateBills} bills, {fullSyncResult.senateVotes} votes</li>
+                <li>Total: {fullSyncResult.houseBills + fullSyncResult.senateBills} bills, {fullSyncResult.houseVotes + fullSyncResult.senateVotes} votes</li>
+              </ul>
+              {fullSyncResult.errors.length > 0 && (
+                <div className="mt-2 max-h-40 overflow-y-auto">
+                  <p className="text-xs font-medium text-yellow-700 mb-1">Errors ({fullSyncResult.errors.length}):</p>
+                  <ul className="text-xs text-yellow-600 space-y-0.5">{fullSyncResult.errors.map((err, i) => <li key={i}>{err}</li>)}</ul>
+                </div>
               )}
             </div>
           )}
@@ -316,85 +339,95 @@ export default function SyncPage() {
 
         <div className="border-t border-gray-100 mb-8" />
 
-        {/* Step 2: Sync Donations */}
+        {/* Backfill Votes */}
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">
-            Step 2 — Sync Donations
-          </h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Backfill Votes</h3>
           <p className="text-xs text-gray-400 mb-4">
-            Fetch top donors for each politician. Select election cycles and click sync.
+            Re-scan existing bills to find votes for a specific politician. Useful after adding a new politician.
           </p>
+          <div className="space-y-3">
+            {politicians.filter(p => p.congressId).map(pol => (
+              <div key={pol.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">{pol.name}</p>
+                  <p className="text-xs text-gray-400">{pol.congressId}</p>
+                </div>
+                <button
+                  onClick={() => handleBackfill(pol.id)}
+                  disabled={backfilling !== null}
+                  className="rounded-lg bg-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {backfilling === pol.id ? <span className="flex items-center gap-1.5"><Spinner />Backfilling...</span> : "Backfill Votes"}
+                </button>
+                {backfillResults[pol.id] && (
+                  <span className="text-xs text-green-600">
+                    +{backfillResults[pol.id].newVotes} votes (checked {backfillResults[pol.id].checked} bills)
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
-          {/* Cycle selection */}
+      {/* ── FEC Campaign Finance Section ── */}
+      <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">US Campaign Finance (FEC)</h2>
+        <p className="text-sm text-gray-500 mb-6">Pull real campaign donation data from the Federal Election Commission</p>
+
+        {/* Match FEC Candidates */}
+        <div className="mb-8">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Step 1 — Match FEC Candidates</h3>
+          <p className="text-xs text-gray-400 mb-3">Links US politicians to their FEC candidate IDs.</p>
+          <button onClick={handleFecMatch} disabled={fecMatching} className="rounded-lg bg-[#0D0D0D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            {fecMatching ? <span className="flex items-center gap-2"><Spinner />Matching...</span> : "Match FEC Candidates"}
+          </button>
+          {fecMatchError && <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-sm text-red-700">{fecMatchError}</p></div>}
+          {fecMatchResult && (
+            <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
+              <p className="text-sm font-medium text-green-800 mb-2">{fecMatchResult.matched.length} matched, {fecMatchResult.unmatched.length} unmatched</p>
+              {fecMatchResult.matched.length > 0 && <ul className="text-xs text-green-600 space-y-0.5">{fecMatchResult.matched.map(m => <li key={m.fecCandidateId}>{m.name} → {m.fecCandidateId}</li>)}</ul>}
+              {fecMatchResult.unmatched.length > 0 && <ul className="text-xs text-yellow-600 mt-2 space-y-0.5">{fecMatchResult.unmatched.map(name => <li key={name}>{name}</li>)}</ul>}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-gray-100 mb-8" />
+
+        {/* Sync Donations */}
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Step 2 — Sync Donations</h3>
+          <p className="text-xs text-gray-400 mb-4">Fetch top donors for each politician.</p>
           <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-500 mb-2">
-              Election Cycles
-            </label>
+            <label className="block text-xs font-medium text-gray-500 mb-2">Election Cycles</label>
             <div className="flex gap-3">
-              {[2020, 2022, 2024].map((cycle) => (
+              {[2020, 2022, 2024].map(cycle => (
                 <label key={cycle} className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={fecCycles.includes(cycle)}
-                    onChange={() => toggleCycle(cycle)}
-                    disabled={fecSyncing !== null}
-                    className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                  />
+                  <input type="checkbox" checked={fecCycles.includes(cycle)} onChange={() => toggleCycle(cycle)} disabled={fecSyncing !== null} className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
                   <span className="text-sm text-gray-700">{cycle}</span>
                 </label>
               ))}
             </div>
           </div>
-
-          {/* Per-politician sync */}
           <div className="space-y-3">
-            {politicians.length === 0 && (
-              <p className="text-xs text-gray-400">No US politicians in the database.</p>
-            )}
-            {politicians.map((pol) => (
-              <div
-                key={pol.id}
-                className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
-              >
+            {politicians.length === 0 && <p className="text-xs text-gray-400">No US politicians in the database.</p>}
+            {politicians.map(pol => (
+              <div key={pol.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">{pol.name}</p>
-                  <p className="text-xs text-gray-400">
-                    {pol.fecCandidateId
-                      ? `FEC: ${pol.fecCandidateId}`
-                      : "No FEC ID — run Match first"}
-                  </p>
+                  <p className="text-xs text-gray-400">{pol.fecCandidateId ? `FEC: ${pol.fecCandidateId}` : "No FEC ID — run Match first"}</p>
                 </div>
-                <button
-                  onClick={() => handleFecSync(pol.id)}
-                  disabled={fecSyncing !== null || !pol.fecCandidateId || fecCycles.length === 0}
-                  className="rounded-lg bg-[#0D0D0D] px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {fecSyncing === pol.id ? (
-                    <span className="flex items-center gap-1.5"><Spinner />Syncing...</span>
-                  ) : (
-                    "Sync Donations"
-                  )}
+                <button onClick={() => handleFecSync(pol.id)} disabled={fecSyncing !== null || !pol.fecCandidateId || fecCycles.length === 0} className="rounded-lg bg-[#0D0D0D] px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  {fecSyncing === pol.id ? <span className="flex items-center gap-1.5"><Spinner />Syncing...</span> : "Sync Donations"}
                 </button>
-
-                {fecSyncErrors[pol.id] && (
-                  <div className="w-full mt-2 rounded-lg border border-red-200 bg-red-50 p-2">
-                    <p className="text-xs text-red-700">{fecSyncErrors[pol.id]}</p>
-                  </div>
-                )}
-
+                {fecSyncErrors[pol.id] && <div className="w-full mt-2 rounded-lg border border-red-200 bg-red-50 p-2"><p className="text-xs text-red-700">{fecSyncErrors[pol.id]}</p></div>}
                 {fecSyncResults[pol.id] && (
                   <div className="w-full mt-2 rounded-lg border border-green-200 bg-green-50 p-2">
                     <p className="text-xs font-medium text-green-800">
-                      Synced {fecSyncResults[pol.id].donorsCreated} donors,{" "}
-                      {fecSyncResults[pol.id].donationsCreated} donations totaling{" "}
-                      {formatCurrency(fecSyncResults[pol.id].totalAmount)} for {pol.name}
+                      Synced {fecSyncResults[pol.id].donorsCreated} donors, {fecSyncResults[pol.id].donationsCreated} donations totaling {formatCurrency(fecSyncResults[pol.id].totalAmount)} for {pol.name}
                     </p>
                     {fecSyncResults[pol.id].errors.length > 0 && (
-                      <ul className="text-xs text-yellow-600 mt-1 space-y-0.5">
-                        {fecSyncResults[pol.id].errors.map((err, i) => (
-                          <li key={i}>{err}</li>
-                        ))}
-                      </ul>
+                      <ul className="text-xs text-yellow-600 mt-1 space-y-0.5">{fecSyncResults[pol.id].errors.map((err, i) => <li key={i}>{err}</li>)}</ul>
                     )}
                   </div>
                 )}
