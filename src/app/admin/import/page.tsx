@@ -6,6 +6,7 @@ interface ImportResult {
   politiciansCreated: number;
   politiciansUpdated: number;
   promisesCreated: number;
+  statusChangesCreated: number;
 }
 
 interface LastImport {
@@ -13,6 +14,7 @@ interface LastImport {
   politiciansCreated: number;
   politiciansUpdated: number;
   promisesCreated: number;
+  statusChangesCreated: number;
 }
 
 function getLastImport(): LastImport | null {
@@ -111,8 +113,8 @@ export default function ImportPage() {
     <div className="max-w-3xl">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Import Data</h1>
       <p className="text-sm text-gray-500 mb-8">
-        Upload an Excel spreadsheet (.xlsx) to bulk import politicians and
-        promises. Use the NoKool data template.
+        Upload an Excel spreadsheet (.xlsx) to bulk import politicians,
+        promises, and status history. Use the NoKool data template.
       </p>
 
       {/* Download template */}
@@ -286,6 +288,12 @@ export default function ImportPage() {
               {result.promisesCreated} promise
               {result.promisesCreated !== 1 ? "s" : ""} imported
             </li>
+            {result.statusChangesCreated > 0 && (
+              <li>
+                {result.statusChangesCreated} status change
+                {result.statusChangesCreated !== 1 ? "s" : ""} imported
+              </li>
+            )}
           </ul>
         </div>
       )}
@@ -332,6 +340,12 @@ export default function ImportPage() {
               : ""}
             , {lastImport.promisesCreated} promise
             {lastImport.promisesCreated !== 1 ? "s" : ""}
+            {lastImport.statusChangesCreated > 0 && (
+              <>
+                , {lastImport.statusChangesCreated} status change
+                {lastImport.statusChangesCreated !== 1 ? "s" : ""}
+              </>
+            )}
           </p>
         </div>
       )}

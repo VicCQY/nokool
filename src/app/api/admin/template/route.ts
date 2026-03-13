@@ -11,12 +11,13 @@ export async function GET() {
     ["How to use this template:"],
     ["1. Fill in the Politicians sheet with politician data"],
     ["2. Fill in the Promises sheet with promise data"],
-    ["3. Row 1 contains column headers — do not modify"],
-    ["4. Row 2 contains field descriptions — do not modify"],
-    ["5. Start entering data from row 3"],
-    ["6. The politicianName column in Promises must exactly match a name in the Politicians sheet"],
+    ["3. Optionally fill in the Status History sheet with backdated status changes"],
+    ["4. Row 1 contains column headers — do not modify"],
+    ["5. Row 2 contains field descriptions — do not modify"],
+    ["6. Start entering data from row 3"],
+    ["7. The politicianName column in Promises and Status History must exactly match a name in the Politicians sheet"],
     [""],
-    ["Valid Countries: US, CA, UK, AU, FR, DE"],
+    ["Valid Countries: US, CA"],
     ["Valid Categories: Economy, Healthcare, Environment, Immigration, Education, Infrastructure, Foreign Policy, Justice, Housing, Technology, Other"],
     ["Valid Statuses: NOT_STARTED, IN_PROGRESS, FULFILLED, PARTIAL, BROKEN"],
     [""],
@@ -102,6 +103,59 @@ export async function GET() {
   ];
 
   XLSX.utils.book_append_sheet(wb, promSheet, "Promises");
+
+  // ── Status History sheet ──
+  const histData = [
+    ["politicianName", "promiseTitle", "oldStatus", "newStatus", "changedAt", "note"],
+    [
+      "Must match a name in Politicians sheet",
+      "Must match a promise title in Promises sheet",
+      "Previous status (or leave empty for first change)",
+      "New status (NOT_STARTED, IN_PROGRESS, FULFILLED, PARTIAL, BROKEN)",
+      "Date of the change (YYYY-MM-DD)",
+      "Optional note explaining the change",
+    ],
+    [
+      "John Smith",
+      "Build 100 new schools",
+      "",
+      "NOT_STARTED",
+      "2025-01-20",
+      "Promise made during inauguration",
+    ],
+    [
+      "John Smith",
+      "Build 100 new schools",
+      "NOT_STARTED",
+      "IN_PROGRESS",
+      "2025-06-15",
+      "Signed education funding bill",
+    ],
+  ];
+  const histSheet = XLSX.utils.aoa_to_sheet(histData);
+  histSheet["!cols"] = [
+    { wch: 25 },
+    { wch: 35 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 18 },
+    { wch: 45 },
+  ];
+
+  histSheet["!dataValidation"] = [
+    {
+      sqref: "C3:C1000",
+      type: "list",
+      formula1: '"NOT_STARTED,IN_PROGRESS,FULFILLED,PARTIAL,BROKEN"',
+    },
+    {
+      sqref: "D3:D1000",
+      type: "list",
+      formula1: '"NOT_STARTED,IN_PROGRESS,FULFILLED,PARTIAL,BROKEN"',
+    },
+  ];
+
+  XLSX.utils.book_append_sheet(wb, histSheet, "Status History");
 
   // Generate buffer
   const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });

@@ -223,7 +223,79 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Step 3: Check politician name matching ──
+    // ── Step 3: Parse & validate Status History (optional sheet) ──
+    interface StatusHistoryRow {
+      politicianName: string;
+      promiseTitle: string;
+      oldStatus: string;
+      newStatus: string;
+      changedAt: Date;
+      note: string;
+      rowNum: number;
+    }
+
+    const statusHistoryRows: StatusHistoryRow[] = [];
+    const histSheet = workbook.Sheets["Status History"];
+
+    if (histSheet) {
+      const histRows: unknown[][] = XLSX.utils.sheet_to_json(histSheet, {
+        header: 1,
+        defval: "",
+        raw: false,
+      });
+
+      for (let i = 2; i < histRows.length; i++) {
+        const row = histRows[i];
+        if (!row || row.every((c) => !str(c))) continue;
+
+        const rowNum = i + 1;
+        const politicianName = str(row[0]);
+        const promiseTitle = str(row[1]);
+        const oldStatus = str(row[2]).toUpperCase().replace(/ /g, "_");
+        const newStatus = str(row[3]).toUpperCase().replace(/ /g, "_");
+        const changedAtRaw = row[4];
+        const note = str(row[5]);
+
+        if (!politicianName)
+          errors.push(`Status History sheet, row ${rowNum}: politicianName is required`);
+        if (!promiseTitle)
+          errors.push(`Status History sheet, row ${rowNum}: promiseTitle is required`);
+        if (!VALID_STATUSES.includes(newStatus))
+          errors.push(
+            `Status History sheet, row ${rowNum}: newStatus '${str(row[3])}' is not valid. Must be one of: ${VALID_STATUSES.join(", ")}`
+          );
+        if (oldStatus && !VALID_STATUSES.includes(oldStatus))
+          errors.push(
+            `Status History sheet, row ${rowNum}: oldStatus '${str(row[2])}' is not valid. Must be one of: ${VALID_STATUSES.join(", ")} (or leave empty)`
+          );
+
+        const changedAt = parseDate(changedAtRaw);
+        if (!changedAt)
+          errors.push(
+            `Status History sheet, row ${rowNum}: changedAt '${str(changedAtRaw)}' is not a valid date`
+          );
+
+        if (
+          politicianName &&
+          promiseTitle &&
+          VALID_STATUSES.includes(newStatus) &&
+          (!oldStatus || VALID_STATUSES.includes(oldStatus)) &&
+          changedAt
+        ) {
+          statusHistoryRows.push({
+            politicianName,
+            promiseTitle,
+            oldStatus,
+            newStatus,
+            changedAt,
+            note,
+            rowNum,
+          });
+        }
+      }
+    }
+
+    // ── Step 4: Check politician name matching ──
     const sheetPoliticianNames = new Set(politicianRows.map((p) => p.name));
 
     // Also check existing politicians in the database
@@ -243,7 +315,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Step 4/5: Return errors or import ──
+    // Check status history politician + promise matching
+    const sheetPromiseTitles = new Set(
+      promiseRows.map((p) => `${p.politicianName}::${p.title}`)
+    );
+
+    for (const sh of statusHistoryRows) {
+      if (
+        !sheetPoliticianNames.has(sh.politicianName) &&
+        !existingNames.has(sh.politicianName)
+      ) {
+        errors.push(
+          `Status History sheet, row ${sh.rowNum}: politicianName '${sh.politicianName}' does not match any politician`
+        );
+      }
+      if (!sheetPromiseTitles.has(`${sh.politicianName}::${sh.promiseTitle}`)) {
+        // Check if the promise exists in the database
+        const dbPromise = await prisma.promise.findFirst({
+          where: {
+            title: sh.promiseTitle,
+            politician: { name: sh.politicianName },
+          },
+        });
+        if (!dbPromise) {
+          errors.push(
+            `Status History sheet, row ${sh.rowNum}: promiseTitle '${sh.promiseTitle}' does not match any promise for '${sh.politicianName}'`
+          );
+        }
+      }
+    }
+
+    // ── Step 5: Return errors or import ──
     if (errors.length > 0) {
       return NextResponse.json({ errors }, { status: 422 });
     }
@@ -310,13 +412,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create promises
+    // Create promises and build a lookup map
     let promisesCreated = 0;
+    const promiseIdMap: Record<string, string> = {}; // "politicianName::title" -> promiseId
+
     for (const prom of promiseRows) {
       const politicianId = politicianIdMap[prom.politicianName];
       if (!politicianId) continue;
 
-      await prisma.promise.create({
+      const created = await prisma.promise.create({
         data: {
           title: prom.title,
           description: prom.description,
@@ -327,7 +431,58 @@ export async function POST(request: NextRequest) {
           politicianId,
         },
       });
+      promiseIdMap[`${prom.politicianName}::${prom.title}`] = created.id;
       promisesCreated++;
+    }
+
+    // Import status history changes
+    let statusChangesCreated = 0;
+
+    // Sort by changedAt so they're processed chronologically
+    const sortedHistory = [...statusHistoryRows].sort(
+      (a, b) => a.changedAt.getTime() - b.changedAt.getTime()
+    );
+
+    for (const sh of sortedHistory) {
+      // Find the promise ID
+      let promiseId = promiseIdMap[`${sh.politicianName}::${sh.promiseTitle}`];
+
+      if (!promiseId) {
+        // Look up in database
+        const dbPromise = await prisma.promise.findFirst({
+          where: {
+            title: sh.promiseTitle,
+            politician: { name: sh.politicianName },
+          },
+        });
+        if (dbPromise) promiseId = dbPromise.id;
+      }
+
+      if (!promiseId) continue;
+
+      // Check for duplicate (same promiseId + changedAt + newStatus)
+      const existing = await prisma.promiseStatusChange.findFirst({
+        where: {
+          promiseId,
+          changedAt: sh.changedAt,
+          newStatus: sh.newStatus as "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "PARTIAL" | "BROKEN",
+        },
+      });
+
+      if (existing) continue;
+
+      await prisma.promiseStatusChange.create({
+        data: {
+          promiseId,
+          oldStatus: sh.oldStatus
+            ? (sh.oldStatus as "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "PARTIAL" | "BROKEN")
+            : null,
+          newStatus: sh.newStatus as "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "PARTIAL" | "BROKEN",
+          changedAt: sh.changedAt,
+          note: sh.note || null,
+        },
+      });
+      statusChangesCreated++;
     }
 
     return NextResponse.json({
@@ -336,6 +491,7 @@ export async function POST(request: NextRequest) {
         politiciansCreated,
         politiciansUpdated,
         promisesCreated,
+        statusChangesCreated,
       },
     });
   } catch (err) {
