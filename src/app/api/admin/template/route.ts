@@ -67,7 +67,7 @@ export async function GET() {
 
   // ── Promises sheet ──
   const promData = [
-    ["politicianName", "title", "description", "category", "status", "dateMade", "sourceUrl"],
+    ["politicianName", "title", "description", "category", "status", "dateMade", "sourceUrl", "weight"],
     [
       "Must match a name in Politicians sheet",
       "Short title of the promise",
@@ -76,6 +76,7 @@ export async function GET() {
       "Status (NOT_STARTED, IN_PROGRESS, FULFILLED, PARTIAL, BROKEN)",
       "Date promise was made (YYYY-MM-DD)",
       "Source URL (optional)",
+      "Severity 1-5 (optional, default 3). 1=Trivial, 3=Standard, 5=Cornerstone",
     ],
   ];
   const promSheet = XLSX.utils.aoa_to_sheet(promData);
@@ -87,6 +88,7 @@ export async function GET() {
     { wch: 16 },
     { wch: 18 },
     { wch: 40 },
+    { wch: 12 },
   ];
 
   promSheet["!dataValidation"] = [

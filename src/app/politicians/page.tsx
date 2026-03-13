@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { calculateFulfillment } from "@/lib/grades";
 import { PoliticianCard } from "@/components/PoliticianCard";
 import { COUNTRIES, type CountryCode } from "@/lib/countries";
+import { getIssueWeights } from "@/lib/issue-weights-cache";
 import { BrowseFlow } from "./BrowseFlow";
 
 export const dynamic = "force-dynamic";
@@ -36,10 +37,16 @@ export default async function PoliticiansPage({ searchParams }: PageProps) {
     orderBy: { name: "asc" },
   });
 
+  const issueWeights = await getIssueWeights();
+
   const politiciansWithGrades = politicians
     .map((pol) => ({
       ...pol,
-      ...calculateFulfillment(pol.promises),
+      ...calculateFulfillment(
+        pol.promises,
+        { termStart: pol.termStart, termEnd: pol.termEnd, branch: pol.branch, chamber: pol.chamber },
+        issueWeights,
+      ),
     }))
     .sort((a, b) => (GRADE_ORDER[a.grade] ?? 5) - (GRADE_ORDER[b.grade] ?? 5));
 

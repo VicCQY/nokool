@@ -28,6 +28,7 @@ export default async function EditPromisePage({
           dateMade: promise.dateMade.toISOString().split("T")[0],
           sourceUrl: promise.sourceUrl ?? "",
           status: promise.status,
+          weight: promise.weight,
         }}
       />
     </div>

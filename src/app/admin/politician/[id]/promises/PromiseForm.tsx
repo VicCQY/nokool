@@ -4,6 +4,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CATEGORIES } from "@/lib/countries";
 
+const SEVERITY_OPTIONS = [
+  { value: 1, label: "Trivial" },
+  { value: 2, label: "Minor" },
+  { value: 3, label: "Standard" },
+  { value: 4, label: "Major" },
+  { value: 5, label: "Cornerstone" },
+];
+
 interface PromiseData {
   id?: string;
   title: string;
@@ -12,6 +20,7 @@ interface PromiseData {
   dateMade: string;
   sourceUrl: string;
   status: string;
+  weight: number;
 }
 
 export function PromiseForm({
@@ -31,6 +40,7 @@ export function PromiseForm({
       dateMade: "",
       sourceUrl: "",
       status: "NOT_STARTED",
+      weight: 3,
     },
   );
 
@@ -104,6 +114,31 @@ export function PromiseForm({
             </option>
           ))}
         </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Promise Severity
+        </label>
+        <p className="text-xs text-gray-400 mb-2">
+          How significant is this promise? Cornerstone promises that defined the
+          campaign should be 5.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {SEVERITY_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setForm({ ...form, weight: opt.value })}
+              className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                form.weight === opt.value
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {opt.value} &mdash; {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">

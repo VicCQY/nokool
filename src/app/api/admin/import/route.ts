@@ -166,6 +166,7 @@ export async function POST(request: NextRequest) {
       status: string;
       dateMade: Date;
       sourceUrl: string;
+      weight: number;
       rowNum: number;
     }
 
@@ -183,6 +184,18 @@ export async function POST(request: NextRequest) {
       const status = str(row[4]).toUpperCase().replace(/ /g, "_");
       const dateMadeRaw = row[5];
       const sourceUrl = str(row[6]);
+      const weightRaw = str(row[7]);
+      let weight = 3;
+      if (weightRaw) {
+        const parsed = parseInt(weightRaw, 10);
+        if (isNaN(parsed) || parsed < 1 || parsed > 5) {
+          errors.push(
+            `Promises sheet, row ${rowNum}: weight '${weightRaw}' must be between 1 and 5`
+          );
+        } else {
+          weight = parsed;
+        }
+      }
 
       if (!politicianName)
         errors.push(`Promises sheet, row ${rowNum}: politicianName is required`);
@@ -218,6 +231,7 @@ export async function POST(request: NextRequest) {
           status,
           dateMade,
           sourceUrl,
+          weight,
           rowNum,
         });
       }
@@ -428,6 +442,7 @@ export async function POST(request: NextRequest) {
           status: prom.status as "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "PARTIAL" | "BROKEN",
           dateMade: prom.dateMade,
           sourceUrl: prom.sourceUrl || null,
+          weight: prom.weight,
           politicianId,
         },
       });

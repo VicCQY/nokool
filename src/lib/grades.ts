@@ -1,12 +1,50 @@
-import { PromiseStatus } from "@prisma/client";
+import { calculateWeightedGrade, type PromiseForGrade } from "./weighted-grade";
 
 interface PromiseRecord {
-  status: PromiseStatus;
+  status: string;
+  category?: string;
+  weight?: number;
 }
 
-export function calculateFulfillment(promises: PromiseRecord[]) {
-  if (promises.length === 0) return { percentage: 0, grade: "N/A" };
+interface PoliticianTermInfo {
+  termStart: Date;
+  termEnd: Date | null;
+  branch: string;
+  chamber: string | null;
+}
 
+export function calculateFulfillment(
+  promises: PromiseRecord[],
+  termInfo?: PoliticianTermInfo,
+  issueWeights?: Record<string, number>,
+) {
+  if (promises.length === 0) return { percentage: 0, grade: "N/A", termProgress: 0 };
+
+  // If we have term info, use the weighted grade system
+  if (termInfo) {
+    const gradePromises: PromiseForGrade[] = promises.map((p) => ({
+      status: p.status,
+      category: p.category || "Other",
+      weight: p.weight || 3,
+    }));
+
+    const result = calculateWeightedGrade(
+      gradePromises,
+      termInfo.termStart,
+      termInfo.termEnd,
+      termInfo.branch,
+      termInfo.chamber,
+      issueWeights,
+    );
+
+    return {
+      percentage: Math.round(result.percent),
+      grade: result.letter,
+      termProgress: result.termProgress,
+    };
+  }
+
+  // Fallback: old flat formula (for cases where term info isn't available)
   const fulfilled = promises.filter((p) => p.status === "FULFILLED").length;
   const partial = promises.filter((p) => p.status === "PARTIAL").length;
 
@@ -14,11 +52,11 @@ export function calculateFulfillment(promises: PromiseRecord[]) {
   const percentage = Math.round(score);
 
   let grade: string;
-  if (percentage >= 90) grade = "A";
-  else if (percentage >= 80) grade = "B";
-  else if (percentage >= 70) grade = "C";
-  else if (percentage >= 60) grade = "D";
+  if (percentage >= 80) grade = "A";
+  else if (percentage >= 65) grade = "B";
+  else if (percentage >= 50) grade = "C";
+  else if (percentage >= 35) grade = "D";
   else grade = "F";
 
-  return { percentage, grade };
+  return { percentage, grade, termProgress: 0 };
 }

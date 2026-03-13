@@ -15,6 +15,10 @@ export async function PUT(
     select: { status: true },
   });
 
+  const weight = body.weight !== undefined
+    ? Math.min(5, Math.max(1, Number(body.weight) || 3))
+    : undefined;
+
   const promise = await prisma.promise.update({
     where: { id: params.promiseId },
     data: {
@@ -24,6 +28,7 @@ export async function PUT(
       dateMade: new Date(body.dateMade),
       sourceUrl: body.sourceUrl || null,
       status: newStatus,
+      ...(weight !== undefined && { weight }),
     },
   });
 

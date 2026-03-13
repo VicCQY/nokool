@@ -18,6 +18,9 @@ import { SaysVsDoes } from "@/components/SaysVsDoes";
 import { MoneyTrail } from "@/components/MoneyTrail";
 import Link from "next/link";
 import { CategoryBreakdownSection } from "@/components/CategoryBreakdownSection";
+import { getIssueWeights } from "@/lib/issue-weights-cache";
+import { SEVERITY_LABELS } from "@/lib/issue-weights";
+import { GradeBreakdown } from "./GradeBreakdown";
 
 export const dynamic = "force-dynamic";
 
@@ -97,7 +100,18 @@ export default async function PoliticianPage({
 
   if (!politician) notFound();
 
-  const { percentage, grade } = calculateFulfillment(politician.promises);
+  const issueWeights = await getIssueWeights();
+  const termInfo = {
+    termStart: politician.termStart,
+    termEnd: politician.termEnd,
+    branch: politician.branch,
+    chamber: politician.chamber,
+  };
+  const { percentage, grade, termProgress } = calculateFulfillment(
+    politician.promises,
+    termInfo,
+    issueWeights,
+  );
   const countryInfo = COUNTRIES[politician.country as keyof typeof COUNTRIES];
 
   // Promise filtering
@@ -246,6 +260,10 @@ export default async function PoliticianPage({
 
           {/* Fulfillment bar */}
           <div className="mt-6 max-w-md">
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+              <span>Term: {Math.round(termProgress * 100)}% complete</span>
+              <span>{percentage}%</span>
+            </div>
             <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${GRADE_BAR_COLORS[grade] ?? "bg-gray-400"}`}
@@ -255,6 +273,23 @@ export default async function PoliticianPage({
           </div>
         </div>
       </section>
+
+      {/* Grade Breakdown */}
+      {politician.promises.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-4 mb-2">
+          <GradeBreakdown
+            promises={politician.promises.map((p) => ({
+              title: p.title,
+              category: p.category,
+              status: p.status,
+              weight: p.weight,
+            }))}
+            termProgress={termProgress}
+            issueWeights={issueWeights}
+            chamber={politician.chamber}
+          />
+        </section>
+      )}
 
       {/* Stats cards (only on promises tab) */}
       {activeTab === "promises" && (
@@ -551,9 +586,11 @@ async function PromiseCard({
     dateMade: Date;
     sourceUrl: string | null;
     status: PromiseStatus;
+    weight: number;
   };
 }) {
   const articles = await searchNews(promise.title);
+  const severityLabel = SEVERITY_LABELS[promise.weight] || "Standard";
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md">
@@ -569,6 +606,19 @@ async function PromiseCard({
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 font-medium text-[#4A4A4A]">
                 {promise.category}
+              </span>
+              <span
+                className="inline-flex items-center gap-0.5 text-gray-400"
+                title={`Promise Severity: ${severityLabel} (${promise.weight}/5)`}
+              >
+                {Array.from({ length: 5 }, (_, i) => (
+                  <span
+                    key={i}
+                    className={`inline-block h-1.5 w-1.5 rounded-full ${
+                      i < promise.weight ? "bg-gray-500" : "bg-gray-200"
+                    }`}
+                  />
+                ))}
               </span>
               <span className="text-gray-400">
                 Made{" "}

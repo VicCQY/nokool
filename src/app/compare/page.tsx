@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { calculateFulfillment } from "@/lib/grades";
 import { COUNTRIES } from "@/lib/countries";
+import { getIssueWeights } from "@/lib/issue-weights-cache";
 import { CompareView } from "./CompareView";
 
 export const dynamic = "force-dynamic";
@@ -29,10 +30,15 @@ export interface PoliticianComparison {
 
 function buildComparison(
   politician: Awaited<ReturnType<typeof fetchPolitician>>,
+  issueWeights: Record<string, number>,
 ): PoliticianComparison | null {
   if (!politician) return null;
 
-  const { percentage, grade } = calculateFulfillment(politician.promises);
+  const { percentage, grade } = calculateFulfillment(
+    politician.promises,
+    { termStart: politician.termStart, termEnd: politician.termEnd, branch: politician.branch, chamber: politician.chamber },
+    issueWeights,
+  );
   const countryInfo = COUNTRIES[politician.country as keyof typeof COUNTRIES];
 
   const statusCounts = {
@@ -100,8 +106,9 @@ export default async function ComparePage({ searchParams }: PageProps) {
   const polA = searchParams.a ? await fetchPolitician(searchParams.a) : null;
   const polB = searchParams.b ? await fetchPolitician(searchParams.b) : null;
 
-  const compA = polA ? buildComparison(polA) : null;
-  const compB = polB ? buildComparison(polB) : null;
+  const issueWeights = await getIssueWeights();
+  const compA = polA ? buildComparison(polA, issueWeights) : null;
+  const compB = polB ? buildComparison(polB, issueWeights) : null;
 
   return (
     <div>

@@ -9,6 +9,8 @@ export async function POST(
   const body = await req.json();
   const initialStatus = (body.status as PromiseStatus) || "NOT_STARTED";
 
+  const weight = Math.min(5, Math.max(1, Number(body.weight) || 3));
+
   const promise = await prisma.promise.create({
     data: {
       title: body.title,
@@ -17,6 +19,7 @@ export async function POST(
       dateMade: new Date(body.dateMade),
       sourceUrl: body.sourceUrl || null,
       status: initialStatus,
+      weight,
       politicianId: params.id,
       statusChanges: {
         create: {

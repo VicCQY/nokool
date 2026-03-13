@@ -305,7 +305,7 @@ export default function SyncPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Chamber</label>
-              <select value={fullSyncChamber} onChange={e => setFullSyncChamber(e.target.value as any)} disabled={fullSyncing} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900">
+              <select value={fullSyncChamber} onChange={e => setFullSyncChamber(e.target.value as "house" | "senate" | "both")} disabled={fullSyncing} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900">
                 <option value="both">Both Chambers</option>
                 <option value="house">House Only</option>
                 <option value="senate">Senate Only</option>

@@ -120,11 +120,11 @@ export async function runFullVoteSync(
         const questionMatch = xml.match(/<vote-question>([^<]*)<\/vote-question>/);
         const descMatch = xml.match(/<vote-desc>([^<]*)<\/vote-desc>/);
         const dateMatch = xml.match(/<action-date[^>]*>([^<]*)<\/action-date>/);
-        let title = (questionMatch?.[1] || "") + (descMatch?.[1] ? ": " + descMatch[1] : "") || `House Roll Call #${roll}`;
+        const title = (questionMatch?.[1] || "") + (descMatch?.[1] ? ": " + descMatch[1] : "") || `House Roll Call #${roll}`;
         let voteDate = dateMatch?.[1] ? new Date(dateMatch[1]) : new Date(`${sess.year}-06-01`);
         if (isNaN(voteDate.getTime())) voteDate = new Date(`${sess.year}-06-01`);
 
-        const voteRegex = /<recorded-vote>\s*<legislator[^>]*name-id="([^"]*)"[^>]*>.*?<\/legislator>\s*<vote>([^<]+)<\/vote>\s*<\/recorded-vote>/gs;
+        const voteRegex = /<recorded-vote>[\s\S]*?<legislator[^>]*name-id="([^"]*)"[^>]*>[\s\S]*?<\/legislator>\s*<vote>([^<]+)<\/vote>\s*<\/recorded-vote>/g;
         const positions: { bioguideId: string; vote: string }[] = [];
         let match;
         while ((match = voteRegex.exec(xml)) !== null) {
@@ -145,8 +145,8 @@ export async function runFullVoteSync(
           try {
             await prisma.vote.upsert({
               where: { politicianId_billId: { politicianId: polId, billId: dbBill.id } },
-              update: { position: mapPos(pos.vote) as any },
-              create: { politicianId: polId, billId: dbBill.id, position: mapPos(pos.vote) as any },
+              update: { position: mapPos(pos.vote) as "YEA" | "NAY" | "ABSTAIN" | "ABSENT" },
+              create: { politicianId: polId, billId: dbBill.id, position: mapPos(pos.vote) as "YEA" | "NAY" | "ABSTAIN" | "ABSENT" },
             });
             result.houseVotes++;
           } catch {}
@@ -186,22 +186,23 @@ export async function runFullVoteSync(
         const xml = await res.text();
         const titleMatch = xml.match(/<vote_title>([^<]*)<\/vote_title>/);
         const dateMatch = xml.match(/<vote_date>([^<]*)<\/vote_date>/);
-        let title = titleMatch?.[1] || `Senate Roll Call #${roll}`;
+        const title = titleMatch?.[1] || `Senate Roll Call #${roll}`;
         let voteDate = dateMatch?.[1] ? new Date(dateMatch[1].replace(/,\s*\d{1,2}:\d{2}\s*(AM|PM)/i, "")) : new Date(`${sess.year}-06-01`);
         if (isNaN(voteDate.getTime())) voteDate = new Date(`${sess.year}-06-01`);
 
-        const memberRegex = /<member>\s*<member_full>[^<]*<\/member_full>\s*<last_name>([^<]+)<\/last_name>\s*<first_name>([^<]+)<\/first_name>\s*<party>[^<]*<\/party>\s*<state>[^<]*<\/state>\s*<vote_cast>([^<]+)<\/vote_cast>\s*<lis_member_id>[^<]*<\/lis_member_id>\s*<\/member>/gs;
+        const memberRegex = /<member>\s*<member_full>[^<]*<\/member_full>\s*<last_name>([^<]+)<\/last_name>\s*<first_name>([^<]+)<\/first_name>\s*<party>[^<]*<\/party>\s*<state>[^<]*<\/state>\s*<vote_cast>([^<]+)<\/vote_cast>\s*<lis_member_id>[^<]*<\/lis_member_id>\s*<\/member>/g;
         const positions: { pol: TrackedPol; vote: string }[] = [];
-        let m;
+        let m: RegExpExecArray | null;
         while ((m = memberRegex.exec(xml)) !== null) {
-          const candidates = lastNameMap.get(m[1].toLowerCase());
+          const match = m;
+          const candidates = lastNameMap.get(match[1].toLowerCase());
           if (!candidates) continue;
           let pol = candidates[0];
           if (candidates.length > 1) {
-            const fm = candidates.find(c => c.firstName.toLowerCase().startsWith(m[2].toLowerCase().slice(0, 2)) || m[2].toLowerCase().startsWith(c.firstName.toLowerCase().slice(0, 2)));
+            const fm = candidates.find(c => c.firstName.toLowerCase().startsWith(match[2].toLowerCase().slice(0, 2)) || match[2].toLowerCase().startsWith(c.firstName.toLowerCase().slice(0, 2)));
             if (fm) pol = fm;
           }
-          positions.push({ pol, vote: m[3] });
+          positions.push({ pol, vote: match[3] });
         }
         if (positions.length === 0) continue;
 
@@ -216,8 +217,8 @@ export async function runFullVoteSync(
           try {
             await prisma.vote.upsert({
               where: { politicianId_billId: { politicianId: pos.pol.id, billId: dbBill.id } },
-              update: { position: mapPos(pos.vote) as any },
-              create: { politicianId: pos.pol.id, billId: dbBill.id, position: mapPos(pos.vote) as any },
+              update: { position: mapPos(pos.vote) as "YEA" | "NAY" | "ABSTAIN" | "ABSENT" },
+              create: { politicianId: pos.pol.id, billId: dbBill.id, position: mapPos(pos.vote) as "YEA" | "NAY" | "ABSTAIN" | "ABSENT" },
             });
             result.senateVotes++;
           } catch {}
@@ -283,11 +284,11 @@ export async function backfillVotesForPolitician(politicianId: string): Promise<
     let votePosition = "ABSENT";
 
     if (bill.billNumber.startsWith("H.Vote.")) {
-      const regex = new RegExp(`name-id="${politician.congressId}"[^>]*>.*?</legislator>\\s*<vote>([^<]+)</vote>`, "s");
+      const regex = new RegExp(`name-id="${politician.congressId}"[^>]*>[\\s\\S]*?</legislator>\\s*<vote>([^<]+)</vote>`);
       const match = xml.match(regex);
       if (match) { voted = true; votePosition = mapPos(match[1].trim()); }
     } else {
-      const regex = new RegExp(`<last_name>${lastName}</last_name>\\s*<first_name>([^<]+)</first_name>.*?<vote_cast>([^<]+)</vote_cast>`, "s");
+      const regex = new RegExp(`<last_name>${lastName}</last_name>\\s*<first_name>([^<]+)</first_name>[\\s\\S]*?<vote_cast>([^<]+)</vote_cast>`);
       const match = xml.match(regex);
       if (match) {
         const xmlFirst = match[1].toLowerCase();
@@ -302,8 +303,8 @@ export async function backfillVotesForPolitician(politicianId: string): Promise<
       try {
         await prisma.vote.upsert({
           where: { politicianId_billId: { politicianId, billId: bill.id } },
-          update: { position: votePosition as any },
-          create: { politicianId, billId: bill.id, position: votePosition as any },
+          update: { position: votePosition as "YEA" | "NAY" | "ABSTAIN" | "ABSENT" },
+          create: { politicianId, billId: bill.id, position: votePosition as "YEA" | "NAY" | "ABSTAIN" | "ABSENT" },
         });
         newVotes++;
       } catch {}
