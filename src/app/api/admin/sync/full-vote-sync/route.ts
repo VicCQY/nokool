@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runFullVoteSync } from "@/lib/full-vote-sync";
 
-export const maxDuration = 600; // 10 minutes max
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
