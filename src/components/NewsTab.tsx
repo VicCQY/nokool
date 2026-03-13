@@ -40,6 +40,10 @@ export function NewsTab({
       const data = await res.json();
       setArticles(data.articles || []);
       setLastFetched(data.lastFetchedAt);
+      if (data.aiConfigured === false) {
+        setApiConfigured(false);
+        return;
+      }
 
       // If no cached articles, and user is admin, auto-refresh
       if (data.articles?.length === 0 && isAdmin) {

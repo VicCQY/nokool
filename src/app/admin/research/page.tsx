@@ -34,8 +34,11 @@ const STATUSES = [
 ];
 
 export default function ResearchPage() {
-  const [politicians, setPoliticians] = useState<Politician[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Politician[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [selectedPolId, setSelectedPolId] = useState("");
+  const [selectedPolName, setSelectedPolName] = useState("");
   const [customName, setCustomName] = useState("");
   const [customParty, setCustomParty] = useState("");
   const [promises, setPromises] = useState<ResearchedPromise[]>([]);
@@ -44,14 +47,24 @@ export default function ResearchPage() {
   const [importResult, setImportResult] = useState("");
   const [apiConfigured, setApiConfigured] = useState(true);
 
+  // Debounced search for politicians
   useEffect(() => {
-    fetch("/api/politicians")
-      .then((r) => r.json())
-      .then((data) => setPoliticians(data.politicians || data || []))
-      .catch(() => {});
-  }, []);
-
-  const selectedPol = politicians.find((p) => p.id === selectedPolId);
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/politicians/search?q=${encodeURIComponent(searchQuery)}`);
+        const data = await res.json();
+        setSearchResults(data || []);
+        setShowDropdown(true);
+      } catch {
+        setSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   async function handleResearch() {
     setStatus("researching");
@@ -176,7 +189,7 @@ export default function ResearchPage() {
   }
 
   const selectedCount = promises.filter((p) => p.selected).length;
-  const researchTarget = selectedPol?.name || customName;
+  const researchTarget = selectedPolName || customName;
 
   return (
     <div className="max-w-5xl">
@@ -199,25 +212,62 @@ export default function ResearchPage() {
         <h2 className="text-base font-bold text-gray-900 mb-4">Step 1: Select Politician</h2>
 
         <div className="space-y-4">
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Existing Politician
             </label>
-            <select
-              value={selectedPolId}
-              onChange={(e) => {
-                setSelectedPolId(e.target.value);
-                if (e.target.value) setCustomName("");
-              }}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900"
-            >
-              <option value="">Choose a politician...</option>
-              {politicians.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.party})
-                </option>
-              ))}
-            </select>
+            {selectedPolId ? (
+              <div className="flex items-center gap-2">
+                <span className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900">
+                  {selectedPolName}
+                </span>
+                <button
+                  onClick={() => {
+                    setSelectedPolId("");
+                    setSelectedPolName("");
+                    setSearchQuery("");
+                  }}
+                  className="rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
+                >
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                placeholder="Search by name..."
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+            )}
+            {showDropdown && searchResults.length > 0 && !selectedPolId && (
+              <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-60 overflow-auto">
+                {searchResults.map((p) => (
+                  <button
+                    key={p.id}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setSelectedPolId(p.id);
+                      setSelectedPolName(`${p.name} (${p.party})`);
+                      setSearchQuery("");
+                      setShowDropdown(false);
+                      setCustomName("");
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    {p.name} <span className="text-gray-400">({p.party})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {showDropdown && searchQuery.trim() && searchResults.length === 0 && (
+              <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg px-3 py-2 text-sm text-gray-400">
+                No politicians found
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -236,7 +286,10 @@ export default function ResearchPage() {
                 value={customName}
                 onChange={(e) => {
                   setCustomName(e.target.value);
-                  if (e.target.value) setSelectedPolId("");
+                  if (e.target.value) {
+                    setSelectedPolId("");
+                    setSelectedPolName("");
+                  }
                 }}
                 placeholder="e.g. Kamala Harris"
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"

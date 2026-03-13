@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isAiConfigured } from "@/lib/ai-provider";
 
 export async function GET(
   _request: Request,
@@ -28,5 +29,6 @@ export async function GET(
     })),
     isFresh,
     lastFetchedAt: latestFetch > 0 ? new Date(latestFetch).toISOString() : null,
+    aiConfigured: isAiConfigured(),
   });
 }
