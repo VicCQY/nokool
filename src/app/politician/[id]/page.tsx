@@ -98,7 +98,7 @@ export default async function PoliticianPage({
   if (!politician) notFound();
 
   const { percentage, grade } = calculateFulfillment(politician.promises);
-  const countryInfo = COUNTRIES[politician.country];
+  const countryInfo = COUNTRIES[politician.country as keyof typeof COUNTRIES];
 
   // Promise filtering
   let filteredPromises = politician.promises;

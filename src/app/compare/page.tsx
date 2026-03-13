@@ -33,7 +33,7 @@ function buildComparison(
   if (!politician) return null;
 
   const { percentage, grade } = calculateFulfillment(politician.promises);
-  const countryInfo = COUNTRIES[politician.country];
+  const countryInfo = COUNTRIES[politician.country as keyof typeof COUNTRIES];
 
   const statusCounts = {
     fulfilled: 0,

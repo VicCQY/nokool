@@ -50,6 +50,15 @@ export interface FecCommittee {
   cycles: number[];
 }
 
+export interface FecCommitteeTotals {
+  committee_id: string;
+  cycle: number;
+  receipts: number;
+  individual_contributions: number;
+  other_political_committee_contributions: number;
+  disbursements: number;
+}
+
 export interface FecContribution {
   contributor_name: string;
   contributor_employer: string;
@@ -96,12 +105,43 @@ export async function getCandidateCommittees(
 
 export async function getContributionsByEmployer(
   committeeId: string,
-  cycle: number
+  cycle: number,
+  perPage = 50
 ): Promise<FecEmployerTotal[]> {
   const url = buildUrl("/schedules/schedule_a/by_employer/", {
     committee_id: committeeId,
     cycle: String(cycle),
     sort: "-total",
+    per_page: String(perPage),
+  });
+  const data = await fetchJson(url);
+  return data.results || [];
+}
+
+export async function getCommitteeTotals(
+  committeeId: string,
+  cycle: number
+): Promise<FecCommitteeTotals | null> {
+  const url = buildUrl(`/committee/${committeeId}/totals/`, {
+    cycle: String(cycle),
+  });
+  const data = await fetchJson(url);
+  return data.results?.[0] || null;
+}
+
+export interface FecSizeBreakdown {
+  size: number; // 0, 200, 500, 1000, 2000
+  total: number;
+  count: number;
+}
+
+export async function getContributionsBySize(
+  committeeId: string,
+  cycle: number
+): Promise<FecSizeBreakdown[]> {
+  const url = buildUrl("/schedules/schedule_a/by_size/", {
+    committee_id: committeeId,
+    cycle: String(cycle),
     per_page: "20",
   });
   const data = await fetchJson(url);

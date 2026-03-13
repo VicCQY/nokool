@@ -4,9 +4,36 @@ import {
   getCandidateCommittees,
   getContributionsByEmployer,
   getContributions,
+  getContributionsBySize,
+  getCommitteeTotals,
   delay,
 } from "@/lib/fec-api";
+import type { FecCommittee } from "@/lib/fec-api";
 import { classifyIndustry, guessDonorType } from "@/lib/fec-industries";
+
+// Employer names that are not real organizations
+const EXCLUDED_EMPLOYERS = new Set([
+  "retired",
+  "self-employed",
+  "self employed",
+  "not employed",
+  "none",
+  "n/a",
+  "null",
+  "information requested",
+  "information requested per best efforts",
+  "entrepreneur",
+  "homemaker",
+  "disabled",
+  "student",
+  "unemployed",
+  "refused",
+  "requested",
+]);
+
+function isRealEmployer(name: string): boolean {
+  return !EXCLUDED_EMPLOYERS.has(name.toLowerCase().trim());
+}
 
 // ── Candidate Matching ──
 
@@ -30,7 +57,6 @@ export async function matchFecCandidates(): Promise<FecMatchResult> {
       continue;
     }
 
-    // Determine office type
     let office: string | undefined;
     if (pol.branch === "executive") office = "P";
     else if (pol.chamber === "senate") office = "S";
@@ -41,7 +67,6 @@ export async function matchFecCandidates(): Promise<FecMatchResult> {
       const candidates = await searchCandidates(pol.name, office);
 
       if (candidates.length > 0) {
-        // Pick the best match — prefer exact-ish name match
         const polLast = pol.name.split(" ").pop()?.toLowerCase() || "";
         const best =
           candidates.find((c) => c.name.toLowerCase().includes(polLast)) ||
@@ -85,7 +110,6 @@ async function upsertDonorAndDonation(
 ) {
   if (!donorName || amount <= 0) return;
 
-  // Upsert donor by name + country
   let donor = await prisma.donor.findFirst({
     where: { name: donorName, country: "US" },
   });
@@ -102,7 +126,6 @@ async function upsertDonorAndDonation(
     result.donorsCreated++;
   }
 
-  // Check for existing donation from same donor, same politician, same cycle
   const existing = await prisma.donation.findFirst({
     where: {
       donorId: donor.id,
@@ -130,6 +153,43 @@ async function upsertDonorAndDonation(
   }
 
   result.totalAmount += amount;
+}
+
+/**
+ * Find the best committee for a candidate in a given cycle.
+ * Strategy: get all committees, fetch their financial totals,
+ * and pick the one with the highest receipts for this cycle.
+ */
+async function findBestCommittee(
+  committees: FecCommittee[],
+  cycle: number
+): Promise<{ committeeId: string; committeeName: string; allCommitteeNames: Set<string> }> {
+  // Collect all committee names (used to filter out self-transfers)
+  const allCommitteeNames = new Set<string>();
+  for (const c of committees) {
+    allCommitteeNames.add(c.name.toUpperCase());
+  }
+
+  // Try to find the committee with the most receipts for this cycle
+  let bestId = committees[0].committee_id;
+  let bestName = committees[0].name;
+  let bestReceipts = 0;
+
+  for (const c of committees) {
+    try {
+      await delay(300);
+      const totals = await getCommitteeTotals(c.committee_id, cycle);
+      if (totals && totals.receipts > bestReceipts) {
+        bestReceipts = totals.receipts;
+        bestId = c.committee_id;
+        bestName = c.name;
+      }
+    } catch {
+      // skip committees that error
+    }
+  }
+
+  return { committeeId: bestId, committeeName: bestName, allCommitteeNames };
 }
 
 export async function syncFecDonations(
@@ -160,8 +220,8 @@ export async function syncFecDonations(
     return result;
   }
 
-  // Get committees
-  let committees;
+  // Get all committees for this candidate
+  let committees: FecCommittee[];
   try {
     await delay(500);
     committees = await getCandidateCommittees(politician.fecCandidateId);
@@ -177,22 +237,22 @@ export async function syncFecDonations(
     return result;
   }
 
-  // Use the primary committee (usually first, or the one designated 'P')
-  const primaryCommittee =
-    committees.find((c) => c.designation === "P") || committees[0];
-  const committeeId = primaryCommittee.committee_id;
-
   for (const cycle of cycles) {
     const cycleStr = String(cycle);
 
-    // 1. Top employer contributions
+    // Find the committee with the most money for this cycle
+    const { committeeId, committeeName, allCommitteeNames } =
+      await findBestCommittee(committees, cycle);
+
+    result.errors.push(`Using committee: ${committeeName} (${committeeId})`);
+
+    // 1. Top employer contributions (aggregated totals)
     try {
       await delay(500);
-      const employers = await getContributionsByEmployer(committeeId, cycle);
+      const employers = await getContributionsByEmployer(committeeId, cycle, 50);
 
       for (const emp of employers) {
-        if (!emp.employer || emp.employer === "NOT EMPLOYED" || emp.employer === "NONE" || emp.employer === "N/A")
-          continue;
+        if (!emp.employer || !isRealEmployer(emp.employer)) continue;
 
         const industry = classifyIndustry(emp.employer);
         const donorType = guessDonorType(emp.employer);
@@ -213,43 +273,34 @@ export async function syncFecDonations(
       );
     }
 
-    // 2. Top individual contributions
+    // 2. Top committee/PAC contributions (filter out self-transfers)
     try {
       await delay(500);
-      const individuals = await getContributions(committeeId, "individual", 20);
-
-      for (const ind of individuals) {
-        if (!ind.contributor_name || ind.contribution_receipt_amount <= 0)
-          continue;
-
-        const industry = classifyIndustry(
-          ind.contributor_employer || ind.contributor_occupation || ""
-        );
-
-        await upsertDonorAndDonation(
-          ind.contributor_name,
-          "INDIVIDUAL",
-          industry,
-          politicianId,
-          ind.contribution_receipt_amount,
-          cycleStr,
-          result
-        );
-      }
-    } catch (err) {
-      result.errors.push(
-        `Individual contributions (${cycle}): ${err instanceof Error ? err.message : String(err)}`
-      );
-    }
-
-    // 3. Top committee/PAC contributions
-    try {
-      await delay(500);
-      const pacs = await getContributions(committeeId, "committee", 20);
+      const pacs = await getContributions(committeeId, "committee", 50);
 
       for (const pac of pacs) {
         if (!pac.contributor_name || pac.contribution_receipt_amount <= 0)
           continue;
+
+        // Skip transfers from the candidate's own committees
+        const upperName = pac.contributor_name.toUpperCase();
+        const isSelfTransfer = Array.from(allCommitteeNames).some(
+          (cn) => upperName.includes(cn) || cn.includes(upperName)
+        );
+        if (isSelfTransfer) continue;
+
+        // Also skip committees with the candidate's name (JFCs, victory funds, etc.)
+        const polLastName = politician.name.split(" ").pop()?.toUpperCase() || "";
+        if (
+          upperName.includes(polLastName) &&
+          (upperName.includes("COMMITTEE") ||
+            upperName.includes("JFC") ||
+            upperName.includes("JOINT FUNDRAISING") ||
+            upperName.includes("VICTORY FUND") ||
+            upperName.includes("SAVE AMERICA"))
+        ) {
+          continue;
+        }
 
         const industry = classifyIndustry(pac.contributor_name);
         const donorType = guessDonorType(pac.contributor_name, "committee");
@@ -267,6 +318,81 @@ export async function syncFecDonations(
     } catch (err) {
       result.errors.push(
         `Committee contributions (${cycle}): ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+
+    // 3. Aggregated donor categories (so totals reflect full fundraising picture)
+    // The employer data above only captures identifiable organizations.
+    // Most campaign money comes from retirees, self-employed, and small donors.
+    try {
+      await delay(500);
+      const employers = await getContributionsByEmployer(committeeId, cycle, 10);
+
+      // Sum up the excluded categories to create aggregated donors
+      const aggregated: Record<string, { total: number; type: "INDIVIDUAL" }> = {};
+      const aggregatedMap: Record<string, string> = {
+        "retired": "Individual Retirees",
+        "self-employed": "Self-Employed Individuals",
+        "self employed": "Self-Employed Individuals",
+        "homemaker": "Individual Homemakers",
+        "not employed": "Individual Small Donors",
+        "none": "Individual Small Donors",
+        "entrepreneur": "Self-Employed Individuals",
+        "information requested": "Individual Small Donors",
+        "information requested per best efforts": "Individual Small Donors",
+      };
+
+      for (const emp of employers) {
+        if (!emp.employer) continue;
+        const mapped = aggregatedMap[emp.employer.toLowerCase().trim()];
+        if (mapped) {
+          if (!aggregated[mapped]) aggregated[mapped] = { total: 0, type: "INDIVIDUAL" };
+          aggregated[mapped].total += emp.total;
+        }
+      }
+
+      // Also get small-dollar unitemized contributions from the by_size endpoint
+      await delay(500);
+      const sizeBreakdown = await getContributionsBySize(committeeId, cycle);
+      let smallDollarTotal = 0;
+      let largeDollarTotal = 0;
+      for (const s of sizeBreakdown) {
+        if (s.size <= 200) {
+          smallDollarTotal += s.total;
+        } else {
+          largeDollarTotal += s.total;
+        }
+      }
+
+      // Add small-dollar donors as an aggregated entry (if significant)
+      if (smallDollarTotal > 0) {
+        // The small-dollar total includes unitemized contributions
+        // Don't double-count with employer data (which only covers itemized)
+        await upsertDonorAndDonation(
+          "Small-Dollar Individual Donors (Under $200)",
+          "INDIVIDUAL",
+          "Individual Contributions",
+          politicianId,
+          smallDollarTotal,
+          cycleStr,
+          result
+        );
+      }
+
+      if (largeDollarTotal > 0) {
+        await upsertDonorAndDonation(
+          "Large-Dollar Individual Donors ($200+)",
+          "INDIVIDUAL",
+          "Individual Contributions",
+          politicianId,
+          largeDollarTotal,
+          cycleStr,
+          result
+        );
+      }
+    } catch (err) {
+      result.errors.push(
+        `Aggregated contributions (${cycle}): ${err instanceof Error ? err.message : String(err)}`
       );
     }
   }

@@ -15,10 +15,6 @@ interface Props {
 const ALL_COUNTRIES: { code: CountryCode; name: string; flag: string }[] = [
   { code: "US", name: "United States", flag: "🇺🇸" },
   { code: "CA", name: "Canada", flag: "🇨🇦" },
-  { code: "UK", name: "United Kingdom", flag: "🇬🇧" },
-  { code: "AU", name: "Australia", flag: "🇦🇺" },
-  { code: "FR", name: "France", flag: "🇫🇷" },
-  { code: "DE", name: "Germany", flag: "🇩🇪" },
 ];
 
 export function BrowseFlow({
@@ -57,7 +53,7 @@ export function BrowseFlow({
                   {c.name}
                 </span>
                 {!hasData && (
-                  <span className="text-xs text-gray-400">Coming soon</span>
+                  <span className="text-xs text-gray-400">No data yet</span>
                 )}
               </button>
             );

@@ -51,7 +51,7 @@ export default async function AdminPage() {
                   {pol.name}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
-                  {COUNTRIES[pol.country].flag} {COUNTRIES[pol.country].name}
+                  {COUNTRIES[pol.country as keyof typeof COUNTRIES]?.flag ?? ""} {COUNTRIES[pol.country as keyof typeof COUNTRIES]?.name ?? pol.country}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
                   {pol.party}

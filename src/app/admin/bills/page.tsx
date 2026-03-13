@@ -60,7 +60,7 @@ export default async function AdminBillsPage() {
                   {bill.category}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
-                  {COUNTRIES[bill.country].flag}
+                  {COUNTRIES[bill.country as keyof typeof COUNTRIES]?.flag ?? bill.country}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
                   {bill._count.votes}

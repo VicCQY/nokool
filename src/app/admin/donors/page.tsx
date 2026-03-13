@@ -51,7 +51,7 @@ export default async function AdminDonorsPage() {
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{donor.name}</td>
                 <td className="px-6 py-4 text-sm text-gray-500">{TYPE_LABELS[donor.type] || donor.type}</td>
                 <td className="px-6 py-4 text-sm text-gray-500">{donor.industry}</td>
-                <td className="px-6 py-4 text-sm text-gray-500">{COUNTRIES[donor.country].flag}</td>
+                <td className="px-6 py-4 text-sm text-gray-500">{COUNTRIES[donor.country as keyof typeof COUNTRIES]?.flag ?? donor.country}</td>
                 <td className="px-6 py-4 text-sm text-gray-500">{donor._count.donations}</td>
                 <td className="px-6 py-4 text-right text-sm space-x-2">
                   <Link href={`/admin/donors/${donor.id}`} className="text-blue-600 hover:underline">Edit</Link>
