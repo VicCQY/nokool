@@ -49,9 +49,10 @@ model Politician {
   photoUrl    String?
   termStart   DateTime
   termEnd     DateTime?
-  congressId  String?  @unique // Congress.gov bioguideId
-  branch      String   @default("executive") // "executive" or "legislative"
-  chamber     String?  // "house" or "senate" — null for executive branch
+  congressId      String?  @unique // Congress.gov bioguideId
+  fecCandidateId  String?  @unique // FEC candidate ID
+  branch          String   @default("executive") // "executive" or "legislative"
+  chamber         String?  // "house" or "senate" — null for executive branch
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   promises        Promise[]
