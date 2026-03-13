@@ -274,23 +274,6 @@ export default async function PoliticianPage({
         </div>
       </section>
 
-      {/* Grade Breakdown */}
-      {politician.promises.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-4 mb-2">
-          <GradeBreakdown
-            promises={politician.promises.map((p) => ({
-              title: p.title,
-              category: p.category,
-              status: p.status,
-              weight: p.weight,
-            }))}
-            termProgress={termProgress}
-            issueWeights={issueWeights}
-            chamber={politician.chamber}
-          />
-        </section>
-      )}
-
       {/* Stats cards (only on promises tab) */}
       {activeTab === "promises" && (
         <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 -mt-6">
@@ -384,6 +367,23 @@ export default async function PoliticianPage({
               category: p.category,
               status: p.status,
             }))}
+          />
+        </section>
+      )}
+
+      {/* Grade Breakdown (only on promises tab) */}
+      {activeTab === "promises" && politician.promises.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-6">
+          <GradeBreakdown
+            promises={politician.promises.map((p) => ({
+              title: p.title,
+              category: p.category,
+              status: p.status,
+              weight: p.weight,
+            }))}
+            termProgress={termProgress}
+            issueWeights={issueWeights}
+            chamber={politician.chamber}
           />
         </section>
       )}
