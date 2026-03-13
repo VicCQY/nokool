@@ -117,26 +117,21 @@ function generateTicks(
       d.setMonth(d.getMonth() + 1);
     }
   } else {
-    // "All" or "5Y" — year labels (or 6-month if short range)
-    const monthSpan =
-      (end.getFullYear() - start.getFullYear()) * 12 +
-      (end.getMonth() - start.getMonth());
-    const interval = monthSpan > 36 ? 12 : monthSpan > 18 ? 6 : monthSpan > 8 ? 3 : 1;
-    const d = new Date(start);
-    d.setDate(1);
-    d.setMonth(d.getMonth() + 1);
-    while (d <= end) {
-      if (d.getMonth() % interval === 0) {
-        const pct = ((d.getTime() - start.getTime()) / totalMs) * 100;
-        ticks.push({
-          label: d.toLocaleDateString("en-US", {
-            month: interval >= 12 ? undefined : "short",
-            year: "numeric",
-          }),
-          pct,
-        });
+    // "All" or "5Y" — place ticks at Jan 1st of each year (or every 2 years for long spans)
+    const yearSpan = end.getFullYear() - start.getFullYear();
+    const yearInterval = yearSpan > 10 ? 2 : 1;
+
+    // Start from the first full year after range start
+    const firstYear = start.getMonth() === 0 && start.getDate() === 1
+      ? start.getFullYear()
+      : start.getFullYear() + 1;
+
+    for (let yr = firstYear; yr <= end.getFullYear(); yr += yearInterval) {
+      const tick = new Date(yr, 0, 1);
+      if (tick > start && tick < end) {
+        const pct = ((tick.getTime() - start.getTime()) / totalMs) * 100;
+        ticks.push({ label: String(yr), pct });
       }
-      d.setMonth(d.getMonth() + 1);
     }
   }
 
@@ -383,13 +378,13 @@ export function PromiseTimeline({
           <div className="hidden md:block overflow-x-auto">
             <div className="min-w-[700px]">
               <div className="flex">
-                <div className="w-48 flex-shrink-0">
+                <div className="w-52 flex-shrink-0 border-r border-gray-200 mr-3">
                   <div style={{ height: HEADER_HEIGHT }} />
                   {filteredPromises.map((p) => (
                     <div
                       key={p.id}
-                      className="text-xs text-gray-700 truncate pr-2 flex items-center transition-opacity duration-300"
-                      style={{ height: ROW_HEIGHT }}
+                      className="text-xs text-gray-700 truncate pr-4 flex items-center"
+                      style={{ height: ROW_HEIGHT, maxWidth: "208px" }}
                       title={p.title}
                     >
                       {p.title}
