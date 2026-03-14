@@ -13,6 +13,8 @@ interface PoliticianData {
   termStart: string;
   termEnd: string;
   inOfficeSince: string;
+  congressId: string;
+  fecCandidateId: string;
 }
 
 export function PoliticianForm({
@@ -31,6 +33,8 @@ export function PoliticianForm({
       termStart: "",
       termEnd: "",
       inOfficeSince: "",
+      congressId: "",
+      fecCandidateId: "",
     },
   );
 
@@ -153,6 +157,36 @@ export function PoliticianForm({
         <p className="mt-1 text-xs text-gray-500">
           When they first entered this office (for display).
         </p>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Congress ID
+          </label>
+          <input
+            className={inputClass}
+            placeholder="e.g. S000148"
+            value={form.congressId}
+            onChange={(e) => setForm({ ...form, congressId: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Congress.gov bioguide ID for auto-matching.
+          </p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            FEC Candidate ID
+          </label>
+          <input
+            className={inputClass}
+            placeholder="e.g. S8NY00082"
+            value={form.fecCandidateId}
+            onChange={(e) => setForm({ ...form, fecCandidateId: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            FEC candidate ID for donation matching.
+          </p>
+        </div>
       </div>
       <button
         type="submit"

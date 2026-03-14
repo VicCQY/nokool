@@ -34,6 +34,8 @@ export default async function EditPoliticianPage({
           inOfficeSince: politician.inOfficeSince
             ? politician.inOfficeSince.toISOString().split("T")[0]
             : "",
+          congressId: politician.congressId ?? "",
+          fecCandidateId: politician.fecCandidateId ?? "",
         }}
       />
     </div>

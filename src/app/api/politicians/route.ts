@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
       termStart: new Date(body.termStart),
       termEnd: body.termEnd ? new Date(body.termEnd) : null,
       inOfficeSince: body.inOfficeSince ? new Date(body.inOfficeSince) : null,
+      congressId: body.congressId || null,
+      fecCandidateId: body.fecCandidateId || null,
       branch: body.branch || "executive",
       chamber: body.chamber || null,
     },
