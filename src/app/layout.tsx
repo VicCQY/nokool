@@ -21,9 +21,22 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NoKool - Politician Promise Tracker",
+  title: {
+    default: "NoKool — We don't drink it, neither should you.",
+    template: "%s | NoKool",
+  },
   description:
-    "We don't drink it, neither should you. Track what politicians promise vs. what they deliver.",
+    "Track what politicians promise vs. what they deliver. Real voting records, campaign finance data, and executive actions — all in one place.",
+  openGraph: {
+    type: "website",
+    siteName: "NoKool",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@nokool",
+  },
+  metadataBase: new URL("https://nokool.vercel.app"),
 };
 
 export default function RootLayout({

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { calculateFulfillment } from "@/lib/grades";
@@ -26,6 +27,56 @@ import { GradeBreakdown } from "./GradeBreakdown";
 import { getTermEnd } from "@/lib/time-decay";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const politician = await prisma.politician.findUnique({
+    where: { id: params.id },
+    select: {
+      name: true,
+      party: true,
+      promises: { select: { status: true, category: true, weight: true, dateMade: true } },
+      termStart: true,
+      termEnd: true,
+      branch: true,
+      chamber: true,
+    },
+  });
+
+  if (!politician) return { title: "Politician Not Found" };
+
+  const { getIssueWeights: getWeights } = await import("@/lib/issue-weights-cache");
+  const weights = await getWeights();
+  const termInfo = {
+    termStart: politician.termStart,
+    termEnd: politician.termEnd,
+    branch: politician.branch,
+    chamber: politician.chamber,
+  };
+  const { percentage, grade } = calculateFulfillment(politician.promises, termInfo, weights);
+
+  const title = `${politician.name} — Grade: ${grade}`;
+  const description = `${politician.name} has ${politician.promises.length} promises tracked, ${percentage}% fulfillment rate. ${grade} grade on the NoKool accountability scale.`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title: `${politician.name} — Grade: ${grade} | NoKool`,
+      description,
+      images: [`/api/og/politician/${params.id}`],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${politician.name} — Grade: ${grade} | NoKool`,
+      description,
+      images: [`/api/og/politician/${params.id}`],
+    },
+  };
+}
 
 interface PageProps {
   params: { id: string };
@@ -240,8 +291,29 @@ export default async function PoliticianPage({
       ? Math.round(((totalVotes - absentCount) / totalVotes) * 100)
       : 0;
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: politician.name,
+    jobTitle: politician.branch === "executive" ? "President" : "Member of Congress",
+    affiliation: {
+      "@type": "Organization",
+      name: politician.party,
+    },
+    nationality: {
+      "@type": "Country",
+      name: politician.country,
+    },
+    description: `${politician.name} has a ${grade} grade on NoKool with ${percentage}% promise fulfillment across ${politician.promises.length} tracked promises.`,
+    ...(politician.photoUrl ? { image: politician.photoUrl } : {}),
+  };
+
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* ═══ HERO ═══ */}
       <section className="bg-[#0D0D0D] -mt-[1px]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">

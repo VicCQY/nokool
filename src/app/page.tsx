@@ -1,9 +1,19 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { calculateFulfillment } from "@/lib/grades";
 import { PoliticianCard } from "@/components/PoliticianCard";
 import { HeroSearch } from "@/components/HeroSearch";
 import { getIssueWeights } from "@/lib/issue-weights-cache";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "NoKool — Politician Promise Tracker",
+  description:
+    "We don't drink it, neither should you. Track campaign promises, voting records, and campaign finance for US politicians.",
+  openGraph: {
+    images: ["/api/og/home"],
+  },
+};
 
 export const dynamic = "force-dynamic";
 

@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { calculateFulfillment } from "@/lib/grades";
 import { PoliticianCard } from "@/components/PoliticianCard";
 import { COUNTRIES, type CountryCode } from "@/lib/countries";
 import { getIssueWeights } from "@/lib/issue-weights-cache";
 import { BrowseFlow } from "./BrowseFlow";
+
+export const metadata: Metadata = {
+  title: "Browse Politicians",
+  description:
+    "Browse US politicians by country, branch, and chamber. See their grades, promises, and voting records.",
+};
 
 export const dynamic = "force-dynamic";
 

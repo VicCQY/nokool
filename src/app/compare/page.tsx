@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { calculateFulfillment } from "@/lib/grades";
 import { COUNTRIES } from "@/lib/countries";
@@ -5,6 +6,43 @@ import { getIssueWeights } from "@/lib/issue-weights-cache";
 import { CompareView } from "./CompareView";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: { a?: string; b?: string };
+}): Promise<Metadata> {
+  if (!searchParams.a || !searchParams.b) {
+    return {
+      title: "Compare Politicians",
+      description: "Compare two politicians side-by-side on promises, voting records, and campaign finance.",
+    };
+  }
+
+  const [polA, polB] = await Promise.all([
+    prisma.politician.findUnique({
+      where: { id: searchParams.a },
+      select: { name: true, promises: { select: { status: true, category: true, weight: true, dateMade: true } }, termStart: true, termEnd: true, branch: true, chamber: true },
+    }),
+    prisma.politician.findUnique({
+      where: { id: searchParams.b },
+      select: { name: true, promises: { select: { status: true, category: true, weight: true, dateMade: true } }, termStart: true, termEnd: true, branch: true, chamber: true },
+    }),
+  ]);
+
+  if (!polA || !polB) {
+    return { title: "Compare Politicians" };
+  }
+
+  const weights = await getIssueWeights();
+  const gradeA = calculateFulfillment(polA.promises, { termStart: polA.termStart, termEnd: polA.termEnd, branch: polA.branch, chamber: polA.chamber }, weights).grade;
+  const gradeB = calculateFulfillment(polB.promises, { termStart: polB.termStart, termEnd: polB.termEnd, branch: polB.branch, chamber: polB.chamber }, weights).grade;
+
+  return {
+    title: `${polA.name} vs ${polB.name}`,
+    description: `Compare ${polA.name} (${gradeA}) and ${polB.name} (${gradeB}) on promises, voting records, and campaign finance.`,
+  };
+}
 
 interface PageProps {
   searchParams: { a?: string; b?: string };

@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+
+export const metadata: Metadata = {
+  title: "Search",
+  description: "Search across politicians, promises, bills, and donors on NoKool.",
+};
 import { calculateFulfillment } from "@/lib/grades";
 import { COUNTRIES, type CountryCode } from "@/lib/countries";
 import Link from "next/link";

@@ -1,3 +1,11 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "About NoKool — Mission & Methodology",
+  description:
+    "How NoKool grades politicians using weighted promise tracking, real voting data, and campaign finance records.",
+};
+
 export default function AboutPage() {
   return (
     <div className="-mt-[1px]">
