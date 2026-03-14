@@ -21,6 +21,10 @@ export default async function EditPromisePage({
               title: true,
               billNumber: true,
               category: true,
+              votes: {
+                where: { politicianId: params.id },
+                select: { position: true },
+              },
             },
           },
         },
@@ -49,6 +53,7 @@ export default async function EditPromisePage({
       />
       <BillLinksManager
         promiseId={promise.id}
+        politicianId={params.id}
         initialLinks={promise.billLinks.map((link) => ({
           id: link.id,
           alignment: link.alignment,
@@ -59,6 +64,7 @@ export default async function EditPromisePage({
             billNumber: link.bill.billNumber,
             category: link.bill.category,
           },
+          votePosition: link.bill.votes.length > 0 ? link.bill.votes[0].position : null,
         }))}
       />
     </div>
