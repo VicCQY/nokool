@@ -14,19 +14,19 @@ const STOP_WORDS = new Set([
 ]);
 
 // Keywords indicating the promise is AGAINST something
-const NEGATIVE_PROMISE_KEYWORDS = new Set([
+const NEGATIVE_PROMISE_KEYWORDS = [
   "oppose", "end", "stop", "abolish", "ban", "reduce", "eliminate", "cut",
   "against", "block", "defund", "repeal", "withdraw", "prevent", "restrict",
   "limit", "decrease", "halt", "terminate", "revoke", "curtail", "slash",
   "roll back", "rollback", "phase out",
-]);
+];
 
 // Keywords indicating the promise is FOR something
-const POSITIVE_PROMISE_KEYWORDS = new Set([
+const POSITIVE_PROMISE_KEYWORDS = [
   "support", "expand", "protect", "increase", "fund", "create", "pass",
   "strengthen", "promote", "invest", "build", "improve", "ensure", "establish",
   "maintain", "preserve", "advance", "boost", "enhance", "extend",
-]);
+];
 
 function extractKeywords(text: string): string[] {
   return text
@@ -118,7 +118,7 @@ export function matchBillsToPromise(
   const promiseKeywords = extractKeywords(`${promise.title} ${promise.description}`);
   if (promiseKeywords.length === 0) return [];
 
-  const promiseKeywordSet = new Set(promiseKeywords);
+  const uniqueKeywords = Array.from(new Set(promiseKeywords));
   const alignment = detectAlignment(promise.title, promise.description);
   const matches: BillMatch[] = [];
 
@@ -130,7 +130,7 @@ export function matchBillsToPromise(
     let matchCount = 0;
     let hasStrongMatch = false;
 
-    for (const keyword of promiseKeywordSet) {
+    for (const keyword of uniqueKeywords) {
       if (billWords.has(keyword) || billText.includes(keyword)) {
         matchCount++;
         score += isStrongKeyword(keyword) ? 3 : 1;
