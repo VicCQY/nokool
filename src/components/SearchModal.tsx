@@ -64,11 +64,11 @@ const COUNTRIES: Record<string, { flag: string }> = {
 };
 
 const GRADE_COLORS: Record<string, string> = {
-  A: "bg-[#22C55E] text-white",
-  B: "bg-[#3B82F6] text-white",
-  C: "bg-[#F59E0B] text-white",
-  D: "bg-[#F97316] text-white",
-  F: "bg-[#EF4444] text-white",
+  A: "bg-grade-A text-white",
+  B: "bg-grade-B text-white",
+  C: "bg-grade-C text-white",
+  D: "bg-grade-D text-white",
+  F: "bg-grade-F text-white",
   "N/A": "bg-gray-400 text-white",
 };
 
@@ -284,7 +284,7 @@ export function SearchModal({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search politicians, promises, bills, donors..."
-            className="flex-1 text-lg text-[#1A1A1A] placeholder-gray-400 outline-none bg-transparent"
+            className="flex-1 text-lg text-brand-charcoal placeholder-gray-400 outline-none bg-transparent"
           />
           {loading && (
             <div className="h-5 w-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
@@ -309,7 +309,7 @@ export function SearchModal({
                       <button
                         key={s}
                         onClick={() => setQuery(s)}
-                        className="rounded-full bg-gray-100 px-3 py-1.5 text-sm text-[#4A4A4A] hover:bg-gray-200 transition-colors"
+                        className="rounded-full bg-gray-100 px-3 py-1.5 text-sm text-slate hover:bg-gray-200 transition-colors"
                       >
                         {s}
                       </button>
@@ -327,7 +327,7 @@ export function SearchModal({
                         <button
                           key={s}
                           onClick={() => setQuery(s)}
-                          className="rounded-full bg-gray-100 px-3 py-1.5 text-sm text-[#4A4A4A] hover:bg-gray-200 transition-colors"
+                          className="rounded-full bg-gray-100 px-3 py-1.5 text-sm text-slate hover:bg-gray-200 transition-colors"
                         >
                           {s}
                         </button>
@@ -342,7 +342,7 @@ export function SearchModal({
           {/* Empty state */}
           {showEmpty && (
             <div className="p-8 text-center">
-              <p className="text-[#4A4A4A]">
+              <p className="text-slate">
                 No results found for &ldquo;{query}&rdquo;
               </p>
               <p className="text-sm text-gray-400 mt-1">
@@ -393,7 +393,7 @@ export function SearchModal({
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#1A1A1A] truncate">
+                          <p className="text-sm font-semibold text-brand-charcoal truncate">
                             {p.name}
                           </p>
                           <p className="text-xs text-gray-400 truncate">
@@ -457,7 +457,7 @@ export function SearchModal({
                         }`}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#1A1A1A] truncate">
+                          <p className="text-sm font-semibold text-brand-charcoal truncate">
                             {p.title}
                           </p>
                           <p className="text-xs text-gray-400 truncate">
@@ -469,7 +469,7 @@ export function SearchModal({
                         >
                           {sc.label}
                         </span>
-                        <span className="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-[#4A4A4A]">
+                        <span className="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-slate">
                           {p.category}
                         </span>
                       </button>
@@ -523,7 +523,7 @@ export function SearchModal({
                         }`}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#1A1A1A] truncate">
+                          <p className="text-sm font-semibold text-brand-charcoal truncate">
                             {b.title}
                           </p>
                           <p className="text-xs text-gray-400 truncate">
@@ -534,7 +534,7 @@ export function SearchModal({
                             })}
                           </p>
                         </div>
-                        <span className="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-[#4A4A4A]">
+                        <span className="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-slate">
                           {b.category}
                         </span>
                       </button>
@@ -581,7 +581,7 @@ export function SearchModal({
                         }`}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#1A1A1A] truncate">
+                          <p className="text-sm font-semibold text-brand-charcoal truncate">
                             {d.name}
                           </p>
                           <p className="text-xs text-gray-400">{d.industry}</p>
@@ -593,7 +593,7 @@ export function SearchModal({
                         >
                           {DONOR_TYPE_LABELS[d.type]}
                         </span>
-                        <span className="text-sm font-semibold text-[#1A1A1A] whitespace-nowrap">
+                        <span className="text-sm font-semibold text-brand-charcoal whitespace-nowrap">
                           {formatCurrency(d.totalDonated)}
                         </span>
                       </div>

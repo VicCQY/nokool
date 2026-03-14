@@ -18,7 +18,7 @@ export function SearchPageClient({ initialQuery }: { initialQuery: string }) {
     <form onSubmit={handleSubmit} className="mb-6">
       <div className="relative">
         <svg
-          className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
+          className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -35,7 +35,7 @@ export function SearchPageClient({ initialQuery }: { initialQuery: string }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search politicians, promises, bills, donors..."
-          className="w-full rounded-xl border border-gray-200 bg-white pl-12 pr-4 py-3.5 text-lg text-[#1A1A1A] placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] transition-colors"
+          className="w-full rounded-lg border border-gray-200 bg-white pl-12 pr-4 py-4 text-lg text-brand-charcoal placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-brand-red transition-colors"
         />
       </div>
     </form>

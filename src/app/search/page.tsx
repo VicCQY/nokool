@@ -11,18 +11,18 @@ interface PageProps {
 }
 
 const GRADE_COLORS: Record<string, string> = {
-  A: "bg-[#22C55E]",
-  B: "bg-[#3B82F6]",
-  C: "bg-[#F59E0B]",
-  D: "bg-[#F97316]",
-  F: "bg-[#EF4444]",
+  A: "bg-grade-A",
+  B: "bg-grade-B",
+  C: "bg-grade-C",
+  D: "bg-grade-D",
+  F: "bg-grade-F",
   "N/A": "bg-gray-400",
 };
 
 const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string }> = {
   FULFILLED: { bg: "bg-green-50", text: "text-green-700", label: "Fulfilled" },
   PARTIAL: { bg: "bg-yellow-50", text: "text-yellow-700", label: "Partial" },
-  BROKEN: { bg: "bg-red-50", text: "text-red-700", label: "Broken" },
+  BROKEN: { bg: "bg-muted-red", text: "text-red-700", label: "Broken" },
   IN_PROGRESS: { bg: "bg-blue-50", text: "text-blue-700", label: "In Progress" },
   NOT_STARTED: { bg: "bg-gray-50", text: "text-gray-600", label: "Not Started" },
 };
@@ -64,7 +64,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12">
         <SearchPageClient initialQuery={q} />
         <div className="text-center py-16">
-          <p className="text-[#4A4A4A]">Enter at least 2 characters to search.</p>
+          <p className="text-slate">Enter at least 2 characters to search.</p>
         </div>
       </div>
     );
@@ -123,13 +123,13 @@ export default async function SearchPage({ searchParams }: PageProps) {
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12">
       <SearchPageClient initialQuery={q} />
 
-      <p className="text-sm text-gray-400 mb-8">
+      <p className="text-sm font-data text-slate mb-8">
         {totalResults} result{totalResults !== 1 ? "s" : ""} for &ldquo;{q}&rdquo;
       </p>
 
       {totalResults === 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-          <p className="text-[#4A4A4A]">
+        <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
+          <p className="text-slate">
             No results found for &ldquo;{q}&rdquo;
           </p>
           <p className="text-sm text-gray-400 mt-1">
@@ -141,9 +141,9 @@ export default async function SearchPage({ searchParams }: PageProps) {
       {/* Politicians */}
       {politicians.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-lg font-bold text-[#1A1A1A] mb-3 flex items-center gap-2">
+          <h2 className="text-lg font-headline text-brand-charcoal mb-3 flex items-center gap-2">
             Politicians
-            <span className="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 font-medium">
+            <span className="text-xs font-data bg-cool-gray text-slate rounded-full px-2 py-0.5 font-medium">
               {politicians.length}
             </span>
           </h2>
@@ -155,9 +155,9 @@ export default async function SearchPage({ searchParams }: PageProps) {
                 <Link
                   key={p.id}
                   href={`/politician/${p.id}`}
-                  className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all"
+                  className="flex items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all duration-200"
                 >
-                  <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
+                  <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-cool-gray">
                     {p.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.photoUrl} alt="" className="h-full w-full object-cover" />
@@ -168,13 +168,15 @@ export default async function SearchPage({ searchParams }: PageProps) {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#1A1A1A]">{p.name}</p>
-                    <p className="text-sm text-gray-400">
-                      {country?.flag} {p.party} &middot; {p.promises.length} promises &middot; {percentage}% fulfilled
+                    <p className="font-headline text-brand-charcoal">{p.name}</p>
+                    <p className="text-sm text-slate">
+                      {country?.flag} {p.party} &middot;{" "}
+                      <span className="font-data">{p.promises.length}</span> promises &middot;{" "}
+                      <span className="font-data">{percentage}%</span> fulfilled
                     </p>
                   </div>
                   <span
-                    className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white ${GRADE_COLORS[grade]}`}
+                    className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-data font-bold text-white ${GRADE_COLORS[grade]}`}
                   >
                     {grade}
                   </span>
@@ -188,9 +190,9 @@ export default async function SearchPage({ searchParams }: PageProps) {
       {/* Promises */}
       {promises.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-lg font-bold text-[#1A1A1A] mb-3 flex items-center gap-2">
+          <h2 className="text-lg font-headline text-brand-charcoal mb-3 flex items-center gap-2">
             Promises
-            <span className="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 font-medium">
+            <span className="text-xs font-data bg-cool-gray text-slate rounded-full px-2 py-0.5 font-medium">
               {promises.length}
             </span>
           </h2>
@@ -201,20 +203,20 @@ export default async function SearchPage({ searchParams }: PageProps) {
                 <Link
                   key={p.id}
                   href={`/politician/${p.politician.id}?tab=promises`}
-                  className="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all"
+                  className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all duration-200"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <p className="font-semibold text-[#1A1A1A]">{p.title}</p>
+                        <p className="font-semibold text-brand-charcoal">{p.title}</p>
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${sc.bg} ${sc.text}`}>
                           {sc.label}
                         </span>
-                        <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-[#4A4A4A]">
+                        <span className="inline-flex items-center rounded-md bg-cool-gray px-2 py-0.5 text-xs font-medium text-slate">
                           {p.category}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-400">by {p.politician.name}</p>
+                      <p className="text-sm text-slate">by {p.politician.name}</p>
                       <p className="text-sm text-gray-500 mt-1 line-clamp-2">{p.description}</p>
                     </div>
                   </div>
@@ -228,9 +230,9 @@ export default async function SearchPage({ searchParams }: PageProps) {
       {/* Bills */}
       {bills.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-lg font-bold text-[#1A1A1A] mb-3 flex items-center gap-2">
+          <h2 className="text-lg font-headline text-brand-charcoal mb-3 flex items-center gap-2">
             Bills
-            <span className="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 font-medium">
+            <span className="text-xs font-data bg-cool-gray text-slate rounded-full px-2 py-0.5 font-medium">
               {bills.length}
             </span>
           </h2>
@@ -243,19 +245,19 @@ export default async function SearchPage({ searchParams }: PageProps) {
                 <Link
                   key={b.id}
                   href={href}
-                  className="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all"
+                  className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-all duration-200"
                 >
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <p className="font-semibold text-[#1A1A1A]">{b.title}</p>
-                    <span className="text-xs text-gray-400 font-mono">{b.billNumber}</span>
-                    <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-[#4A4A4A]">
+                    <p className="font-semibold text-brand-charcoal">{b.title}</p>
+                    <span className="text-xs font-data text-slate">{b.billNumber}</span>
+                    <span className="inline-flex items-center rounded-md bg-cool-gray px-2 py-0.5 text-xs font-medium text-slate">
                       {b.category}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-slate font-data">
                     {b.dateVoted.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     {b.votes[0]?.politician.name && (
-                      <> &middot; voted on by {b.votes[0].politician.name}</>
+                      <> <span className="font-sans">&middot; voted on by {b.votes[0].politician.name}</span></>
                     )}
                   </p>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">{b.summary}</p>
@@ -269,9 +271,9 @@ export default async function SearchPage({ searchParams }: PageProps) {
       {/* Donors */}
       {donors.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-lg font-bold text-[#1A1A1A] mb-3 flex items-center gap-2">
+          <h2 className="text-lg font-headline text-brand-charcoal mb-3 flex items-center gap-2">
             Donors
-            <span className="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 font-medium">
+            <span className="text-xs font-data bg-cool-gray text-slate rounded-full px-2 py-0.5 font-medium">
               {donors.length}
             </span>
           </h2>
@@ -281,16 +283,19 @@ export default async function SearchPage({ searchParams }: PageProps) {
               return (
                 <div
                   key={d.id}
-                  className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                  className="flex items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#1A1A1A]">{d.name}</p>
-                    <p className="text-sm text-gray-400">{d.industry} &middot; {d.donations.length} donation{d.donations.length !== 1 ? "s" : ""}</p>
+                    <p className="font-semibold text-brand-charcoal">{d.name}</p>
+                    <p className="text-sm text-slate">
+                      {d.industry} &middot;{" "}
+                      <span className="font-data">{d.donations.length}</span> donation{d.donations.length !== 1 ? "s" : ""}
+                    </p>
                   </div>
                   <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${DONOR_TYPE_COLORS[d.type]}`}>
                     {DONOR_TYPE_LABELS[d.type]}
                   </span>
-                  <span className="text-sm font-bold text-[#1A1A1A] whitespace-nowrap">
+                  <span className="text-sm font-data font-bold text-brand-charcoal whitespace-nowrap">
                     {formatCurrency(total)}
                   </span>
                 </div>

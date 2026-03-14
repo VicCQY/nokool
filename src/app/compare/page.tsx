@@ -112,9 +112,9 @@ export default async function ComparePage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <section className="bg-[#0D0D0D] -mt-[1px]">
+      <section className="bg-brand-ink -mt-[1px]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-headline text-white tracking-tight">
             Compare Politicians
           </h1>
           <p className="text-gray-400 mt-1 text-sm">

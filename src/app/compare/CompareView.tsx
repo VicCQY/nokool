@@ -7,11 +7,11 @@ import { KoolAidMeter } from "@/components/KoolAidMeter";
 import type { PoliticianComparison } from "./page";
 
 const GRADE_COLORS: Record<string, string> = {
-  A: "bg-[#22C55E]",
-  B: "bg-[#3B82F6]",
-  C: "bg-[#F59E0B]",
-  D: "bg-[#F97316]",
-  F: "bg-[#EF4444]",
+  A: "bg-grade-A",
+  B: "bg-grade-B",
+  C: "bg-grade-C",
+  D: "bg-grade-D",
+  F: "bg-grade-F",
   "N/A": "bg-gray-400",
 };
 
@@ -64,31 +64,30 @@ export function CompareView({
     });
   }
 
-  // Stats for butterfly chart
   const statRows = [
     {
       label: "Total Promises",
       a: polA?.totalPromises ?? 0,
       b: polB?.totalPromises ?? 0,
-      color: "#6b7280",
+      color: "#64748B",
     },
     {
       label: "Fulfilled",
       a: polA?.fulfilled ?? 0,
       b: polB?.fulfilled ?? 0,
-      color: "#22c55e",
+      color: "#16A34A",
     },
     {
       label: "Broken",
       a: polA?.broken ?? 0,
       b: polB?.broken ?? 0,
-      color: "#ef4444",
+      color: "#DC2626",
     },
     {
       label: "In Progress",
       a: polA?.inProgress ?? 0,
       b: polB?.inProgress ?? 0,
-      color: "#3b82f6",
+      color: "#2563EB",
     },
     {
       label: "Fulfillment %",
@@ -99,7 +98,6 @@ export function CompareView({
     },
   ];
 
-  // Categories from both politicians
   const allCategories = new Set<string>();
   if (polA) Object.keys(polA.categories).forEach((c) => allCategories.add(c));
   if (polB) Object.keys(polB.categories).forEach((c) => allCategories.add(c));
@@ -127,7 +125,7 @@ export function CompareView({
             title="Swap politicians"
           >
             <svg
-              className="h-5 w-5 text-[#4A4A4A]"
+              className="h-5 w-5 text-slate"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -157,7 +155,7 @@ export function CompareView({
         <div className="flex justify-end mb-6">
           <button
             onClick={handleShare}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-[#4A4A4A] shadow-sm hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-slate shadow-sm hover:bg-gray-50 transition-colors"
           >
             <svg
               className="h-4 w-4"
@@ -179,8 +177,8 @@ export function CompareView({
 
       {/* Empty state */}
       {!polA && !polB && (
-        <div className="rounded-xl border border-gray-200 bg-white p-16 text-center">
-          <p className="text-lg text-[#4A4A4A]">
+        <div className="rounded-lg border border-gray-200 bg-white p-16 text-center">
+          <p className="text-lg text-slate">
             Select two politicians to compare their track records.
           </p>
         </div>
@@ -188,8 +186,8 @@ export function CompareView({
 
       {/* Same politician */}
       {sameSelected && (
-        <div className="rounded-xl border border-gray-200 bg-white p-16 text-center">
-          <p className="text-lg text-[#4A4A4A]">
+        <div className="rounded-lg border border-gray-200 bg-white p-16 text-center">
+          <p className="text-lg text-slate">
             Pick two different politicians. Comparing someone to themselves is
             just a mirror.
           </p>
@@ -200,26 +198,24 @@ export function CompareView({
       {bothSelected && (
         <div className="space-y-8">
           {/* Head to Head */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 items-center">
-              {/* Politician A */}
               <PoliticianHero pol={polA} />
 
               {/* VS divider */}
               <div className="flex items-center justify-center">
-                <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#0D0D0D] text-white font-extrabold text-sm">
+                <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand-red text-white font-headline text-lg">
                   VS
                 </span>
               </div>
 
-              {/* Politician B */}
               <PoliticianHero pol={polB} />
             </div>
           </div>
 
           {/* Butterfly chart stats */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-[#1A1A1A] mb-5">
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-headline text-brand-charcoal mb-5">
               Stats Comparison
             </h2>
             <div className="space-y-4">
@@ -234,15 +230,15 @@ export function CompareView({
                   <div key={row.label}>
                     {/* Mobile: stacked */}
                     <div className="md:hidden">
-                      <p className="text-xs font-medium text-[#4A4A4A] mb-1.5">
+                      <p className="text-xs font-medium text-slate mb-1.5">
                         {row.label}
                       </p>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-bold text-[#1A1A1A] w-8 text-right">
+                        <span className="text-xs font-data font-bold text-brand-charcoal w-8 text-right">
                           {row.a}
                           {row.isPercent ? "%" : ""}
                         </span>
-                        <div className="flex-1 h-3 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="flex-1 h-3 rounded-full bg-cool-gray overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all duration-500"
                             style={{
@@ -254,11 +250,11 @@ export function CompareView({
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-[#1A1A1A] w-8 text-right">
+                        <span className="text-xs font-data font-bold text-brand-charcoal w-8 text-right">
                           {row.b}
                           {row.isPercent ? "%" : ""}
                         </span>
-                        <div className="flex-1 h-3 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="flex-1 h-3 rounded-full bg-cool-gray overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all duration-500"
                             style={{
@@ -273,13 +269,12 @@ export function CompareView({
 
                     {/* Desktop: butterfly */}
                     <div className="hidden md:grid grid-cols-[1fr_120px_1fr] items-center gap-2">
-                      {/* A bar (right-aligned, extends left from center) */}
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-[#1A1A1A] w-8 text-right">
+                        <span className="text-xs font-data font-bold text-brand-charcoal w-8 text-right">
                           {row.a}
                           {row.isPercent ? "%" : ""}
                         </span>
-                        <div className="flex-1 h-4 rounded-full bg-gray-100 overflow-hidden flex justify-end">
+                        <div className="flex-1 h-4 rounded-full bg-cool-gray overflow-hidden flex justify-end">
                           <div
                             className="h-full rounded-full transition-all duration-500"
                             style={{
@@ -291,14 +286,12 @@ export function CompareView({
                         </div>
                       </div>
 
-                      {/* Label */}
-                      <p className="text-xs font-medium text-[#4A4A4A] text-center">
+                      <p className="text-xs font-medium text-slate text-center">
                         {row.label}
                       </p>
 
-                      {/* B bar (left-aligned, extends right from center) */}
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-4 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="flex-1 h-4 rounded-full bg-cool-gray overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all duration-500"
                             style={{
@@ -308,7 +301,7 @@ export function CompareView({
                             }}
                           />
                         </div>
-                        <span className="text-xs font-bold text-[#1A1A1A] w-8">
+                        <span className="text-xs font-data font-bold text-brand-charcoal w-8">
                           {row.b}
                           {row.isPercent ? "%" : ""}
                         </span>
@@ -318,8 +311,7 @@ export function CompareView({
                 );
               })}
 
-              {/* Legend */}
-              <div className="flex justify-center gap-6 pt-2 text-xs text-gray-400">
+              <div className="flex justify-center gap-6 pt-2 text-xs text-slate">
                 <span>{polA.name}</span>
                 <span>{polB.name}</span>
               </div>
@@ -328,22 +320,21 @@ export function CompareView({
 
           {/* Category Breakdown */}
           {categories.length > 0 && (
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-[#1A1A1A] mb-5">
+            <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-headline text-brand-charcoal mb-5">
                 Category Breakdown
               </h2>
 
               {/* Desktop table */}
               <div className="hidden md:block">
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-x-4 gap-y-0">
-                  {/* Header */}
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3 text-right">
+                  <div className="text-xs font-semibold text-slate uppercase tracking-wider pb-3 text-right">
                     {polA.name}
                   </div>
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3 text-center">
+                  <div className="text-xs font-semibold text-slate uppercase tracking-wider pb-3 text-center">
                     Category
                   </div>
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3">
+                  <div className="text-xs font-semibold text-slate uppercase tracking-wider pb-3">
                     {polB.name}
                   </div>
 
@@ -361,18 +352,18 @@ export function CompareView({
                           className={`text-right py-2.5 px-3 rounded-l-lg ${aWins ? "bg-green-50" : ""}`}
                         >
                           {a ? (
-                            <span className="text-sm text-[#1A1A1A]">
-                              <span className="font-bold">{aPct}%</span>
-                              <span className="text-gray-400 ml-1.5">
+                            <span className="text-sm text-brand-charcoal">
+                              <span className="font-data font-bold">{aPct}%</span>
+                              <span className="font-data text-slate ml-1.5">
                                 ({a.count})
                               </span>
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-300">—</span>
+                            <span className="text-xs text-gray-300">&mdash;</span>
                           )}
                         </div>
                         <div className="text-center py-2.5 px-3 border-x border-gray-100">
-                          <span className="text-sm font-medium text-[#4A4A4A]">
+                          <span className="text-sm font-medium text-slate">
                             {cat}
                           </span>
                         </div>
@@ -380,14 +371,14 @@ export function CompareView({
                           className={`py-2.5 px-3 rounded-r-lg ${bWins ? "bg-green-50" : ""}`}
                         >
                           {b ? (
-                            <span className="text-sm text-[#1A1A1A]">
-                              <span className="font-bold">{bPct}%</span>
-                              <span className="text-gray-400 ml-1.5">
+                            <span className="text-sm text-brand-charcoal">
+                              <span className="font-data font-bold">{bPct}%</span>
+                              <span className="font-data text-slate ml-1.5">
                                 ({b.count})
                               </span>
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-300">—</span>
+                            <span className="text-xs text-gray-300">&mdash;</span>
                           )}
                         </div>
                       </div>
@@ -411,42 +402,42 @@ export function CompareView({
                       key={cat}
                       className="rounded-lg border border-gray-100 p-3"
                     >
-                      <p className="text-sm font-medium text-[#4A4A4A] mb-2">
+                      <p className="text-sm font-medium text-slate mb-2">
                         {cat}
                       </p>
                       <div className="grid grid-cols-2 gap-3">
                         <div
-                          className={`rounded-md p-2 ${aWins ? "bg-green-50" : "bg-gray-50"}`}
+                          className={`rounded-md p-2 ${aWins ? "bg-green-50" : "bg-cool-gray"}`}
                         >
-                          <p className="text-xs text-gray-400 truncate">
+                          <p className="text-xs text-slate truncate">
                             {polA.name}
                           </p>
                           {a ? (
-                            <p className="text-sm font-bold text-[#1A1A1A]">
+                            <p className="text-sm font-data font-bold text-brand-charcoal">
                               {aPct}%{" "}
-                              <span className="font-normal text-gray-400">
+                              <span className="font-normal text-slate">
                                 ({a.count})
                               </span>
                             </p>
                           ) : (
-                            <p className="text-xs text-gray-300">—</p>
+                            <p className="text-xs text-gray-300">&mdash;</p>
                           )}
                         </div>
                         <div
-                          className={`rounded-md p-2 ${bWins ? "bg-green-50" : "bg-gray-50"}`}
+                          className={`rounded-md p-2 ${bWins ? "bg-green-50" : "bg-cool-gray"}`}
                         >
-                          <p className="text-xs text-gray-400 truncate">
+                          <p className="text-xs text-slate truncate">
                             {polB.name}
                           </p>
                           {b ? (
-                            <p className="text-sm font-bold text-[#1A1A1A]">
+                            <p className="text-sm font-data font-bold text-brand-charcoal">
                               {bPct}%{" "}
-                              <span className="font-normal text-gray-400">
+                              <span className="font-normal text-slate">
                                 ({b.count})
                               </span>
                             </p>
                           ) : (
-                            <p className="text-xs text-gray-300">—</p>
+                            <p className="text-xs text-gray-300">&mdash;</p>
                           )}
                         </div>
                       </div>
@@ -466,14 +457,14 @@ export function CompareView({
           <div
             className={
               polA
-                ? "rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-                : "rounded-xl border-2 border-dashed border-gray-200 p-6 flex items-center justify-center"
+                ? "rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
+                : "rounded-lg border-2 border-dashed border-gray-200 p-6 flex items-center justify-center"
             }
           >
             {polA ? (
               <PoliticianHero pol={polA} />
             ) : (
-              <p className="text-[#4A4A4A] text-sm">
+              <p className="text-slate text-sm">
                 Select a politician for this side.
               </p>
             )}
@@ -481,14 +472,14 @@ export function CompareView({
           <div
             className={
               polB
-                ? "rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-                : "rounded-xl border-2 border-dashed border-gray-200 p-6 flex items-center justify-center"
+                ? "rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
+                : "rounded-lg border-2 border-dashed border-gray-200 p-6 flex items-center justify-center"
             }
           >
             {polB ? (
               <PoliticianHero pol={polB} />
             ) : (
-              <p className="text-[#4A4A4A] text-sm">
+              <p className="text-slate text-sm">
                 Select a politician for this side.
               </p>
             )}
@@ -502,8 +493,7 @@ export function CompareView({
 function PoliticianHero({ pol }: { pol: PoliticianComparison }) {
   return (
     <div className="flex flex-col items-center text-center">
-      {/* Photo */}
-      <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full bg-gray-100 ring-2 ring-gray-100 mb-3">
+      <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full bg-cool-gray ring-2 ring-gray-100 mb-3">
         {pol.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -517,20 +507,19 @@ function PoliticianHero({ pol }: { pol: PoliticianComparison }) {
           </div>
         )}
       </div>
-      <h3 className="text-lg font-bold text-[#1A1A1A]">{pol.name}</h3>
-      <p className="text-sm text-[#4A4A4A]">
+      <h3 className="text-lg font-headline text-brand-charcoal">{pol.name}</h3>
+      <p className="text-sm text-slate">
         {pol.countryFlag} {pol.party}
       </p>
 
-      {/* Grade + Meter */}
       <div className="flex items-center gap-4 mt-4">
         <div className="flex flex-col items-center">
           <span
-            className={`inline-flex h-14 w-14 items-center justify-center rounded-full text-white font-extrabold text-xl ${GRADE_COLORS[pol.grade] ?? "bg-gray-400"}`}
+            className={`inline-flex h-14 w-14 items-center justify-center rounded-full text-white font-data font-extrabold text-xl ${GRADE_COLORS[pol.grade] ?? "bg-gray-400"}`}
           >
             {pol.grade}
           </span>
-          <p className="text-sm font-semibold text-[#1A1A1A] mt-1">
+          <p className="text-sm font-data font-semibold text-brand-charcoal mt-1">
             {pol.percentage}%
           </p>
         </div>
@@ -538,7 +527,7 @@ function PoliticianHero({ pol }: { pol: PoliticianComparison }) {
       </div>
 
       {pol.totalPromises === 0 && (
-        <p className="text-xs text-gray-400 mt-3 italic">
+        <p className="text-xs text-slate mt-3 italic">
           No promises tracked yet
         </p>
       )}

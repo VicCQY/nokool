@@ -97,7 +97,7 @@ export function PoliticianSelector({
           }}
           className={`w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none transition-colors ${
             selectedName && !query
-              ? "placeholder:text-[#1A1A1A] placeholder:font-medium"
+              ? "placeholder:text-brand-charcoal placeholder:font-medium"
               : "placeholder:text-gray-400"
           }`}
         />
@@ -155,7 +155,7 @@ export function PoliticianSelector({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-[#1A1A1A] truncate">
+                  <p className="text-sm font-medium text-brand-charcoal truncate">
                     {pol.name}
                   </p>
                   <p className="text-xs text-gray-400">

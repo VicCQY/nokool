@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Inter, DM_Serif_Display, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
+const dmSerif = DM_Serif_Display({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-dm-serif",
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains",
 });
 
 export const metadata: Metadata = {
@@ -24,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} font-sans antialiased bg-[#F5F5F5] text-[#1A1A1A]`}
+        className={`${inter.variable} ${dmSerif.variable} ${jetbrains.variable} font-sans antialiased bg-brand-paper text-brand-charcoal`}
       >
         <Navbar />
         <div className="min-h-screen">{children}</div>

@@ -13,8 +13,8 @@ interface Props {
 }
 
 const ALL_COUNTRIES: { code: CountryCode; name: string; flag: string }[] = [
-  { code: "US", name: "United States", flag: "🇺🇸" },
-  { code: "CA", name: "Canada", flag: "🇨🇦" },
+  { code: "US", name: "United States", flag: "\u{1F1FA}\u{1F1F8}" },
+  { code: "CA", name: "Canada", flag: "\u{1F1E8}\u{1F1E6}" },
 ];
 
 export function BrowseFlow({
@@ -31,7 +31,7 @@ export function BrowseFlow({
   if (!country) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-[#1A1A1A] mb-4">
+        <h2 className="text-lg font-headline text-brand-charcoal mb-4">
           Select a Country
         </h2>
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
@@ -42,18 +42,18 @@ export function BrowseFlow({
                 key={c.code}
                 onClick={() => router.push(`/politicians?country=${c.code}`)}
                 disabled={!hasData}
-                className={`group relative flex flex-col items-center gap-3 rounded-xl border-2 p-6 sm:p-8 transition-all duration-200 ${
+                className={`group relative flex flex-col items-center gap-3 rounded-lg border-2 p-8 sm:p-10 transition-all duration-200 ${
                   hasData
-                    ? "border-gray-200 bg-white shadow-sm hover:shadow-md hover:border-gray-300 hover:-translate-y-0.5 cursor-pointer"
+                    ? "border-gray-200 bg-white shadow-sm hover:shadow-md hover:border-brand-red/30 hover:-translate-y-0.5 cursor-pointer"
                     : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
                 }`}
               >
-                <span className="text-4xl sm:text-5xl">{c.flag}</span>
-                <span className="text-sm sm:text-base font-semibold text-[#1A1A1A]">
+                <span className="text-5xl sm:text-6xl">{c.flag}</span>
+                <span className="text-sm sm:text-base font-semibold text-brand-charcoal">
                   {c.name}
                 </span>
                 {!hasData && (
-                  <span className="text-xs text-gray-400">No data yet</span>
+                  <span className="text-xs text-slate">No data yet</span>
                 )}
               </button>
             );
@@ -71,7 +71,7 @@ export function BrowseFlow({
   if (!branch) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-[#1A1A1A] mb-4">
+        <h2 className="text-lg font-headline text-brand-charcoal mb-4">
           <span className="text-2xl mr-2">{countryInfo?.flag}</span>
           {countryInfo?.name} &mdash; Select Branch
         </h2>
@@ -111,7 +111,7 @@ export function BrowseFlow({
   if (branch === "legislative" && !chamber && activeChambers.length > 0) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-[#1A1A1A] mb-4">
+        <h2 className="text-lg font-headline text-brand-charcoal mb-4">
           <span className="text-2xl mr-2">{countryInfo?.flag}</span>
           {countryInfo?.name} Legislative &mdash; Select Chamber
         </h2>
@@ -151,8 +151,6 @@ export function BrowseFlow({
     );
   }
 
-  // If we're here with branch but no matching politicians needed to show flow,
-  // the grid is rendered by the parent server component
   return null;
 }
 
@@ -173,22 +171,22 @@ function BranchCard({
     <button
       onClick={onClick}
       disabled={!active}
-      className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-6 sm:p-8 transition-all duration-200 ${
+      className={`group flex flex-col items-center gap-3 rounded-lg border-2 p-6 sm:p-8 transition-all duration-200 ${
         active
-          ? "border-gray-200 bg-white shadow-sm hover:shadow-md hover:border-gray-300 hover:-translate-y-0.5 cursor-pointer"
+          ? "border-gray-200 bg-white shadow-sm hover:shadow-md hover:border-brand-red/30 hover:-translate-y-0.5 cursor-pointer"
           : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
       }`}
     >
-      <div className="text-[#1A1A1A]">{icon}</div>
+      <div className="text-brand-charcoal">{icon}</div>
       <div className="text-center">
-        <p className="text-sm sm:text-base font-semibold text-[#1A1A1A]">
+        <p className="text-sm sm:text-base font-semibold text-brand-charcoal">
           {title}
         </p>
         {subtitle && (
-          <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+          <p className="text-xs text-slate mt-0.5">{subtitle}</p>
         )}
       </div>
-      {!active && <span className="text-xs text-gray-400">No data yet</span>}
+      {!active && <span className="text-xs text-slate">No data yet</span>}
     </button>
   );
 }
