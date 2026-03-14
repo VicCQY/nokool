@@ -168,9 +168,10 @@ export function BillLinksManager({
         }),
       });
       if (res.ok) {
+        const created = await res.json();
         setLinks((prev) => [
           {
-            id: (await res.json()).id || Date.now().toString(),
+            id: created.id || Date.now().toString(),
             alignment: selectedAlignment,
             relevance: "manual",
             bill: {
