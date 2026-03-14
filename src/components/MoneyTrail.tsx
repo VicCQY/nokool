@@ -195,7 +195,7 @@ export function MoneyTrail({
   if (donations.length === 0 && lobbyingRecords.length === 0) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-        <p className="text-[#4A4A4A]">No financial data available yet.</p>
+        <p className="text-slate">No financial data available yet.</p>
       </div>
     );
   }
@@ -215,7 +215,7 @@ export function MoneyTrail({
               }}
               className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-all ${
                 selectedCycle === cycle
-                  ? "bg-white text-[#1A1A1A] shadow-sm"
+                  ? "bg-[#0D0D0D] text-white shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -229,30 +229,30 @@ export function MoneyTrail({
       {cycleDonations.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-2xl font-bold text-[#1A1A1A]">
+            <p className="text-2xl font-mono font-bold text-brand-charcoal">
               {formatCurrency(totalDonations)}
             </p>
-            <p className="text-xs text-[#4A4A4A] mt-1">
+            <p className="text-xs text-slate mt-1">
               Total Received{selectedCycle !== "All" ? ` (${selectedCycle})` : ""}
             </p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-2xl font-bold text-[#1A1A1A]">{uniqueDonors}</p>
-            <p className="text-xs text-[#4A4A4A] mt-1">Unique Donors</p>
+            <p className="text-2xl font-mono font-bold text-brand-charcoal">{uniqueDonors}</p>
+            <p className="text-xs text-slate mt-1">Unique Donors</p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-2xl font-bold text-[#1A1A1A]">
+            <p className="text-2xl font-mono font-bold text-brand-charcoal">
               {formatCurrency(largestDonation.amount)}
             </p>
-            <p className="text-xs text-[#4A4A4A] mt-1 truncate">
+            <p className="text-xs text-slate mt-1 truncate">
               Largest — {largestDonation.donor.name}
             </p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-2xl font-bold text-[#1A1A1A] truncate">
+            <p className="text-2xl font-mono font-bold text-brand-charcoal truncate">
               {topIndustry}
             </p>
-            <p className="text-xs text-[#4A4A4A] mt-1">Top Industry</p>
+            <p className="text-xs text-slate mt-1">Top Industry</p>
           </div>
         </div>
       )}
@@ -263,14 +263,14 @@ export function MoneyTrail({
           {/* Left: Top Donors */}
           <div className="lg:col-span-3 rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="p-5 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-[#1A1A1A] mb-3">
+              <h3 className="text-lg font-headline text-brand-charcoal mb-3">
                 Top Donors
               </h3>
               <div className="flex flex-wrap gap-2">
                 <select
                   value={donorTypeFilter}
                   onChange={(e) => setDonorTypeFilter(e.target.value)}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-[#4A4A4A] shadow-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-slate shadow-sm focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal focus:outline-none"
                 >
                   <option value="">All Types</option>
                   {Object.entries(DONOR_TYPE_LABELS).map(([val, label]) => (
@@ -282,7 +282,7 @@ export function MoneyTrail({
                 <select
                   value={industryFilter}
                   onChange={(e) => setIndustryFilter(e.target.value)}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-[#4A4A4A] shadow-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-slate shadow-sm focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal focus:outline-none"
                 >
                   <option value="">All Industries</option>
                   {allIndustries.map((ind) => (
@@ -294,7 +294,7 @@ export function MoneyTrail({
                 <select
                   value={donorSort}
                   onChange={(e) => setDonorSort(e.target.value)}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-[#4A4A4A] shadow-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-slate shadow-sm focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal focus:outline-none"
                 >
                   <option value="amount">Highest Amount</option>
                   <option value="date">Most Recent</option>
@@ -324,7 +324,7 @@ export function MoneyTrail({
                       </span>
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-[#1A1A1A] truncate">
+                          <span className="text-sm font-semibold text-brand-charcoal truncate">
                             {item.donor.name}
                           </span>
                           <span
@@ -346,7 +346,7 @@ export function MoneyTrail({
                           {item.count !== 1 ? "s" : ""}
                         </p>
                       </div>
-                      <span className="text-sm font-bold text-[#1A1A1A] whitespace-nowrap">
+                      <span className="text-sm font-mono font-bold text-brand-charcoal whitespace-nowrap">
                         {formatCurrency(item.total)}
                       </span>
                       <svg
@@ -371,7 +371,7 @@ export function MoneyTrail({
                               key={don.id}
                               className="flex flex-wrap items-center gap-3 text-xs"
                             >
-                              <span className="font-medium text-[#1A1A1A]">
+                              <span className="font-medium text-brand-charcoal">
                                 {formatCurrency(don.amount)}
                               </span>
                               <span className="text-gray-400">
@@ -389,7 +389,7 @@ export function MoneyTrail({
                                   href={don.sourceUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-[#2563EB] hover:underline"
+                                  className="text-brand-red hover:underline"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   Source
@@ -409,7 +409,7 @@ export function MoneyTrail({
               <div className="p-3 border-t border-gray-100 text-center">
                 <button
                   onClick={() => setShowAllDonors(!showAllDonors)}
-                  className="text-sm font-medium text-[#2563EB] hover:underline"
+                  className="text-sm font-medium text-brand-red hover:underline"
                 >
                   {showAllDonors
                     ? "Show top 10"
@@ -427,7 +427,7 @@ export function MoneyTrail({
 
           {/* Right: Industry Breakdown */}
           <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm p-5">
-            <h3 className="text-lg font-bold text-[#1A1A1A] mb-4">
+            <h3 className="text-lg font-headline text-brand-charcoal mb-4">
               By Industry
             </h3>
             <div className="space-y-3">
@@ -441,7 +441,7 @@ export function MoneyTrail({
                 return (
                   <div key={industry}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-[#1A1A1A] truncate">
+                      <span className="text-xs font-medium text-brand-charcoal truncate">
                         {industry}
                       </span>
                       <span className="text-xs text-gray-400 whitespace-nowrap ml-2">
@@ -466,13 +466,13 @@ export function MoneyTrail({
       {lobbyingRecords.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="p-5 border-b border-gray-100">
-            <h3 className="text-lg font-bold text-[#1A1A1A] mb-3">
+            <h3 className="text-lg font-headline text-brand-charcoal mb-3">
               Lobbying Records
             </h3>
             <select
               value={lobbyIndustryFilter}
               onChange={(e) => setLobbyIndustryFilter(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-[#4A4A4A] shadow-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-slate shadow-sm focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal focus:outline-none"
             >
               <option value="">All Industries</option>
               {lobbyIndustries.map((ind) => (
@@ -518,14 +518,14 @@ export function MoneyTrail({
                       {record.clientName}
                     </td>
                     <td className="px-5 py-3">
-                      <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-[#4A4A4A]">
+                      <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-slate">
                         {record.clientIndustry}
                       </span>
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-500 max-w-xs truncate">
                       {record.issue}
                     </td>
-                    <td className="px-5 py-3 text-sm font-semibold text-[#1A1A1A] text-right whitespace-nowrap">
+                    <td className="px-5 py-3 text-sm font-mono font-semibold text-brand-charcoal text-right whitespace-nowrap">
                       {formatCurrency(record.amount)}
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-400 text-right">
@@ -543,19 +543,19 @@ export function MoneyTrail({
               <div key={record.id} className="p-4 space-y-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[#1A1A1A]">
+                    <p className="text-sm font-semibold text-brand-charcoal">
                       {record.clientName}
                     </p>
                     <p className="text-xs text-gray-400">
                       via {record.lobbyistName}
                     </p>
                   </div>
-                  <span className="text-sm font-bold text-[#1A1A1A]">
+                  <span className="text-sm font-mono font-bold text-brand-charcoal">
                     {formatCurrency(record.amount)}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 font-medium text-[#4A4A4A]">
+                  <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 font-medium text-slate">
                     {record.clientIndustry}
                   </span>
                   <span className="text-gray-400">{record.year}</span>
@@ -575,7 +575,7 @@ export function MoneyTrail({
 
       {/* DISCLAIMER */}
       {donations.length > 0 && (
-        <p className="text-xs text-gray-400 leading-relaxed">
+        <p className="text-xs text-gray-400 leading-relaxed italic">
           Donation data sourced from FEC filings. Figures reflect itemized
           contributions and may not represent total fundraising. Visit{" "}
           <a

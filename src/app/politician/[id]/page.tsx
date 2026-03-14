@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { calculateFulfillment } from "@/lib/grades";
-import { StatusBadge } from "@/components/StatusBadge";
+import { StatusStamp } from "@/components/StatusStamp";
 import { PromiseFilters } from "@/components/PromiseFilters";
 import { PromiseTimeline } from "@/components/PromiseTimeline";
 import { KoolAidMeter } from "@/components/KoolAidMeter";
@@ -39,34 +39,43 @@ interface PageProps {
   };
 }
 
-const GRADE_COLORS: Record<string, string> = {
-  A: "bg-[#22C55E]",
-  B: "bg-[#3B82F6]",
-  C: "bg-[#F59E0B]",
-  D: "bg-[#F97316]",
-  F: "bg-[#EF4444]",
-  "N/A": "bg-gray-400",
+const GRADE_RING_COLORS: Record<string, string> = {
+  A: "ring-grade-A",
+  B: "ring-grade-B",
+  C: "ring-grade-C",
+  D: "ring-grade-D",
+  F: "ring-grade-F",
+  "N/A": "ring-gray-400",
+};
+
+const GRADE_TEXT_COLORS: Record<string, string> = {
+  A: "text-grade-A",
+  B: "text-grade-B",
+  C: "text-grade-C",
+  D: "text-grade-D",
+  F: "text-grade-F",
+  "N/A": "text-gray-400",
 };
 
 const GRADE_BAR_COLORS: Record<string, string> = {
-  A: "bg-[#22C55E]",
-  B: "bg-[#3B82F6]",
-  C: "bg-[#F59E0B]",
-  D: "bg-[#F97316]",
-  F: "bg-[#EF4444]",
+  A: "bg-grade-A",
+  B: "bg-grade-B",
+  C: "bg-grade-C",
+  D: "bg-grade-D",
+  F: "bg-grade-F",
   "N/A": "bg-gray-300",
 };
 
 const STATUS_STAT_CONFIG: {
   key: PromiseStatus;
   label: string;
-  dotColor: string;
+  topBorder: string;
 }[] = [
-  { key: "FULFILLED", label: "Fulfilled", dotColor: "bg-green-500" },
-  { key: "PARTIAL", label: "Partial", dotColor: "bg-yellow-500" },
-  { key: "IN_PROGRESS", label: "In Progress", dotColor: "bg-blue-500" },
-  { key: "NOT_STARTED", label: "Not Started", dotColor: "bg-gray-400" },
-  { key: "BROKEN", label: "Broken", dotColor: "bg-red-500" },
+  { key: "FULFILLED", label: "Fulfilled", topBorder: "border-t-status-fulfilled" },
+  { key: "PARTIAL", label: "Partial", topBorder: "border-t-status-partial" },
+  { key: "IN_PROGRESS", label: "In Progress", topBorder: "border-t-status-in-progress" },
+  { key: "NOT_STARTED", label: "Not Started", topBorder: "border-t-status-not-started" },
+  { key: "BROKEN", label: "Broken", topBorder: "border-t-status-broken" },
 ];
 
 export default async function PoliticianPage({
@@ -173,7 +182,7 @@ export default async function PoliticianPage({
     })),
   }));
 
-  // Filter votes by chamber — House members only see House bills, Senators only Senate bills
+  // Filter votes by chamber
   const chamberVotes = politician.chamber
     ? politician.votes.filter((v) => {
         const bn = v.bill.billNumber;
@@ -201,7 +210,7 @@ export default async function PoliticianPage({
     );
   }
 
-  // Vote stats (uses chamber-filtered votes)
+  // Vote stats
   const totalVotes = chamberVotes.length;
   const voteCounts = chamberVotes.reduce(
     (acc, v) => {
@@ -218,12 +227,14 @@ export default async function PoliticianPage({
 
   return (
     <div>
-      {/* Hero header */}
+      {/* ═══ HERO ═══ */}
       <section className="bg-[#0D0D0D] -mt-[1px]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
           <div className="flex flex-col sm:flex-row items-start gap-6">
             {/* Photo */}
-            <div className="h-20 w-20 sm:h-24 sm:w-24 flex-shrink-0 overflow-hidden rounded-full bg-gray-800 ring-4 ring-white/10">
+            <div
+              className={`h-20 w-20 sm:h-28 sm:w-28 flex-shrink-0 overflow-hidden rounded-full bg-gray-800 ring-4 ${GRADE_RING_COLORS[grade] ?? "ring-gray-400"}`}
+            >
               {politician.photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -232,29 +243,29 @@ export default async function PoliticianPage({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-4xl font-semibold text-gray-500">
+                <div className="flex h-full w-full items-center justify-center text-4xl font-headline text-gray-500">
                   {politician.name[0]}
                 </div>
               )}
             </div>
 
             {/* Info */}
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-4xl font-headline text-white">
                 {politician.name}
               </h1>
-              <p className="text-gray-400 mt-1">
+              <p className="text-gray-400 mt-1.5 text-sm">
                 {countryInfo.flag} {politician.party}
               </p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="font-mono text-xs text-gray-500 mt-1 tracking-wide">
                 {politician.termStart.toLocaleDateString("en-US", {
-                  month: "long",
+                  month: "short",
                   year: "numeric",
                 })}
-                {" - "}
+                {" \u2013 "}
                 {politician.termEnd
                   ? politician.termEnd.toLocaleDateString("en-US", {
-                      month: "long",
+                      month: "short",
                       year: "numeric",
                     })
                   : "Present"}
@@ -266,131 +277,113 @@ export default async function PoliticianPage({
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                 </svg>
-                Compare with...
+                Compare
               </Link>
             </div>
 
-            {/* Grade + Kool-Aid Meter */}
-            <div className="flex items-center gap-5 sm:gap-6">
+            {/* Grade cluster + Kool-Aid */}
+            <div className="flex items-center gap-5 sm:gap-8">
               <div className="flex flex-col items-center">
                 <span
-                  className={`inline-flex h-16 w-16 items-center justify-center rounded-full text-white font-extrabold text-2xl shadow-lg ${GRADE_COLORS[grade] ?? "bg-gray-400"}`}
+                  className={`inline-flex h-18 w-18 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-white/5 ring-4 ${GRADE_RING_COLORS[grade] ?? "ring-gray-400"} font-mono font-extrabold text-3xl sm:text-4xl ${GRADE_TEXT_COLORS[grade] ?? "text-gray-400"}`}
                 >
                   {grade}
                 </span>
-                <p className="text-white text-sm font-semibold mt-2">
+                <p className="font-mono text-white text-sm font-bold mt-2 tracking-wide">
                   {percentage}%
                 </p>
                 <p className="text-gray-500 text-xs">
-                  {politician.promises.length} promises
+                  {politician.promises.length} promise{politician.promises.length !== 1 ? "s" : ""}
                 </p>
               </div>
               <KoolAidMeter size="lg" fulfillmentPercent={percentage} />
             </div>
           </div>
 
-          {/* Fulfillment bar */}
-          <div className="mt-6 max-w-md">
-            <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
-              <span>Term: {Math.round(termProgress * 100)}% complete</span>
-              <span>{percentage}%</span>
+          {/* Term progress */}
+          <div className="mt-8 max-w-md">
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="text-gray-500">Term Progress</span>
+              <span className="font-mono text-gray-400">{Math.round(termProgress * 100)}%</span>
             </div>
-            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+            <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${GRADE_BAR_COLORS[grade] ?? "bg-gray-400"}`}
-                style={{ width: `${percentage}%` }}
+                style={{ width: `${Math.round(termProgress * 100)}%` }}
               />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Stats cards (only on promises tab) */}
+      {/* ═══ STATS CARDS ═══ */}
       {activeTab === "promises" && (
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 -mt-6">
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 -mt-6 relative z-10">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {/* Total */}
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-2xl font-bold text-[#1A1A1A]">
+            <div className="rounded-xl border border-gray-200 border-t-2 border-t-brand-charcoal bg-white p-4 shadow-sm">
+              <p className="text-2xl font-mono font-bold text-brand-charcoal">
                 {politician.promises.length}
               </p>
-              <p className="text-xs text-[#4A4A4A] mt-1">Total Promises</p>
+              <p className="text-xs text-slate mt-1">Total Promises</p>
             </div>
-            {STATUS_STAT_CONFIG.map(({ key, label, dotColor }) => (
+            {STATUS_STAT_CONFIG.map(({ key, label, topBorder }) => (
               <div
                 key={key}
-                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                className={`rounded-xl border border-gray-200 border-t-2 ${topBorder} bg-white p-4 shadow-sm`}
               >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full ${dotColor}`}
-                  />
-                  <p className="text-2xl font-bold text-[#1A1A1A]">
-                    {statusCounts[key] || 0}
-                  </p>
-                </div>
-                <p className="text-xs text-[#4A4A4A] mt-1">{label}</p>
+                <p className="text-2xl font-mono font-bold text-brand-charcoal">
+                  {statusCounts[key] || 0}
+                </p>
+                <p className="text-xs text-slate mt-1">{label}</p>
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {/* Vote Stats (only on votes tab, legislative only) */}
+      {/* Vote Stats */}
       {politician.branch !== "executive" && activeTab === "votes" && totalVotes > 0 && (
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 -mt-6">
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 -mt-6 relative z-10">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-2xl font-bold text-[#1A1A1A]">{totalVotes}</p>
-              <p className="text-xs text-[#4A4A4A] mt-1">Total Votes</p>
+            <div className="rounded-xl border border-gray-200 border-t-2 border-t-brand-charcoal bg-white p-4 shadow-sm">
+              <p className="text-2xl font-mono font-bold text-brand-charcoal">{totalVotes}</p>
+              <p className="text-xs text-slate mt-1">Total Votes</p>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                <p className="text-2xl font-bold text-[#1A1A1A]">
-                  {voteCounts["YEA"] || 0}
-                </p>
-              </div>
-              <p className="text-xs text-[#4A4A4A] mt-1">Yea</p>
+            <div className="rounded-xl border border-gray-200 border-t-2 border-t-green-500 bg-white p-4 shadow-sm">
+              <p className="text-2xl font-mono font-bold text-brand-charcoal">
+                {voteCounts["YEA"] || 0}
+              </p>
+              <p className="text-xs text-slate mt-1">Yea</p>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                <p className="text-2xl font-bold text-[#1A1A1A]">
-                  {voteCounts["NAY"] || 0}
-                </p>
-              </div>
-              <p className="text-xs text-[#4A4A4A] mt-1">Nay</p>
+            <div className="rounded-xl border border-gray-200 border-t-2 border-t-red-500 bg-white p-4 shadow-sm">
+              <p className="text-2xl font-mono font-bold text-brand-charcoal">
+                {voteCounts["NAY"] || 0}
+              </p>
+              <p className="text-xs text-slate mt-1">Nay</p>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-                <p className="text-2xl font-bold text-[#1A1A1A]">
-                  {voteCounts["ABSTAIN"] || 0}
-                </p>
-              </div>
-              <p className="text-xs text-[#4A4A4A] mt-1">Abstain</p>
+            <div className="rounded-xl border border-gray-200 border-t-2 border-t-amber-500 bg-white p-4 shadow-sm">
+              <p className="text-2xl font-mono font-bold text-brand-charcoal">
+                {voteCounts["ABSTAIN"] || 0}
+              </p>
+              <p className="text-xs text-slate mt-1">Abstain</p>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-gray-400" />
-                <p className="text-2xl font-bold text-[#1A1A1A]">
-                  {voteCounts["ABSENT"] || 0}
-                </p>
-              </div>
-              <p className="text-xs text-[#4A4A4A] mt-1">Absent</p>
+            <div className="rounded-xl border border-gray-200 border-t-2 border-t-gray-400 bg-white p-4 shadow-sm">
+              <p className="text-2xl font-mono font-bold text-brand-charcoal">
+                {voteCounts["ABSENT"] || 0}
+              </p>
+              <p className="text-xs text-slate mt-1">Absent</p>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-2xl font-bold text-[#1A1A1A]">
+            <div className="rounded-xl border border-gray-200 border-t-2 border-t-blue-500 bg-white p-4 shadow-sm">
+              <p className="text-2xl font-mono font-bold text-brand-charcoal">
                 {participationRate}%
               </p>
-              <p className="text-xs text-[#4A4A4A] mt-1">Participation</p>
+              <p className="text-xs text-slate mt-1">Participation</p>
             </div>
           </div>
         </section>
       )}
 
-      {/* Category Breakdown (only on promises tab) */}
+      {/* Category Breakdown */}
       {activeTab === "promises" && politician.promises.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8">
           <CategoryBreakdownSection
@@ -402,7 +395,7 @@ export default async function PoliticianPage({
         </section>
       )}
 
-      {/* Grade Breakdown (only on promises tab) */}
+      {/* Grade Breakdown */}
       {activeTab === "promises" && politician.promises.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-6">
           <GradeBreakdown
@@ -419,19 +412,19 @@ export default async function PoliticianPage({
         </section>
       )}
 
-      {/* Tabs */}
+      {/* ═══ TABS ═══ */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8">
         <Suspense>
           <ProfileTabs branch={politician.branch} />
         </Suspense>
+        <div className="border-t border-gray-200 mt-1" />
       </section>
 
-      {/* Content */}
+      {/* ═══ TAB CONTENT ═══ */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-        {/* ===== PROMISES TAB ===== */}
+        {/* PROMISES TAB */}
         {activeTab === "promises" && (
           <>
-            {/* Filters + View Toggle */}
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <Suspense>
                 <PromiseFilters />
@@ -441,10 +434,9 @@ export default async function PoliticianPage({
               </Suspense>
             </div>
 
-            {/* Timeline View */}
             {isTimelineView && (
               <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <h2 className="text-lg font-bold text-[#1A1A1A] mb-4">
+                <h2 className="text-lg font-headline text-brand-charcoal mb-4">
                   Promise Timeline
                 </h2>
                 <PromiseTimeline
@@ -459,7 +451,6 @@ export default async function PoliticianPage({
               </div>
             )}
 
-            {/* List View */}
             {!isTimelineView && (
               <div className="space-y-4">
                 {filteredPromises.map((promise) => (
@@ -467,7 +458,7 @@ export default async function PoliticianPage({
                 ))}
                 {filteredPromises.length === 0 && (
                   <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-                    <p className="text-[#4A4A4A]">
+                    <p className="text-slate">
                       No promises match the current filters.
                     </p>
                   </div>
@@ -477,7 +468,7 @@ export default async function PoliticianPage({
           </>
         )}
 
-        {/* ===== VOTING RECORD TAB (legislative only) ===== */}
+        {/* VOTING RECORD TAB */}
         {politician.branch !== "executive" && activeTab === "votes" && (
           <>
             <div className="mb-6">
@@ -496,18 +487,18 @@ export default async function PoliticianPage({
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <h3 className="text-base font-bold text-[#1A1A1A]">
+                          <h3 className="text-base font-headline text-brand-charcoal">
                             {vote.bill.title}
                           </h3>
-                          <span className="text-xs text-gray-400 font-mono">
+                          <span className="font-mono text-xs text-slate">
                             {vote.bill.billNumber}
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 font-medium text-[#4A4A4A]">
+                          <span className="inline-flex items-center rounded-md bg-cool-gray px-2 py-1 font-medium text-slate">
                             {vote.bill.category}
                           </span>
-                          <span className="text-gray-400">
+                          <span className="font-mono text-gray-400">
                             {vote.bill.dateVoted.toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
@@ -522,9 +513,12 @@ export default async function PoliticianPage({
                               href={vote.bill.sourceUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[#2563EB] hover:underline"
+                              className="inline-flex items-center gap-0.5 text-brand-red hover:underline"
                             >
-                              Official page &rarr;
+                              Source
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
                             </a>
                           )}
                         </div>
@@ -539,7 +533,7 @@ export default async function PoliticianPage({
               ))}
               {filteredVotes.length === 0 && (
                 <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-                  <p className="text-[#4A4A4A]">
+                  <p className="text-slate">
                     {chamberVotes.length === 0
                       ? "No voting records available yet."
                       : "No votes match the current filters."}
@@ -550,9 +544,8 @@ export default async function PoliticianPage({
           </>
         )}
 
-        {/* ===== SAYS VS DOES TAB ===== */}
+        {/* SAYS VS DOES TAB */}
         {activeTab === "saysvsdoes" && (() => {
-          // Build a map of billId -> vote position (chamber-filtered)
           const voteByBillId: Record<string, VotePosition> = {};
           for (const v of chamberVotes) {
             voteByBillId[v.billId] = v.position;
@@ -593,7 +586,7 @@ export default async function PoliticianPage({
           );
         })()}
 
-        {/* ===== EXECUTIVE ACTIONS TAB (executive only) ===== */}
+        {/* EXECUTIVE ACTIONS TAB */}
         {politician.branch === "executive" && activeTab === "actions" && (
           <ExecutiveActionsTab
             actions={politician.executiveActions.map((a) => ({
@@ -608,12 +601,12 @@ export default async function PoliticianPage({
           />
         )}
 
-        {/* ===== NEWS TAB ===== */}
+        {/* NEWS TAB */}
         {activeTab === "news" && (
           <NewsTab politicianId={politician.id} isAdmin={isAdmin} />
         )}
 
-        {/* ===== MONEY TRAIL TAB ===== */}
+        {/* MONEY TRAIL TAB */}
         {activeTab === "money" && (
           <MoneyTrail
             donations={politician.donations.map((d) => ({
@@ -667,31 +660,30 @@ function PromiseCard({
       <div className="p-5">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <h3 className="text-base font-bold text-[#1A1A1A]">
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <h3 className="text-lg font-headline text-brand-charcoal">
                 {promise.title}
               </h3>
-              <StatusBadge status={promise.status} />
+              <StatusStamp status={promise.status} size="sm" id={promise.id} />
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 font-medium text-[#4A4A4A]">
+              <span className="inline-flex items-center rounded-md bg-cool-gray px-2 py-1 font-medium text-slate">
                 {promise.category}
               </span>
               <span
                 className="inline-flex items-center gap-0.5 text-gray-400"
-                title={`Promise Severity: ${severityLabel} (${promise.weight}/5)`}
+                title={`Severity: ${severityLabel} (${promise.weight}/5)`}
               >
                 {Array.from({ length: 5 }, (_, i) => (
                   <span
                     key={i}
                     className={`inline-block h-1.5 w-1.5 rounded-full ${
-                      i < promise.weight ? "bg-gray-500" : "bg-gray-200"
+                      i < promise.weight ? "bg-brand-charcoal" : "bg-gray-200"
                     }`}
                   />
                 ))}
               </span>
-              <span className="text-gray-400">
-                Made{" "}
+              <span className="font-mono text-gray-400">
                 {promise.dateMade.toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
@@ -703,16 +695,18 @@ function PromiseCard({
                   href={promise.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#2563EB] hover:underline"
+                  className="inline-flex items-center gap-0.5 text-brand-red hover:underline"
                 >
-                  Source &rarr;
+                  Source
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
                 </a>
               )}
             </div>
           </div>
         </div>
 
-        {/* Expandable description */}
         <ExpandableDescription description={promise.description} />
       </div>
     </div>

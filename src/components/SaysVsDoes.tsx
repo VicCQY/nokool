@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { PromiseStatus, VotePosition } from "@prisma/client";
-import { StatusBadge } from "./StatusBadge";
+import { StatusStamp } from "./StatusStamp";
 import { getVoteAlignment, getAlignmentExplanation } from "@/lib/promise-bill-matcher";
 
 interface BillLinkData {
@@ -100,37 +100,28 @@ export function SaysVsDoes({
 
   return (
     <div className="space-y-6">
-      {/* Summary */}
+      {/* Summary stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-status-fulfilled" />
-            <p className="text-2xl font-data font-bold text-brand-charcoal">{supportsCount}</p>
-          </div>
+        <div className="rounded-xl border border-gray-200 border-t-2 border-t-status-fulfilled bg-white p-4 shadow-sm">
+          <p className="text-2xl font-mono font-bold text-brand-charcoal">{supportsCount}</p>
           <p className="text-xs text-slate mt-1">
             {isExecutive ? "Actions supporting promises" : "Votes supporting promises"}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-brand-red" />
-            <p className="text-2xl font-data font-bold text-brand-charcoal">{opposesCount}</p>
-          </div>
+        <div className="rounded-xl border border-gray-200 border-t-2 border-t-brand-red bg-white p-4 shadow-sm">
+          <p className="text-2xl font-mono font-bold text-brand-charcoal">{opposesCount}</p>
           <p className="text-xs text-slate mt-1">
             {isExecutive ? "Actions opposing promises" : "Votes opposing promises"}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-gray-400" />
-            <p className="text-2xl font-data font-bold text-brand-charcoal">{noDataCount}</p>
-          </div>
+        <div className="rounded-xl border border-gray-200 border-t-2 border-t-gray-400 bg-white p-4 shadow-sm">
+          <p className="text-2xl font-mono font-bold text-brand-charcoal">{noDataCount}</p>
           <p className="text-xs text-slate mt-1">Promises with no linked data</p>
         </div>
       </div>
 
       {/* Promise cards */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-headline text-brand-charcoal mb-1">
           Says vs Does
         </h2>
@@ -172,10 +163,10 @@ function PromiseCard({
   return (
     <div className="rounded-lg border border-gray-100 bg-brand-paper p-4">
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <span className="text-sm font-semibold text-brand-charcoal">
+        <span className="text-sm font-headline text-brand-charcoal">
           &ldquo;{promise.title}&rdquo;
         </span>
-        <StatusBadge status={promise.status} />
+        <StatusStamp status={promise.status} size="sm" id={promise.id} />
         <span className="inline-flex items-center rounded-md bg-cool-gray px-2 py-0.5 text-xs font-medium text-slate">
           {promise.category}
         </span>
@@ -187,7 +178,7 @@ function PromiseCard({
             <span
               key={i}
               className={`inline-block h-1.5 w-1.5 rounded-full ${
-                i < promise.weight ? "bg-gray-500" : "bg-gray-200"
+                i < promise.weight ? "bg-brand-charcoal" : "bg-gray-200"
               }`}
             />
           ))}
@@ -195,9 +186,8 @@ function PromiseCard({
       </div>
 
       {isExecutive ? (
-        // Executive: show linked actions
         linkedActions.length === 0 ? (
-          <p className="text-xs text-slate italic ml-1">
+          <p className="text-xs text-slate ml-1">
             No executive actions linked to this promise yet
           </p>
         ) : (
@@ -215,7 +205,10 @@ function PromiseCard({
                     {action.title}
                   </span>
                 </div>
-                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
                   Action Taken
                 </span>
               </div>
@@ -223,7 +216,6 @@ function PromiseCard({
           </div>
         )
       ) : (
-        // Legislative: show linked bills
         links.length === 0 ? (
           <p className="text-xs text-slate ml-1">
             No voting data linked yet
@@ -236,7 +228,7 @@ function PromiseCard({
             {remaining > 0 && !expanded && (
               <button
                 onClick={() => setExpanded(true)}
-                className="text-xs font-medium text-[#2563EB] hover:underline ml-1"
+                className="text-xs font-medium text-brand-red hover:underline ml-1"
               >
                 Show {remaining} more bill{remaining !== 1 ? "s" : ""}
               </button>
@@ -244,7 +236,7 @@ function PromiseCard({
             {expanded && remaining > 0 && (
               <button
                 onClick={() => setExpanded(false)}
-                className="text-xs font-medium text-[#2563EB] hover:underline ml-1"
+                className="text-xs font-medium text-brand-red hover:underline ml-1"
               >
                 Show less
               </button>
@@ -268,25 +260,29 @@ function BillLinkRow({ link }: { link: BillLinkData }) {
           <span className="text-sm text-brand-charcoal truncate">
             {link.bill.title}
           </span>
-          <span className="text-xs font-data text-slate hidden sm:inline flex-shrink-0">
+          <span className="font-mono text-xs text-slate hidden sm:inline flex-shrink-0">
             {link.bill.billNumber}
           </span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Vote position badge - NEUTRAL gray */}
           {votePos && (
             <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
               {votePos === "YEA" ? "Yea" : votePos === "NAY" ? "Nay" : votePos === "ABSTAIN" ? "Abstain" : "Absent"}
             </span>
           )}
-          {/* Alignment result badge - GREEN/RED/GRAY */}
           {alignment === "supports" && (
-            <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
               Supports Promise
             </span>
           )}
           {alignment === "opposes" && (
-            <span className="inline-flex items-center rounded-full bg-muted-red px-2 py-0.5 text-xs font-semibold text-red-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted-red px-2 py-0.5 text-xs font-semibold text-red-700">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
               Opposes Promise
             </span>
           )}
@@ -302,7 +298,6 @@ function BillLinkRow({ link }: { link: BillLinkData }) {
           )}
         </div>
       </div>
-      {/* Explanation text */}
       {explanation && (
         <p className="text-[11px] text-slate mt-0.5 ml-0">
           {explanation}

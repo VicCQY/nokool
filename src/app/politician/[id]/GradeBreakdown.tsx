@@ -73,7 +73,7 @@ export function GradeBreakdown({
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-5 py-3 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+        className="w-full flex items-center justify-between px-5 py-3 text-sm text-gray-500 hover:text-brand-charcoal transition-colors"
       >
         <span>How is this grade calculated?</span>
         <svg
@@ -132,7 +132,7 @@ export function GradeBreakdown({
               <tbody>
                 {rows.map((row, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    <td className="py-2 pr-3 text-gray-700 max-w-[200px] truncate">
+                    <td className="py-2 pr-3 text-brand-charcoal max-w-[200px] truncate">
                       {row.title}
                     </td>
                     <td className="py-2 pr-3 text-gray-500 whitespace-nowrap">
@@ -143,7 +143,7 @@ export function GradeBreakdown({
                     </td>
                     <td className="py-2 pr-3 text-gray-500">{row.statusLabel}</td>
                     <td className="py-2 pr-3 text-gray-500">{row.statusValue}</td>
-                    <td className="py-2 text-right font-mono text-gray-700">
+                    <td className="py-2 text-right font-mono text-brand-charcoal">
                       {row.score > 0 ? "+" : ""}
                       {row.score.toFixed(1)}
                     </td>
@@ -152,10 +152,10 @@ export function GradeBreakdown({
               </tbody>
               <tfoot>
                 <tr className="border-t border-gray-200">
-                  <td colSpan={5} className="py-2 pr-3 font-semibold text-gray-700">
+                  <td colSpan={5} className="py-2 pr-3 font-mono font-semibold text-brand-charcoal">
                     Total: {totalWeightedScore.toFixed(1)} / {totalMaxWeight.toFixed(1)}
                   </td>
-                  <td className="py-2 text-right font-semibold text-gray-700">
+                  <td className="py-2 text-right font-mono font-semibold text-brand-charcoal">
                     {finalPercent.toFixed(1)}%
                   </td>
                 </tr>

@@ -40,21 +40,27 @@ export function ProfileTabs({ branch }: { branch: string }) {
   }
 
   return (
-    <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-      {tabs.map(({ key, label, shortLabel }) => (
-        <button
-          key={key}
-          onClick={() => setTab(key)}
-          className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
-            currentTab === key
-              ? "bg-[#0D0D0D] text-white shadow-sm"
-              : "bg-white text-[#4A4A4A] hover:bg-gray-100 border border-gray-200"
-          }`}
-        >
-          <span className="hidden sm:inline">{label}</span>
-          <span className="sm:hidden">{shortLabel}</span>
-        </button>
-      ))}
+    <div className="relative">
+      {/* Fade edges for scroll indication on mobile */}
+      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-white to-transparent z-10 sm:hidden" />
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-white to-transparent z-10 sm:hidden" />
+
+      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide px-1">
+        {tabs.map(({ key, label, shortLabel }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 ${
+              currentTab === key
+                ? "bg-[#0D0D0D] text-white shadow-sm"
+                : "text-slate hover:bg-cool-gray"
+            }`}
+          >
+            <span className="hidden sm:inline">{label}</span>
+            <span className="sm:hidden">{shortLabel}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

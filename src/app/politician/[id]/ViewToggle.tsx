@@ -24,7 +24,7 @@ export function ViewToggle() {
         className={`px-4 py-2 text-sm font-medium transition-all duration-200 ${
           currentView !== "timeline"
             ? "bg-[#0D0D0D] text-white"
-            : "text-[#4A4A4A] hover:bg-gray-50"
+            : "text-slate hover:bg-gray-50"
         }`}
       >
         List
@@ -34,7 +34,7 @@ export function ViewToggle() {
         className={`px-4 py-2 text-sm font-medium transition-all duration-200 ${
           currentView === "timeline"
             ? "bg-[#0D0D0D] text-white"
-            : "text-[#4A4A4A] hover:bg-gray-50"
+            : "text-slate hover:bg-gray-50"
         }`}
       >
         Timeline

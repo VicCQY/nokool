@@ -36,7 +36,7 @@ export function CategoryBreakdownSection({ promises }: Props) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-lg font-bold text-[#1A1A1A]">
+        <h2 className="text-lg font-headline text-brand-charcoal">
           Where They Deliver (And Where They Don&apos;t)
         </h2>
         {canShowRadar && !isMobile && (
@@ -46,7 +46,7 @@ export function CategoryBreakdownSection({ promises }: Props) {
               className={`px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
                 chartType === "radar"
                   ? "bg-[#0D0D0D] text-white"
-                  : "text-[#4A4A4A] hover:bg-gray-50"
+                  : "text-slate hover:bg-gray-50"
               }`}
             >
               Radar
@@ -56,7 +56,7 @@ export function CategoryBreakdownSection({ promises }: Props) {
               className={`px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
                 chartType === "bars"
                   ? "bg-[#0D0D0D] text-white"
-                  : "text-[#4A4A4A] hover:bg-gray-50"
+                  : "text-slate hover:bg-gray-50"
               }`}
             >
               Bars

@@ -33,7 +33,7 @@ export function PromiseFilters() {
       <select
         value={currentCategory}
         onChange={(e) => updateFilter("category", e.target.value)}
-        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-[#4A4A4A] shadow-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none transition-colors"
+        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate shadow-sm focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal focus:outline-none transition-colors"
       >
         <option value="">All Categories</option>
         {CATEGORIES.map((cat) => (
@@ -45,7 +45,7 @@ export function PromiseFilters() {
       <select
         value={currentStatus}
         onChange={(e) => updateFilter("status", e.target.value)}
-        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-[#4A4A4A] shadow-sm focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none transition-colors"
+        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate shadow-sm focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal focus:outline-none transition-colors"
       >
         <option value="">All Statuses</option>
         {STATUSES.map((s) => (

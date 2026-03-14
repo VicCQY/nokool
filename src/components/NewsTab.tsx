@@ -102,7 +102,7 @@ export function NewsTab({
   if (!apiConfigured) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-        <p className="text-[#4A4A4A]">News unavailable — API not configured</p>
+        <p className="text-slate">News unavailable — API not configured</p>
       </div>
     );
   }
@@ -127,7 +127,7 @@ export function NewsTab({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           {lastFetched && (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs font-mono text-gray-400">
               Last updated: {timeAgo(lastFetched)}
             </p>
           )}
@@ -187,26 +187,26 @@ export function NewsTab({
                   href={article.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-base font-bold text-[#1A1A1A] hover:text-[#2563EB] transition-colors"
+                  className="text-base font-headline text-brand-charcoal hover:text-brand-red transition-colors"
                 >
                   {article.title}
                 </a>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
-                <span className="font-medium text-gray-500">{article.sourceName}</span>
+                <span className="font-mono font-medium text-gray-500">{article.sourceName}</span>
                 <span className="text-gray-300">&middot;</span>
-                <span className="text-gray-400">
+                <span className="font-mono text-gray-400">
                   {new Date(article.publishedAt).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
                     year: "numeric",
                   })}
                 </span>
-                <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 font-medium text-[#4A4A4A]">
+                <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 font-medium text-slate">
                   {article.category}
                 </span>
               </div>
-              <p className="text-sm text-[#4A4A4A] leading-relaxed">
+              <p className="text-sm text-slate leading-relaxed">
                 {article.summary}
               </p>
             </div>
@@ -215,13 +215,13 @@ export function NewsTab({
 
         {filtered.length === 0 && articles.length > 0 && (
           <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-            <p className="text-[#4A4A4A]">No articles match the selected category.</p>
+            <p className="text-slate">No articles match the selected category.</p>
           </div>
         )}
 
         {articles.length === 0 && !error && (
           <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-            <p className="text-[#4A4A4A]">
+            <p className="text-slate">
               No news articles yet.
               {isAdmin
                 ? " Click 'Refresh News' to fetch the latest articles."

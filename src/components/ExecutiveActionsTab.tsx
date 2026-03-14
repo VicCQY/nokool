@@ -49,14 +49,14 @@ const TYPE_CONFIG: Record<
   },
 };
 
-const STAT_CONFIG: { key: ExecutiveActionType; dotColor: string }[] = [
-  { key: "EXECUTIVE_ORDER", dotColor: "bg-blue-500" },
-  { key: "PRESIDENTIAL_MEMORANDUM", dotColor: "bg-purple-500" },
-  { key: "PROCLAMATION", dotColor: "bg-teal-500" },
-  { key: "BILL_SIGNED", dotColor: "bg-green-500" },
-  { key: "BILL_VETOED", dotColor: "bg-red-500" },
-  { key: "POLICY_DIRECTIVE", dotColor: "bg-amber-500" },
-];
+const STAT_TOP_BORDERS: Record<string, string> = {
+  EXECUTIVE_ORDER: "border-t-blue-500",
+  PRESIDENTIAL_MEMORANDUM: "border-t-purple-500",
+  PROCLAMATION: "border-t-teal-500",
+  BILL_SIGNED: "border-t-green-500",
+  BILL_VETOED: "border-t-red-500",
+  POLICY_DIRECTIVE: "border-t-amber-500",
+};
 
 export function ExecutiveActionsTab({
   actions,
@@ -90,26 +90,23 @@ export function ExecutiveActionsTab({
       {/* Stats */}
       {actions.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-6">
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-2xl font-bold text-[#1A1A1A]">
+          <div className="rounded-xl border border-gray-200 border-t-2 border-t-brand-charcoal bg-white p-4 shadow-sm">
+            <p className="text-2xl font-mono font-bold text-brand-charcoal">
               {actions.length}
             </p>
-            <p className="text-xs text-[#4A4A4A] mt-1">Total Actions</p>
+            <p className="text-xs text-slate mt-1">Total Actions</p>
           </div>
-          {STAT_CONFIG.map(({ key, dotColor }) => {
+          {Object.entries(TYPE_CONFIG).map(([key, cfg]) => {
             const count = typeCounts[key] || 0;
             if (count === 0) return null;
             return (
               <div
                 key={key}
-                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                className={`rounded-xl border border-gray-200 border-t-2 ${STAT_TOP_BORDERS[key]} bg-white p-4 shadow-sm`}
               >
-                <div className="flex items-center gap-2">
-                  <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
-                  <p className="text-2xl font-bold text-[#1A1A1A]">{count}</p>
-                </div>
-                <p className="text-xs text-[#4A4A4A] mt-1">
-                  {TYPE_CONFIG[key].label}
+                <p className="text-2xl font-mono font-bold text-brand-charcoal">{count}</p>
+                <p className="text-xs text-slate mt-1">
+                  {cfg.label}
                 </p>
               </div>
             );
@@ -122,7 +119,7 @@ export function ExecutiveActionsTab({
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900"
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate shadow-sm focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal focus:outline-none"
         >
           <option value="all">All Types</option>
           {types.map((t) => (
@@ -134,7 +131,7 @@ export function ExecutiveActionsTab({
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900"
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate shadow-sm focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal focus:outline-none"
         >
           <option value="all">All Categories</option>
           {categories.map((c) => (
@@ -152,7 +149,7 @@ export function ExecutiveActionsTab({
         ))}
         {filtered.length === 0 && (
           <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-            <p className="text-[#4A4A4A]">
+            <p className="text-slate">
               {actions.length === 0
                 ? "No executive actions tracked yet."
                 : "No actions match the current filters."}
@@ -179,15 +176,15 @@ function ActionCard({ action }: { action: ActionData }) {
               >
                 {cfg.label}
               </span>
-              <h3 className="text-base font-bold text-[#1A1A1A]">
+              <h3 className="text-base font-headline text-brand-charcoal">
                 {action.title}
               </h3>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 font-medium text-[#4A4A4A]">
+              <span className="inline-flex items-center rounded-md bg-cool-gray px-2 py-1 font-medium text-slate">
                 {action.category}
               </span>
-              <span className="text-gray-400">
+              <span className="font-mono text-gray-400">
                 {new Date(action.dateIssued).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
@@ -199,20 +196,22 @@ function ActionCard({ action }: { action: ActionData }) {
                   href={action.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#2563EB] hover:underline"
+                  className="inline-flex items-center gap-0.5 text-brand-red hover:underline"
                 >
-                  Source &rarr;
+                  Source
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
                 </a>
               )}
             </div>
           </div>
         </div>
 
-        {/* Expandable summary */}
         {action.summary && (
           <div className="mt-3">
             <p
-              className={`text-sm text-[#4A4A4A] leading-relaxed ${
+              className={`text-sm text-slate leading-relaxed ${
                 !expanded ? "line-clamp-2" : ""
               }`}
             >
@@ -221,7 +220,7 @@ function ActionCard({ action }: { action: ActionData }) {
             {action.summary.length > 120 && (
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="mt-1 text-xs text-[#2563EB] hover:underline"
+                className="mt-1 text-xs text-brand-red hover:underline"
               >
                 {expanded ? "Show less" : "Read more"}
               </button>

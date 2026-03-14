@@ -11,7 +11,7 @@ export function ExpandableDescription({
 
   if (description.length < 120) {
     return (
-      <p className="mt-3 text-sm text-[#4A4A4A] leading-relaxed">
+      <p className="mt-3 text-sm text-slate leading-relaxed">
         {description}
       </p>
     );
@@ -19,12 +19,12 @@ export function ExpandableDescription({
 
   return (
     <div className="mt-3">
-      <p className="text-sm text-[#4A4A4A] leading-relaxed">
+      <p className="text-sm text-slate leading-relaxed">
         {expanded ? description : `${description.slice(0, 120)}...`}
       </p>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="mt-1 text-xs font-medium text-[#2563EB] hover:underline"
+        className="mt-1 text-xs font-medium text-brand-red hover:underline"
       >
         {expanded ? "Show less" : "Read more"}
       </button>
