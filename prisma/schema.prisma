@@ -86,6 +86,7 @@ model Promise {
   politicianId   String
   politician     Politician            @relation(fields: [politicianId], references: [id], onDelete: Cascade)
   statusChanges  PromiseStatusChange[]
+  billLinks      PromiseBillLink[]
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
 
@@ -116,9 +117,10 @@ model Bill {
   session     String
   dateVoted   DateTime
   sourceUrl   String?
-  votes       Vote[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  votes        Vote[]
+  promiseLinks PromiseBillLink[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([billNumber, country])
 }
@@ -217,4 +219,19 @@ model IssueWeight {
   weight    Float
   source    String?
   updatedAt DateTime @updatedAt
+}
+
+model PromiseBillLink {
+  id        String   @id @default(cuid())
+  promiseId String
+  promise   Promise  @relation(fields: [promiseId], references: [id], onDelete: Cascade)
+  billId    String
+  bill      Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  relevance String   @default("auto")
+  alignment String   @default("supports")
+  createdAt DateTime @default(now())
+
+  @@unique([promiseId, billId])
+  @@index([promiseId])
+  @@index([billId])
 }

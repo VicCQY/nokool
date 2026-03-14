@@ -82,6 +82,19 @@ export default async function PoliticianPage({
         orderBy: { dateMade: "desc" },
         include: {
           statusChanges: { orderBy: { changedAt: "asc" } },
+          billLinks: {
+            include: {
+              bill: {
+                select: {
+                  id: true,
+                  title: true,
+                  billNumber: true,
+                  category: true,
+                  dateVoted: true,
+                },
+              },
+            },
+          },
         },
       },
       votes: {
@@ -528,36 +541,47 @@ export default async function PoliticianPage({
         )}
 
         {/* ===== SAYS VS DOES TAB ===== */}
-        {activeTab === "saysvsdoes" && (
-          <SaysVsDoes
-            promises={politician.promises.map((p) => ({
-              id: p.id,
-              title: p.title,
-              category: p.category,
-              status: p.status,
-            }))}
-            votes={politician.votes.map((v) => ({
-              id: v.id,
-              position: v.position,
-              bill: {
-                id: v.bill.id,
-                title: v.bill.title,
-                billNumber: v.bill.billNumber,
-                category: v.bill.category,
-                dateVoted: v.bill.dateVoted.toISOString(),
-              },
-            }))}
-            actions={politician.executiveActions.map((a) => ({
-              id: a.id,
-              title: a.title,
-              type: a.type,
-              category: a.category,
-              dateIssued: a.dateIssued.toISOString(),
-              relatedPromises: a.relatedPromises,
-            }))}
-            branch={politician.branch}
-          />
-        )}
+        {activeTab === "saysvsdoes" && (() => {
+          // Build a map of billId -> vote position for this politician
+          const voteByBillId: Record<string, VotePosition> = {};
+          for (const v of politician.votes) {
+            voteByBillId[v.billId] = v.position;
+          }
+
+          return (
+            <SaysVsDoes
+              promises={politician.promises.map((p) => ({
+                id: p.id,
+                title: p.title,
+                category: p.category,
+                status: p.status,
+                weight: p.weight,
+                billLinks: (p.billLinks || []).map((link) => ({
+                  id: link.id,
+                  alignment: link.alignment,
+                  relevance: link.relevance,
+                  bill: {
+                    id: link.bill.id,
+                    title: link.bill.title,
+                    billNumber: link.bill.billNumber,
+                    category: link.bill.category,
+                    dateVoted: link.bill.dateVoted.toISOString(),
+                  },
+                  votePosition: voteByBillId[link.billId] ?? null,
+                })),
+              }))}
+              actions={politician.executiveActions.map((a) => ({
+                id: a.id,
+                title: a.title,
+                type: a.type,
+                category: a.category,
+                dateIssued: a.dateIssued.toISOString(),
+                relatedPromises: a.relatedPromises,
+              }))}
+              branch={politician.branch}
+            />
+          );
+        })()}
 
         {/* ===== EXECUTIVE ACTIONS TAB (executive only) ===== */}
         {politician.branch === "executive" && activeTab === "actions" && (

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { PromiseForm } from "../PromiseForm";
+import { BillLinksManager } from "./BillLinksManager";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +12,26 @@ export default async function EditPromisePage({
 }) {
   const promise = await prisma.promise.findUnique({
     where: { id: params.promiseId },
+    include: {
+      billLinks: {
+        include: {
+          bill: {
+            select: {
+              id: true,
+              title: true,
+              billNumber: true,
+              category: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!promise) notFound();
 
   return (
-    <div>
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Edit Promise</h1>
       <PromiseForm
         politicianId={params.id}
@@ -30,6 +45,20 @@ export default async function EditPromisePage({
           status: promise.status,
           weight: promise.weight,
         }}
+      />
+      <BillLinksManager
+        promiseId={promise.id}
+        initialLinks={promise.billLinks.map((link) => ({
+          id: link.id,
+          alignment: link.alignment,
+          relevance: link.relevance,
+          bill: {
+            id: link.bill.id,
+            title: link.bill.title,
+            billNumber: link.bill.billNumber,
+            category: link.bill.category,
+          },
+        }))}
       />
     </div>
   );
