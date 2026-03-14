@@ -165,6 +165,7 @@ export async function POST(request: NextRequest) {
       dateMade: Date;
       sourceUrl: string;
       weight: number;
+      expectedMonths: number | null;
       rowNum: number;
     }
 
@@ -192,6 +193,18 @@ export async function POST(request: NextRequest) {
           );
         } else {
           weight = parsed;
+        }
+      }
+      const expectedMonthsRaw = str(row[8]);
+      let expectedMonths: number | null = null;
+      if (expectedMonthsRaw) {
+        const parsed = parseInt(expectedMonthsRaw, 10);
+        if (isNaN(parsed) || parsed < 1) {
+          errors.push(
+            `Promises sheet, row ${rowNum}: expectedMonths '${expectedMonthsRaw}' must be a positive integer`
+          );
+        } else {
+          expectedMonths = parsed;
         }
       }
 
@@ -230,6 +243,7 @@ export async function POST(request: NextRequest) {
           dateMade,
           sourceUrl,
           weight,
+          expectedMonths,
           rowNum,
         });
       }
@@ -427,6 +441,7 @@ export async function POST(request: NextRequest) {
           dateMade: prom.dateMade,
           sourceUrl: prom.sourceUrl || null,
           weight: prom.weight,
+          expectedMonths: prom.expectedMonths,
           politicianId,
         },
       });

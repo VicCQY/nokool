@@ -414,6 +414,7 @@ export default async function PoliticianPage({
               status: p.status,
               weight: p.weight,
               dateMade: p.dateMade.toISOString(),
+              expectedMonths: p.expectedMonths,
             }))}
             termProgress={termProgress}
             termEndStr={resolvedTermEnd.toISOString()}

@@ -44,6 +44,7 @@ export default async function EditPromisePage({
           sourceUrl: promise.sourceUrl ?? "",
           status: promise.status,
           weight: promise.weight,
+          expectedMonths: promise.expectedMonths,
         }}
       />
       <BillLinksManager

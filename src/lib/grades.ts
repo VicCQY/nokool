@@ -5,6 +5,7 @@ interface PromiseRecord {
   category?: string;
   weight?: number;
   dateMade?: Date;
+  expectedMonths?: number | null;
 }
 
 interface PoliticianTermInfo {
@@ -28,6 +29,7 @@ export function calculateFulfillment(
       category: p.category || "Other",
       weight: p.weight || 3,
       dateMade: p.dateMade || termInfo.termStart,
+      expectedMonths: p.expectedMonths,
     }));
 
     const result = calculateWeightedGrade(

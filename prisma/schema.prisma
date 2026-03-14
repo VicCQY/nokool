@@ -84,6 +84,7 @@ model Promise {
   sourceUrl      String?
   status         PromiseStatus         @default(NOT_STARTED)
   weight         Int                   @default(3)
+  expectedMonths Int?
   politicianId   String
   politician     Politician            @relation(fields: [politicianId], references: [id], onDelete: Cascade)
   statusChanges  PromiseStatusChange[]

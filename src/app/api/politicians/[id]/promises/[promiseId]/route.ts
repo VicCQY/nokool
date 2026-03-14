@@ -18,6 +18,9 @@ export async function PUT(
   const weight = body.weight !== undefined
     ? Math.min(5, Math.max(1, Number(body.weight) || 3))
     : undefined;
+  const expectedMonths = body.expectedMonths !== undefined
+    ? (body.expectedMonths != null ? Math.max(1, Math.round(Number(body.expectedMonths))) : null)
+    : undefined;
 
   const promise = await prisma.promise.update({
     where: { id: params.promiseId },
@@ -29,6 +32,7 @@ export async function PUT(
       sourceUrl: body.sourceUrl || null,
       status: newStatus,
       ...(weight !== undefined && { weight }),
+      ...(expectedMonths !== undefined && { expectedMonths }),
     },
   });
 

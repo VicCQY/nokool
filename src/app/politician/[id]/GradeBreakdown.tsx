@@ -11,6 +11,7 @@ interface Props {
     status: string;
     weight: number;
     dateMade: string;
+    expectedMonths: number | null;
   }>;
   termProgress: number;
   termEndStr: string;
@@ -49,7 +50,7 @@ export function GradeBreakdown({
   const rows = promises.map((p) => {
     const severity = p.weight || 3;
     const issueWeight = issueWeights[p.category] || 1.0;
-    const promiseProgress = getPromiseProgress(new Date(p.dateMade), termEnd);
+    const promiseProgress = getPromiseProgress(new Date(p.dateMade), termEnd, p.expectedMonths);
     const statusValue = getTimeAdjustedStatusValue(p.status, promiseProgress);
     const combinedWeight = severity * issueWeight;
     const score = combinedWeight * statusValue;

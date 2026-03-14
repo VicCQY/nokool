@@ -12,6 +12,14 @@ const SEVERITY_OPTIONS = [
   { value: 5, label: "Cornerstone" },
 ];
 
+const TIMELINE_OPTIONS = [
+  { value: 1, label: "1 month (Day 1 promise)" },
+  { value: 6, label: "6 months" },
+  { value: 12, label: "12 months" },
+  { value: 24, label: "24 months" },
+  { value: null, label: "Full term" },
+];
+
 interface PromiseData {
   id?: string;
   title: string;
@@ -21,6 +29,7 @@ interface PromiseData {
   sourceUrl: string;
   status: string;
   weight: number;
+  expectedMonths: number | null;
 }
 
 export function PromiseForm({
@@ -41,6 +50,7 @@ export function PromiseForm({
       sourceUrl: "",
       status: "NOT_STARTED",
       weight: 3,
+      expectedMonths: null,
     },
   );
 
@@ -139,6 +149,44 @@ export function PromiseForm({
             </button>
           ))}
         </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Expected Timeline
+        </label>
+        <p className="text-xs text-gray-400 mb-2">
+          How many months should this promise reasonably take? Leave blank to use
+          the full term length.
+        </p>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {TIMELINE_OPTIONS.map((opt) => (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => setForm({ ...form, expectedMonths: opt.value })}
+              className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                form.expectedMonths === opt.value
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <input
+          type="number"
+          min={1}
+          placeholder="Custom months (optional)"
+          className={inputClass}
+          value={form.expectedMonths ?? ""}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              expectedMonths: e.target.value ? parseInt(e.target.value, 10) : null,
+            })
+          }
+        />
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">

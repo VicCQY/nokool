@@ -14,6 +14,7 @@ export interface PromiseForGrade {
   category: string;
   weight: number;
   dateMade: Date;
+  expectedMonths?: number | null;
 }
 
 export function calculateWeightedGrade(
@@ -38,7 +39,7 @@ export function calculateWeightedGrade(
     const severity = promise.weight || 3;
     const issueWeight = weights[promise.category] || 1.0;
     // Per-promise time decay based on when the promise was made
-    const promiseProgress = getPromiseProgress(promise.dateMade, resolvedTermEnd);
+    const promiseProgress = getPromiseProgress(promise.dateMade, resolvedTermEnd, promise.expectedMonths);
     const statusValue = getTimeAdjustedStatusValue(promise.status, promiseProgress);
     const combinedWeight = severity * issueWeight;
 
