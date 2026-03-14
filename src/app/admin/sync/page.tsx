@@ -34,11 +34,20 @@ interface FecSyncResult {
   errors: string[];
 }
 
+interface ExecSyncResult {
+  executiveOrders: number;
+  memorandums: number;
+  proclamations: number;
+  updated: number;
+  errors: string[];
+}
+
 interface PoliticianInfo {
   id: string;
   name: string;
   fecCandidateId: string | null;
   congressId: string | null;
+  branch: string;
 }
 
 function Spinner() {
@@ -112,6 +121,11 @@ export default function SyncPage() {
   const [fecSyncResults, setFecSyncResults] = useState<Record<string, FecSyncResult>>({});
   const [fecSyncErrors, setFecSyncErrors] = useState<Record<string, string>>({});
 
+  // ── Executive Actions state ──
+  const [execSyncing, setExecSyncing] = useState<string | null>(null);
+  const [execSyncResults, setExecSyncResults] = useState<Record<string, ExecSyncResult>>({});
+  const [execSyncErrors, setExecSyncErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
     fetch("/api/politicians?country=US")
       .then((r) => r.json())
@@ -121,6 +135,7 @@ export default function SyncPage() {
             id: p.id, name: p.name,
             fecCandidateId: p.fecCandidateId,
             congressId: p.congressId,
+            branch: p.branch || "executive",
           }))
         );
       })
@@ -211,6 +226,24 @@ export default function SyncPage() {
       else setFecSyncResults(prev => ({ ...prev, [polId]: data }));
     } catch { setFecSyncErrors(prev => ({ ...prev, [polId]: "Network error" })); }
     finally { setFecSyncing(null); }
+  }
+
+  // ── Executive Actions handlers ──
+  async function handleExecSync(polId: string) {
+    setExecSyncing(polId);
+    setExecSyncResults(prev => { const next = { ...prev }; delete next[polId]; return next; });
+    setExecSyncErrors(prev => { const next = { ...prev }; delete next[polId]; return next; });
+    try {
+      const res = await fetch("/api/admin/sync/executive-actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politicianId: polId }),
+      });
+      const data = await res.json();
+      if (!res.ok) setExecSyncErrors(prev => ({ ...prev, [polId]: data.error || "Sync failed" }));
+      else setExecSyncResults(prev => ({ ...prev, [polId]: data }));
+    } catch { setExecSyncErrors(prev => ({ ...prev, [polId]: "Network error or timeout" })); }
+    finally { setExecSyncing(null); }
   }
 
   function toggleCycle(cycle: number) {
@@ -434,6 +467,57 @@ export default function SyncPage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* ── Executive Actions (Federal Register) Section ── */}
+      <div className="rounded-xl border border-gray-200 bg-white p-6 mt-8">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Executive Actions (Federal Register)</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Sync executive orders, memorandums, and proclamations from the Federal Register API. No API key required.
+        </p>
+
+        <div className="space-y-3">
+          {politicians.filter(p => p.branch === "executive").length === 0 && (
+            <p className="text-xs text-gray-400">No executive branch politicians in the database.</p>
+          )}
+          {politicians.filter(p => p.branch === "executive").map(pol => (
+            <div key={pol.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900">{pol.name}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleExecSync(pol.id)}
+                  disabled={execSyncing !== null}
+                  className="rounded-lg bg-[#0D0D0D] px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {execSyncing === pol.id ? <span className="flex items-center gap-1.5"><Spinner />Syncing...</span> : "Sync Executive Actions"}
+                </button>
+                <Timer running={execSyncing === pol.id} />
+              </div>
+              {execSyncErrors[pol.id] && (
+                <div className="w-full mt-2 rounded-lg border border-red-200 bg-red-50 p-2">
+                  <p className="text-xs text-red-700">{execSyncErrors[pol.id]}</p>
+                </div>
+              )}
+              {execSyncResults[pol.id] && (
+                <div className="w-full mt-2 rounded-lg border border-green-200 bg-green-50 p-2">
+                  <p className="text-xs font-medium text-green-800">
+                    Synced {execSyncResults[pol.id].executiveOrders} executive orders, {execSyncResults[pol.id].memorandums} memorandums, {execSyncResults[pol.id].proclamations} proclamations for {pol.name}
+                  </p>
+                  {execSyncResults[pol.id].updated > 0 && (
+                    <p className="text-xs text-green-600 mt-0.5">{execSyncResults[pol.id].updated} existing actions updated</p>
+                  )}
+                  {execSyncResults[pol.id].errors.length > 0 && (
+                    <div className="mt-1 max-h-40 overflow-y-auto">
+                      <ul className="text-xs text-yellow-600 space-y-0.5">{execSyncResults[pol.id].errors.map((err, i) => <li key={i}>{err}</li>)}</ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
