@@ -64,55 +64,44 @@ export function SaysVsDoes({
   // Calculate summary stats
   let supportsCount = 0;
   let opposesCount = 0;
-  let noDataCount = 0;
 
   for (const promise of promises) {
     if (isExecutive) {
       const actionLinks = promise.actionLinks || [];
-      if (actionLinks.length === 0) {
-        noDataCount++;
-      } else {
-        for (const link of actionLinks) {
-          if (link.alignment === "supports") supportsCount++;
-          else if (link.alignment === "contradicts") opposesCount++;
-        }
+      for (const link of actionLinks) {
+        if (link.alignment === "supports") supportsCount++;
+        else if (link.alignment === "contradicts") opposesCount++;
       }
     } else {
       const links = promise.billLinks || [];
-      if (links.length === 0) {
-        noDataCount++;
-      } else {
-        for (const link of links) {
-          if (!link.votePosition) continue;
-          const result = getVoteAlignment(link.alignment, link.votePosition);
-          if (result === "supports") supportsCount++;
-          else if (result === "opposes") opposesCount++;
-        }
+      for (const link of links) {
+        if (!link.votePosition) continue;
+        const result = getVoteAlignment(link.alignment, link.votePosition);
+        if (result === "supports") supportsCount++;
+        else if (result === "opposes") opposesCount++;
       }
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* Summary stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="rounded-xl border border-gray-200 border-t-2 border-t-status-fulfilled bg-white p-4 shadow-sm">
-          <p className="text-2xl font-mono font-bold text-brand-charcoal">{supportsCount}</p>
-          <p className="text-xs text-slate mt-1">
-            {isExecutive ? "Actions supporting promises" : "Votes supporting promises"}
-          </p>
+      {/* Summary stats — only shown when there is linked data */}
+      {(supportsCount > 0 || opposesCount > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-gray-200 border-t-2 border-t-status-fulfilled bg-white p-4 shadow-sm">
+            <p className="text-2xl font-mono font-bold text-brand-charcoal">{supportsCount}</p>
+            <p className="text-xs text-slate mt-1">
+              {isExecutive ? "Actions supporting promises" : "Votes supporting promises"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-gray-200 border-t-2 border-t-brand-red bg-white p-4 shadow-sm">
+            <p className="text-2xl font-mono font-bold text-brand-charcoal">{opposesCount}</p>
+            <p className="text-xs text-slate mt-1">
+              {isExecutive ? "Actions contradicting promises" : "Votes opposing promises"}
+            </p>
+          </div>
         </div>
-        <div className="rounded-xl border border-gray-200 border-t-2 border-t-brand-red bg-white p-4 shadow-sm">
-          <p className="text-2xl font-mono font-bold text-brand-charcoal">{opposesCount}</p>
-          <p className="text-xs text-slate mt-1">
-            {isExecutive ? "Actions contradicting promises" : "Votes opposing promises"}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 border-t-2 border-t-gray-400 bg-white p-4 shadow-sm">
-          <p className="text-2xl font-mono font-bold text-brand-charcoal">{noDataCount}</p>
-          <p className="text-xs text-slate mt-1">Promises with no linked data</p>
-        </div>
-      </div>
+      )}
 
       {/* Promise cards */}
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -178,11 +167,7 @@ function PromiseCard({
       </div>
 
       {isExecutive ? (
-        actionLinks.length === 0 ? (
-          <p className="text-xs text-slate ml-1">
-            No voting data linked to promises yet. Check back soon.
-          </p>
-        ) : (
+        actionLinks.length > 0 && (
           <div className="space-y-2 ml-3 border-l-2 border-gray-200 pl-3">
             {actionLinks.map((link) => (
               <div
@@ -217,11 +202,7 @@ function PromiseCard({
           </div>
         )
       ) : (
-        links.length === 0 ? (
-          <p className="text-xs text-slate ml-1">
-            No voting data linked to promises yet. Check back soon.
-          </p>
-        ) : (
+        links.length > 0 && (
           <div className="space-y-2">
             {displayLinks.map((link) => (
               <BillLinkRow key={link.id} link={link} />
