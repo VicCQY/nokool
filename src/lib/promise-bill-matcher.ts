@@ -56,13 +56,13 @@ function isStrongKeyword(word: string): boolean {
 }
 
 /**
- * Detect whether a bill supports or opposes a promise based on keywords.
- * Returns "supports" or "opposes".
+ * Detect whether a bill aligns with or contradicts a promise based on keywords.
+ * Returns "aligns" or "contradicts".
  */
 export function detectAlignment(
   promiseTitle: string,
   promiseDescription: string,
-): "supports" | "opposes" {
+): "aligns" | "contradicts" {
   const promiseText = `${promiseTitle} ${promiseDescription}`.toLowerCase();
 
   let hasNegative = false;
@@ -82,18 +82,18 @@ export function detectAlignment(
   }
 
   // If promise uses negative language (oppose, end, stop, ban...),
-  // bills in the same topic area likely OPPOSE the promise direction
+  // bills in the same topic area likely CONTRADICT the promise direction
   // (the bill does the thing the promise opposes)
-  if (hasNegative && !hasPositive) return "opposes";
+  if (hasNegative && !hasPositive) return "contradicts";
 
-  // Default: bill supports the promise
-  return "supports";
+  // Default: bill aligns with the promise
+  return "aligns";
 }
 
 export interface BillMatch {
   billId: string;
   score: number;
-  alignment: "supports" | "opposes";
+  alignment: "aligns" | "contradicts";
 }
 
 interface BillData {
@@ -155,8 +155,14 @@ export function matchBillsToPromise(
 }
 
 /**
- * Given alignment and vote position, determine if the vote
+ * Given bill alignment and vote position, determine if the vote
  * supports or opposes the promise.
+ *
+ * - Bill "aligns" + YEA → supports
+ * - Bill "aligns" + NAY → opposes
+ * - Bill "contradicts" + YEA → opposes
+ * - Bill "contradicts" + NAY → supports
+ * - ABSTAIN or ABSENT → neutral
  */
 export function getVoteAlignment(
   billAlignment: string,
@@ -164,10 +170,10 @@ export function getVoteAlignment(
 ): "supports" | "opposes" | "neutral" {
   if (votePosition === "ABSTAIN" || votePosition === "ABSENT") return "neutral";
 
-  if (billAlignment === "supports") {
+  if (billAlignment === "aligns") {
     return votePosition === "YEA" ? "supports" : "opposes";
   } else {
-    // bill opposes the promise
+    // bill contradicts the promise
     return votePosition === "YEA" ? "opposes" : "supports";
   }
 }
@@ -184,10 +190,10 @@ export function getAlignmentExplanation(
 
   const votedFor = votePosition === "YEA";
 
-  if (billAlignment === "supports") {
+  if (billAlignment === "aligns") {
     return votedFor
-      ? "Voted for a bill that supports this promise"
-      : "Voted against a bill that supports this promise";
+      ? "Voted for a bill that aligns with this promise"
+      : "Voted against a bill that aligns with this promise";
   } else {
     return votedFor
       ? "Voted for a bill that contradicts this promise"

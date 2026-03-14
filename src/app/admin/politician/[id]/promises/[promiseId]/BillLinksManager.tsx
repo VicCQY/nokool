@@ -48,7 +48,7 @@ export function BillLinksManager({
   }
 
   async function handleToggleAlignment(linkId: string, current: string) {
-    const newAlignment = current === "supports" ? "opposes" : "supports";
+    const newAlignment = current === "aligns" ? "contradicts" : "aligns";
     const res = await fetch(
       `/api/admin/promises/${promiseId}/bill-links/${linkId}`,
       {
@@ -126,12 +126,13 @@ export function BillLinksManager({
               <button
                 onClick={() => handleToggleAlignment(link.id, link.alignment)}
                 className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                  link.alignment === "supports"
-                    ? "bg-green-50 text-green-700"
-                    : "bg-red-50 text-red-700"
+                  link.alignment === "aligns"
+                    ? "bg-blue-50 text-blue-700"
+                    : "bg-amber-50 text-amber-700"
                 }`}
+                title="Click to toggle"
               >
-                {link.alignment === "supports" ? "Supports" : "Opposes"}
+                {link.alignment === "aligns" ? "Aligns" : "Contradicts"}
               </button>
               <button
                 onClick={() => handleDelete(link.id)}

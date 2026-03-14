@@ -228,7 +228,7 @@ model PromiseBillLink {
   billId    String
   bill      Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
   relevance String   @default("auto")
-  alignment String   @default("supports")
+  alignment String   @default("aligns")
   createdAt DateTime @default(now())
 
   @@unique([promiseId, billId])

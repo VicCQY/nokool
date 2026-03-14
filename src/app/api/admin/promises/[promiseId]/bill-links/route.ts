@@ -44,11 +44,11 @@ export async function POST(
     create: {
       promiseId: params.promiseId,
       billId,
-      alignment: alignment || "supports",
+      alignment: alignment || "aligns",
       relevance: relevance || "manual",
     },
     update: {
-      alignment: alignment || "supports",
+      alignment: alignment || "aligns",
       relevance: relevance || "manual",
     },
   });
