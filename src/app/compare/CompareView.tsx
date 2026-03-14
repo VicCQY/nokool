@@ -493,19 +493,21 @@ export function CompareView({
 function PoliticianHero({ pol }: { pol: PoliticianComparison }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full bg-cool-gray ring-2 ring-gray-100 mb-3">
-        {pol.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={pol.photoUrl}
-            alt={pol.name}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-3xl font-semibold text-gray-400">
-            {pol.name[0]}
-          </div>
-        )}
+      <div className="rounded-full ring-2 ring-gray-100 mb-3">
+        <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full bg-cool-gray">
+          {pol.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={pol.photoUrl}
+              alt={pol.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-3xl font-semibold text-gray-400">
+              {pol.name[0]}
+            </div>
+          )}
+        </div>
       </div>
       <h3 className="text-lg font-semibold text-brand-charcoal">{pol.name}</h3>
       <p className="text-sm text-slate">

@@ -171,6 +171,7 @@ export default async function HomePage() {
                   photoUrl={pol.photoUrl}
                   termStartStr={pol.termStart.toISOString()}
                   termEndStr={pol.termEnd?.toISOString() ?? null}
+                  inOfficeSinceStr={pol.inOfficeSince?.toISOString() ?? null}
                   grade={pol.grade}
                   percentage={pol.percentage}
                   promiseCount={pol.promises.length}

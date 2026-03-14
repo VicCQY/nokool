@@ -4,6 +4,7 @@ interface PromiseRecord {
   status: string;
   category?: string;
   weight?: number;
+  dateMade?: Date;
 }
 
 interface PoliticianTermInfo {
@@ -26,6 +27,7 @@ export function calculateFulfillment(
       status: p.status,
       category: p.category || "Other",
       weight: p.weight || 3,
+      dateMade: p.dateMade || termInfo.termStart,
     }));
 
     const result = calculateWeightedGrade(

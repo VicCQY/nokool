@@ -34,10 +34,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${dmSerif.variable} ${jetbrains.variable} font-sans antialiased bg-brand-paper text-brand-charcoal overflow-x-hidden`}
+        className={`${inter.variable} ${dmSerif.variable} ${jetbrains.variable} font-sans antialiased bg-brand-paper text-brand-charcoal`}
       >
         <Navbar />
-        <div className="min-h-screen">{children}</div>
+        <div className="min-h-screen overflow-x-hidden">{children}</div>
         <Footer />
       </body>
     </html>

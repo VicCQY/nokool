@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { SEVERITY_LABELS } from "@/lib/issue-weights";
-import { getTimeAdjustedStatusValue } from "@/lib/time-decay";
+import { getTimeAdjustedStatusValue, getPromiseProgress } from "@/lib/time-decay";
 
 interface Props {
   promises: Array<{
@@ -10,8 +10,10 @@ interface Props {
     category: string;
     status: string;
     weight: number;
+    dateMade: string;
   }>;
   termProgress: number;
+  termEndStr: string;
   issueWeights: Record<string, number>;
   chamber: string | null;
 }
@@ -27,9 +29,11 @@ const STATUS_LABELS: Record<string, string> = {
 export function GradeBreakdown({
   promises,
   termProgress,
+  termEndStr,
   issueWeights,
   chamber,
 }: Props) {
+  const termEnd = new Date(termEndStr);
   const [open, setOpen] = useState(false);
 
   // Calculate term length label
@@ -45,7 +49,8 @@ export function GradeBreakdown({
   const rows = promises.map((p) => {
     const severity = p.weight || 3;
     const issueWeight = issueWeights[p.category] || 1.0;
-    const statusValue = getTimeAdjustedStatusValue(p.status, termProgress);
+    const promiseProgress = getPromiseProgress(new Date(p.dateMade), termEnd);
+    const statusValue = getTimeAdjustedStatusValue(p.status, promiseProgress);
     const combinedWeight = severity * issueWeight;
     const score = combinedWeight * statusValue;
 

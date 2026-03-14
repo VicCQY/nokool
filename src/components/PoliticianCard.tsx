@@ -34,6 +34,7 @@ interface Props {
   photoUrl: string | null;
   termStartStr: string;
   termEndStr: string | null;
+  inOfficeSinceStr: string | null;
   grade: string;
   percentage: number;
   promiseCount: number;
@@ -46,6 +47,7 @@ export function PoliticianCard({
   photoUrl,
   termStartStr,
   termEndStr,
+  inOfficeSinceStr,
   grade,
   percentage,
   promiseCount,
@@ -59,19 +61,21 @@ export function PoliticianCard({
     >
       <div className="flex items-start gap-4">
         {/* Photo */}
-        <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-full bg-cool-gray ring-2 ring-gray-100">
-          {photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={photoUrl}
-              alt={name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-gray-400">
-              {name[0]}
-            </div>
-          )}
+        <div className="flex-shrink-0 rounded-full ring-2 ring-gray-100">
+          <div className="h-14 w-14 overflow-hidden rounded-full bg-cool-gray">
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoUrl}
+                alt={name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-gray-400">
+                {name[0]}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Info */}
@@ -81,17 +85,9 @@ export function PoliticianCard({
           </h3>
           <p className="text-sm text-slate mt-0.5">{party}</p>
           <p className="text-xs font-data text-gray-400 mt-1">
-            {new Date(termStartStr).toLocaleDateString("en-US", {
-              month: "short",
-              year: "numeric",
-            })}
-            {" - "}
-            {termEndStr
-              ? new Date(termEndStr).toLocaleDateString("en-US", {
-                  month: "short",
-                  year: "numeric",
-                })
-              : "Present"}
+            {inOfficeSinceStr
+              ? `Since ${new Date(inOfficeSinceStr).getFullYear()}`
+              : `${new Date(termStartStr).toLocaleDateString("en-US", { month: "short", year: "numeric" })} - ${termEndStr ? new Date(termEndStr).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Present"}`}
           </p>
         </div>
 

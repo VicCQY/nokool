@@ -23,6 +23,7 @@ import { CategoryBreakdownSection } from "@/components/CategoryBreakdownSection"
 import { getIssueWeights } from "@/lib/issue-weights-cache";
 import { SEVERITY_LABELS } from "@/lib/issue-weights";
 import { GradeBreakdown } from "./GradeBreakdown";
+import { getTermEnd } from "@/lib/time-decay";
 
 export const dynamic = "force-dynamic";
 
@@ -142,6 +143,7 @@ export default async function PoliticianPage({
     termInfo,
     issueWeights,
   );
+  const resolvedTermEnd = getTermEnd(politician.termStart, politician.termEnd, politician.branch, politician.chamber);
   const countryInfo = COUNTRIES[politician.country as keyof typeof COUNTRIES];
 
   // Promise filtering
@@ -230,23 +232,25 @@ export default async function PoliticianPage({
       {/* ═══ HERO ═══ */}
       <section className="bg-[#0D0D0D] -mt-[1px]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          <div className="flex flex-col sm:flex-row items-start gap-6 overflow-hidden">
+          <div className="flex flex-col sm:flex-row items-start gap-6">
             {/* Photo */}
             <div
-              className={`h-20 w-20 sm:h-28 sm:w-28 flex-shrink-0 overflow-hidden rounded-full bg-gray-800 ring-4 ${GRADE_RING_COLORS[grade] ?? "ring-gray-400"}`}
+              className={`flex-shrink-0 rounded-full ring-4 ${GRADE_RING_COLORS[grade] ?? "ring-gray-400"}`}
             >
-              {politician.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={politician.photoUrl}
-                  alt={politician.name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-4xl font-headline text-gray-500">
-                  {politician.name[0]}
-                </div>
-              )}
+              <div className="h-20 w-20 sm:h-28 sm:w-28 overflow-hidden rounded-full bg-gray-800">
+                {politician.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={politician.photoUrl}
+                    alt={politician.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-4xl font-headline text-gray-500">
+                    {politician.name[0]}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Info */}
@@ -257,8 +261,13 @@ export default async function PoliticianPage({
               <p className="text-gray-400 mt-1.5 text-sm">
                 {countryInfo.flag} {politician.party}
               </p>
-              <p className="font-mono text-xs text-gray-500 mt-1 tracking-wide">
-                {politician.termStart.toLocaleDateString("en-US", {
+              {politician.inOfficeSince && (
+                <p className="text-sm text-gray-400 mt-1">
+                  In office since {politician.inOfficeSince.getFullYear()}
+                </p>
+              )}
+              <p className="font-mono text-[11px] text-gray-500 mt-0.5 tracking-wide">
+                Current term: {politician.termStart.toLocaleDateString("en-US", {
                   month: "short",
                   year: "numeric",
                 })}
@@ -404,8 +413,10 @@ export default async function PoliticianPage({
               category: p.category,
               status: p.status,
               weight: p.weight,
+              dateMade: p.dateMade.toISOString(),
             }))}
             termProgress={termProgress}
+            termEndStr={resolvedTermEnd.toISOString()}
             issueWeights={issueWeights}
             chamber={politician.chamber}
           />

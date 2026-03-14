@@ -56,8 +56,9 @@ model Politician {
   country     Country
   party       String
   photoUrl    String?
-  termStart   DateTime
-  termEnd     DateTime?
+  termStart      DateTime
+  termEnd        DateTime?
+  inOfficeSince  DateTime?
   congressId      String?  @unique // Congress.gov bioguideId
   fecCandidateId  String?  @unique // FEC candidate ID
   branch          String   @default("executive") // "executive" or "legislative"

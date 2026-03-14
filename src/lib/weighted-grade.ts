@@ -1,5 +1,5 @@
 import { ISSUE_WEIGHTS, SEVERITY_LABELS } from "./issue-weights";
-import { getTermProgress, getTimeAdjustedStatusValue } from "./time-decay";
+import { getTermEnd, getTermProgress, getPromiseProgress, getTimeAdjustedStatusValue } from "./time-decay";
 
 export interface WeightedGradeResult {
   percent: number;
@@ -13,6 +13,7 @@ export interface PromiseForGrade {
   status: string;
   category: string;
   weight: number;
+  dateMade: Date;
 }
 
 export function calculateWeightedGrade(
@@ -27,6 +28,7 @@ export function calculateWeightedGrade(
     return { percent: 0, letter: "N/A", rawScore: 0, maxScore: 0, termProgress: 0 };
 
   const termProgress = getTermProgress(termStart, termEnd, branch, chamber);
+  const resolvedTermEnd = getTermEnd(termStart, termEnd, branch, chamber);
   const weights = issueWeightsFromDb || ISSUE_WEIGHTS;
 
   let totalWeightedScore = 0;
@@ -35,7 +37,9 @@ export function calculateWeightedGrade(
   for (const promise of promises) {
     const severity = promise.weight || 3;
     const issueWeight = weights[promise.category] || 1.0;
-    const statusValue = getTimeAdjustedStatusValue(promise.status, termProgress);
+    // Per-promise time decay based on when the promise was made
+    const promiseProgress = getPromiseProgress(promise.dateMade, resolvedTermEnd);
+    const statusValue = getTimeAdjustedStatusValue(promise.status, promiseProgress);
     const combinedWeight = severity * issueWeight;
 
     totalWeightedScore += combinedWeight * statusValue;
