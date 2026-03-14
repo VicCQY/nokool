@@ -225,8 +225,8 @@ function PromiseCard({
       ) : (
         // Legislative: show linked bills
         links.length === 0 ? (
-          <p className="text-xs text-slate italic ml-1">
-            No specific voting data linked to this promise yet
+          <p className="text-xs text-slate ml-1">
+            No voting data linked yet
           </p>
         ) : (
           <div className="space-y-2">

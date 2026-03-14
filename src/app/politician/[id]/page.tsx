@@ -173,8 +173,18 @@ export default async function PoliticianPage({
     })),
   }));
 
+  // Filter votes by chamber — House members only see House bills, Senators only Senate bills
+  const chamberVotes = politician.chamber
+    ? politician.votes.filter((v) => {
+        const bn = v.bill.billNumber;
+        if (politician.chamber === "house") return bn.startsWith("H");
+        if (politician.chamber === "senate") return bn.startsWith("S");
+        return true;
+      })
+    : politician.votes;
+
   // Vote filtering
-  let filteredVotes = politician.votes;
+  let filteredVotes = chamberVotes;
   if (searchParams.voteCategory) {
     filteredVotes = filteredVotes.filter(
       (v) => v.bill.category === searchParams.voteCategory,
@@ -191,9 +201,9 @@ export default async function PoliticianPage({
     );
   }
 
-  // Vote stats
-  const totalVotes = politician.votes.length;
-  const voteCounts = politician.votes.reduce(
+  // Vote stats (uses chamber-filtered votes)
+  const totalVotes = chamberVotes.length;
+  const voteCounts = chamberVotes.reduce(
     (acc, v) => {
       acc[v.position] = (acc[v.position] || 0) + 1;
       return acc;
@@ -530,7 +540,7 @@ export default async function PoliticianPage({
               {filteredVotes.length === 0 && (
                 <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
                   <p className="text-[#4A4A4A]">
-                    {politician.votes.length === 0
+                    {chamberVotes.length === 0
                       ? "No voting records available yet."
                       : "No votes match the current filters."}
                   </p>
@@ -542,9 +552,9 @@ export default async function PoliticianPage({
 
         {/* ===== SAYS VS DOES TAB ===== */}
         {activeTab === "saysvsdoes" && (() => {
-          // Build a map of billId -> vote position for this politician
+          // Build a map of billId -> vote position (chamber-filtered)
           const voteByBillId: Record<string, VotePosition> = {};
-          for (const v of politician.votes) {
+          for (const v of chamberVotes) {
             voteByBillId[v.billId] = v.position;
           }
 

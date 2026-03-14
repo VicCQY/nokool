@@ -90,9 +90,13 @@ export function BillLinksManager({
         </button>
       </div>
 
+      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4">
+        Auto-matching is experimental and may produce inaccurate results. Review all suggestions carefully.
+      </p>
+
       {links.length === 0 ? (
         <p className="text-sm text-gray-400">
-          No bills linked yet. Click Auto-Match to find relevant bills.
+          No bills linked yet. Click Auto-Match to find relevant bills, or link bills manually.
         </p>
       ) : (
         <div className="space-y-3">
