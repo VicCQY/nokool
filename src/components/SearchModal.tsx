@@ -384,6 +384,7 @@ export function SearchModal({
                             <img
                               src={p.photoUrl}
                               alt=""
+                              loading="lazy"
                               className="h-full w-full object-cover"
                             />
                           ) : (

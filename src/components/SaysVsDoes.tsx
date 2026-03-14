@@ -180,7 +180,7 @@ function PromiseCard({
       {isExecutive ? (
         actionLinks.length === 0 ? (
           <p className="text-xs text-slate ml-1">
-            No executive actions linked to this promise yet
+            No voting data linked to promises yet. Check back soon.
           </p>
         ) : (
           <div className="space-y-2 ml-3 border-l-2 border-gray-200 pl-3">
@@ -219,7 +219,7 @@ function PromiseCard({
       ) : (
         links.length === 0 ? (
           <p className="text-xs text-slate ml-1">
-            No voting data linked yet
+            No voting data linked to promises yet. Check back soon.
           </p>
         ) : (
           <div className="space-y-2">

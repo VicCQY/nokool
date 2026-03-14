@@ -328,6 +328,7 @@ export default async function PoliticianPage({
                   <img
                     src={politician.photoUrl}
                     alt={politician.name}
+                    loading="lazy"
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -556,7 +557,9 @@ export default async function PoliticianPage({
                 {filteredPromises.length === 0 && (
                   <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
                     <p className="text-slate">
-                      No promises match the current filters.
+                      {politician.promises.length === 0
+                        ? `No promises tracked yet for ${politician.name}.`
+                        : "No promises match the current filters."}
                     </p>
                   </div>
                 )}

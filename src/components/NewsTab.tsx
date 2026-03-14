@@ -222,10 +222,7 @@ export function NewsTab({
         {articles.length === 0 && !error && (
           <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
             <p className="text-slate">
-              No news articles yet.
-              {isAdmin
-                ? " Click 'Refresh News' to fetch the latest articles."
-                : " Check back later for news coverage."}
+              News will be available when the AI research feature is activated.
             </p>
           </div>
         )}

@@ -151,7 +151,7 @@ export function ExecutiveActionsTab({
           <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
             <p className="text-slate">
               {actions.length === 0
-                ? "No executive actions tracked yet."
+                ? "No executive actions recorded."
                 : "No actions match the current filters."}
             </p>
           </div>

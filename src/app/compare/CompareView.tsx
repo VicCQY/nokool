@@ -500,6 +500,7 @@ function PoliticianHero({ pol }: { pol: PoliticianComparison }) {
             <img
               src={pol.photoUrl}
               alt={pol.name}
+              loading="lazy"
               className="h-full w-full object-cover"
             />
           ) : (

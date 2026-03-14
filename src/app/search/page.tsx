@@ -166,7 +166,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
                   <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-cool-gray">
                     {p.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.photoUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={p.photoUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-gray-500">
                         {p.name[0]}

@@ -195,7 +195,7 @@ export function MoneyTrail({
   if (donations.length === 0 && lobbyingRecords.length === 0) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-        <p className="text-slate">No financial data available yet.</p>
+        <p className="text-slate">No campaign finance data available.</p>
       </div>
     );
   }
