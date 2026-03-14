@@ -12,6 +12,7 @@ interface PoliticianData {
   photoUrl: string;
   termStart: string;
   termEnd: string;
+  inOfficeSince: string;
 }
 
 export function PoliticianForm({
@@ -29,6 +30,7 @@ export function PoliticianForm({
       photoUrl: "",
       termStart: "",
       termEnd: "",
+      inOfficeSince: "",
     },
   );
 
@@ -137,6 +139,20 @@ export function PoliticianForm({
             onChange={(e) => setForm({ ...form, termEnd: e.target.value })}
           />
         </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          In Office Since
+        </label>
+        <input
+          type="date"
+          className={inputClass}
+          value={form.inOfficeSince}
+          onChange={(e) => setForm({ ...form, inOfficeSince: e.target.value })}
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          When they first entered this office (for display).
+        </p>
       </div>
       <button
         type="submit"

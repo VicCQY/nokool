@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
       photoUrl: body.photoUrl || null,
       termStart: new Date(body.termStart),
       termEnd: body.termEnd ? new Date(body.termEnd) : null,
+      inOfficeSince: body.inOfficeSince ? new Date(body.inOfficeSince) : null,
       branch: body.branch || "executive",
       chamber: body.chamber || null,
     },

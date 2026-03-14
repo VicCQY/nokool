@@ -17,6 +17,7 @@ export async function PUT(
       photoUrl: body.photoUrl || null,
       termStart: new Date(body.termStart),
       termEnd: body.termEnd ? new Date(body.termEnd) : null,
+      inOfficeSince: body.inOfficeSince ? new Date(body.inOfficeSince) : null,
     },
   });
 

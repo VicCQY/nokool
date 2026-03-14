@@ -31,6 +31,9 @@ export default async function EditPoliticianPage({
           termEnd: politician.termEnd
             ? politician.termEnd.toISOString().split("T")[0]
             : "",
+          inOfficeSince: politician.inOfficeSince
+            ? politician.inOfficeSince.toISOString().split("T")[0]
+            : "",
         }}
       />
     </div>

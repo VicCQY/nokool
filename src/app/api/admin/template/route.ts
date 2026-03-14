@@ -27,6 +27,7 @@ export async function GET() {
     ["- If a politician with the same name + country already exists, they will be updated"],
     ["- photoUrl and sourceUrl are optional"],
     ["- termEnd is optional (leave blank for current office holders)"],
+    ["- inOfficeSince is optional (when they first entered this office, for display)"],
   ];
   const instrSheet = XLSX.utils.aoa_to_sheet(instructions);
   instrSheet["!cols"] = [{ wch: 100 }];
@@ -34,7 +35,7 @@ export async function GET() {
 
   // ── Politicians sheet ──
   const polData = [
-    ["name", "country", "party", "photoUrl", "termStart", "termEnd"],
+    ["name", "country", "party", "photoUrl", "termStart", "termEnd", "inOfficeSince"],
     [
       "Full name of the politician",
       "Country code (US, CA, UK, AU, FR, DE)",
@@ -42,6 +43,7 @@ export async function GET() {
       "URL to photo (optional)",
       "Date term started (YYYY-MM-DD)",
       "Date term ends (optional, YYYY-MM-DD)",
+      "When they first entered this office (optional, YYYY-MM-DD)",
     ],
   ];
   const polSheet = XLSX.utils.aoa_to_sheet(polData);
@@ -52,6 +54,7 @@ export async function GET() {
     { wch: 40 },
     { wch: 18 },
     { wch: 18 },
+    { wch: 22 },
   ];
 
   // Add data validation for country column (B3:B1000)

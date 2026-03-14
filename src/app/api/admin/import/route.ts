@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
       photoUrl: string;
       termStart: Date;
       termEnd: Date | null;
+      inOfficeSince: Date | null;
       rowNum: number;
     }
 
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
       const photoUrl = str(row[3]);
       const termStartRaw = row[4];
       const termEndRaw = row[5];
+      const inOfficeSinceRaw = row[6];
 
       if (!name) errors.push(`Politicians sheet, row ${rowNum}: name is required`);
       if (!VALID_COUNTRIES.includes(country))
@@ -142,6 +144,12 @@ export async function POST(request: NextRequest) {
           `Politicians sheet, row ${rowNum}: termEnd '${str(termEndRaw)}' is not a valid date`
         );
 
+      const inOfficeSince = inOfficeSinceRaw ? parseDate(inOfficeSinceRaw) : null;
+      if (inOfficeSinceRaw && str(inOfficeSinceRaw) && !inOfficeSince)
+        errors.push(
+          `Politicians sheet, row ${rowNum}: inOfficeSince '${str(inOfficeSinceRaw)}' is not a valid date`
+        );
+
       if (name && VALID_COUNTRIES.includes(country) && party && termStart) {
         politicianRows.push({
           name,
@@ -150,6 +158,7 @@ export async function POST(request: NextRequest) {
           photoUrl,
           termStart,
           termEnd,
+          inOfficeSince,
           rowNum,
         });
       }
@@ -394,6 +403,7 @@ export async function POST(request: NextRequest) {
             photoUrl: pol.photoUrl || null,
             termStart: pol.termStart,
             termEnd: pol.termEnd,
+            inOfficeSince: pol.inOfficeSince,
           },
         });
         politicianIdMap[pol.name] = existing.id;
@@ -407,6 +417,7 @@ export async function POST(request: NextRequest) {
             photoUrl: pol.photoUrl || null,
             termStart: pol.termStart,
             termEnd: pol.termEnd,
+            inOfficeSince: pol.inOfficeSince,
           },
         });
         politicianIdMap[pol.name] = created.id;
