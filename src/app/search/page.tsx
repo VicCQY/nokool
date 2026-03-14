@@ -141,7 +141,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
       {/* Politicians */}
       {politicians.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-lg font-headline text-brand-charcoal mb-3 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-brand-charcoal mb-3 flex items-center gap-2">
             Politicians
             <span className="text-xs font-data bg-cool-gray text-slate rounded-full px-2 py-0.5 font-medium">
               {politicians.length}
@@ -168,7 +168,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-headline text-brand-charcoal">{p.name}</p>
+                    <p className="font-semibold text-brand-charcoal">{p.name}</p>
                     <p className="text-sm text-slate">
                       {country?.flag} {p.party} &middot;{" "}
                       <span className="font-data">{p.promises.length}</span> promises &middot;{" "}
@@ -190,7 +190,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
       {/* Promises */}
       {promises.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-lg font-headline text-brand-charcoal mb-3 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-brand-charcoal mb-3 flex items-center gap-2">
             Promises
             <span className="text-xs font-data bg-cool-gray text-slate rounded-full px-2 py-0.5 font-medium">
               {promises.length}
@@ -230,7 +230,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
       {/* Bills */}
       {bills.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-lg font-headline text-brand-charcoal mb-3 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-brand-charcoal mb-3 flex items-center gap-2">
             Bills
             <span className="text-xs font-data bg-cool-gray text-slate rounded-full px-2 py-0.5 font-medium">
               {bills.length}
@@ -271,7 +271,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
       {/* Donors */}
       {donors.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-lg font-headline text-brand-charcoal mb-3 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-brand-charcoal mb-3 flex items-center gap-2">
             Donors
             <span className="text-xs font-data bg-cool-gray text-slate rounded-full px-2 py-0.5 font-medium">
               {donors.length}

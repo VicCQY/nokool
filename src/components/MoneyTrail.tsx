@@ -204,7 +204,7 @@ export function MoneyTrail({
     <div className="space-y-8">
       {/* CYCLE SELECTOR */}
       {donations.length > 0 && allCycles.length > 0 && (
-        <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 p-1 w-fit">
+        <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 p-1 w-fit max-w-full overflow-x-auto">
           {[...allCycles, "All"].map((cycle) => (
             <button
               key={cycle}
@@ -229,7 +229,7 @@ export function MoneyTrail({
       {cycleDonations.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-2xl font-mono font-bold text-brand-charcoal">
+            <p className="text-xl sm:text-2xl font-mono font-bold text-brand-charcoal truncate">
               {formatCurrency(totalDonations)}
             </p>
             <p className="text-xs text-slate mt-1">
@@ -241,7 +241,7 @@ export function MoneyTrail({
             <p className="text-xs text-slate mt-1">Unique Donors</p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-2xl font-mono font-bold text-brand-charcoal">
+            <p className="text-xl sm:text-2xl font-mono font-bold text-brand-charcoal truncate">
               {formatCurrency(largestDonation.amount)}
             </p>
             <p className="text-xs text-slate mt-1 truncate">
@@ -263,7 +263,7 @@ export function MoneyTrail({
           {/* Left: Top Donors */}
           <div className="lg:col-span-3 rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="p-5 border-b border-gray-100">
-              <h3 className="text-lg font-headline text-brand-charcoal mb-3">
+              <h3 className="text-lg font-semibold text-brand-charcoal mb-3">
                 Top Donors
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -427,7 +427,7 @@ export function MoneyTrail({
 
           {/* Right: Industry Breakdown */}
           <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm p-5">
-            <h3 className="text-lg font-headline text-brand-charcoal mb-4">
+            <h3 className="text-lg font-semibold text-brand-charcoal mb-4">
               By Industry
             </h3>
             <div className="space-y-3">
@@ -466,7 +466,7 @@ export function MoneyTrail({
       {lobbyingRecords.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="p-5 border-b border-gray-100">
-            <h3 className="text-lg font-headline text-brand-charcoal mb-3">
+            <h3 className="text-lg font-semibold text-brand-charcoal mb-3">
               Lobbying Records
             </h3>
             <select

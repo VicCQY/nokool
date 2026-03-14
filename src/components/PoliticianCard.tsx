@@ -76,7 +76,7 @@ export function PoliticianCard({
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-base font-headline text-brand-charcoal truncate group-hover:text-[#2563EB] transition-colors">
+          <h3 className="text-base font-semibold text-brand-charcoal truncate group-hover:text-[#2563EB] transition-colors">
             {name}
           </h3>
           <p className="text-sm text-slate mt-0.5">{party}</p>
@@ -96,7 +96,7 @@ export function PoliticianCard({
         </div>
 
         {/* Grade + Kool-Aid Meter */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <span
             className={`inline-flex h-11 w-11 items-center justify-center rounded-full text-lg font-data font-bold ${GRADE_COLORS[grade] ?? GRADE_COLORS["N/A"]}`}
           >

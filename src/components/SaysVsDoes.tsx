@@ -122,7 +122,7 @@ export function SaysVsDoes({
 
       {/* Promise cards */}
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-headline text-brand-charcoal mb-1">
+        <h2 className="text-lg font-semibold text-brand-charcoal mb-1">
           Says vs Does
         </h2>
         <p className="text-sm text-slate mb-5">
@@ -163,7 +163,7 @@ function PromiseCard({
   return (
     <div className="rounded-lg border border-gray-100 bg-brand-paper p-4">
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <span className="text-sm font-headline text-brand-charcoal">
+        <span className="text-sm font-semibold text-brand-charcoal">
           &ldquo;{promise.title}&rdquo;
         </span>
         <StatusStamp status={promise.status} size="sm" id={promise.id} />

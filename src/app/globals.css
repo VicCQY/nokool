@@ -3,10 +3,6 @@
 @tailwind utilities;
 
 @layer base {
-  h1, h2, h3 {
-    font-family: var(--font-dm-serif), serif;
-  }
-
   a {
     @apply transition-colors duration-200;
   }
@@ -15,5 +11,13 @@
 @layer utilities {
   .font-data {
     font-family: var(--font-jetbrains), monospace;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

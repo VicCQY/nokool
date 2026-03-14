@@ -251,7 +251,7 @@ export function SearchModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] sm:pt-[15vh] px-4"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-4 sm:pt-[15vh] px-4"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -259,7 +259,7 @@ export function SearchModal({
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden max-h-[70vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden max-h-[calc(100vh-2rem)] sm:max-h-[70vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}

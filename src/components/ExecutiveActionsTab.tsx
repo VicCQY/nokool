@@ -176,7 +176,7 @@ function ActionCard({ action }: { action: ActionData }) {
               >
                 {cfg.label}
               </span>
-              <h3 className="text-base font-headline text-brand-charcoal">
+              <h3 className="text-base font-semibold text-brand-charcoal">
                 {action.title}
               </h3>
             </div>

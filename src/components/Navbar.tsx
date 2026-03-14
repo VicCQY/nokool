@@ -121,7 +121,7 @@ export function Navbar() {
               {/* Mobile hamburger */}
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="md:hidden p-2 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="md:hidden p-2.5 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
                 aria-label="Toggle menu"
               >
                 <div className="relative w-6 h-6">

@@ -187,7 +187,7 @@ export function NewsTab({
                   href={article.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-base font-headline text-brand-charcoal hover:text-brand-red transition-colors"
+                  className="text-base font-semibold text-brand-charcoal hover:text-brand-red transition-colors"
                 >
                   {article.title}
                 </a>

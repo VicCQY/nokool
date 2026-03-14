@@ -50,7 +50,7 @@ export function ProfileTabs({ branch }: { branch: string }) {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 ${
+            className={`whitespace-nowrap rounded-full px-5 py-2.5 min-h-[44px] text-sm font-medium transition-all duration-200 ${
               currentTab === key
                 ? "bg-[#0D0D0D] text-white shadow-sm"
                 : "text-slate hover:bg-cool-gray"

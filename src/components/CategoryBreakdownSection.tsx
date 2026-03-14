@@ -36,7 +36,7 @@ export function CategoryBreakdownSection({ promises }: Props) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-lg font-headline text-brand-charcoal">
+        <h2 className="text-lg font-semibold text-brand-charcoal">
           Where They Deliver (And Where They Don&apos;t)
         </h2>
         {canShowRadar && !isMobile && (

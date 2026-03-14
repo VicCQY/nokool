@@ -100,7 +100,7 @@ export default async function HomePage() {
               Tracking what politicians promise vs. what they deliver.
               No spin, no partisan framing &mdash; just receipts.
             </p>
-            <div className="mt-10 flex flex-wrap gap-4">
+            <div className="mt-10 flex flex-col min-[375px]:flex-row flex-wrap gap-4">
               <Link
                 href="/politicians"
                 className="rounded-lg bg-brand-red px-7 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 transition-all duration-200"
@@ -131,7 +131,7 @@ export default async function HomePage() {
                 <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-cool-gray text-brand-charcoal">
                   {f.icon}
                 </div>
-                <h3 className="text-base font-headline text-brand-charcoal mb-1">
+                <h3 className="text-base font-semibold text-brand-charcoal mb-1">
                   {f.title}
                 </h3>
                 <p className="text-sm text-slate leading-relaxed">{f.desc}</p>

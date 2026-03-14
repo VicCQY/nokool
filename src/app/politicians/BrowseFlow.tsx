@@ -31,7 +31,7 @@ export function BrowseFlow({
   if (!country) {
     return (
       <div>
-        <h2 className="text-lg font-headline text-brand-charcoal mb-4">
+        <h2 className="text-lg font-semibold text-brand-charcoal mb-4">
           Select a Country
         </h2>
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
@@ -71,7 +71,7 @@ export function BrowseFlow({
   if (!branch) {
     return (
       <div>
-        <h2 className="text-lg font-headline text-brand-charcoal mb-4">
+        <h2 className="text-lg font-semibold text-brand-charcoal mb-4">
           <span className="text-2xl mr-2">{countryInfo?.flag}</span>
           {countryInfo?.name} &mdash; Select Branch
         </h2>
@@ -111,7 +111,7 @@ export function BrowseFlow({
   if (branch === "legislative" && !chamber && activeChambers.length > 0) {
     return (
       <div>
-        <h2 className="text-lg font-headline text-brand-charcoal mb-4">
+        <h2 className="text-lg font-semibold text-brand-charcoal mb-4">
           <span className="text-2xl mr-2">{countryInfo?.flag}</span>
           {countryInfo?.name} Legislative &mdash; Select Chamber
         </h2>

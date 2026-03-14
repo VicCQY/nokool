@@ -204,7 +204,7 @@ export function CompareView({
 
               {/* VS divider */}
               <div className="flex items-center justify-center">
-                <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand-red text-white font-headline text-lg">
+                <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand-red text-white font-bold text-lg">
                   VS
                 </span>
               </div>
@@ -215,7 +215,7 @@ export function CompareView({
 
           {/* Butterfly chart stats */}
           <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-headline text-brand-charcoal mb-5">
+            <h2 className="text-lg font-semibold text-brand-charcoal mb-5">
               Stats Comparison
             </h2>
             <div className="space-y-4">
@@ -249,7 +249,7 @@ export function CompareView({
                           />
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-data font-bold text-brand-charcoal w-8 text-right">
                           {row.b}
                           {row.isPercent ? "%" : ""}
@@ -321,7 +321,7 @@ export function CompareView({
           {/* Category Breakdown */}
           {categories.length > 0 && (
             <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-headline text-brand-charcoal mb-5">
+              <h2 className="text-lg font-semibold text-brand-charcoal mb-5">
                 Category Breakdown
               </h2>
 
@@ -507,7 +507,7 @@ function PoliticianHero({ pol }: { pol: PoliticianComparison }) {
           </div>
         )}
       </div>
-      <h3 className="text-lg font-headline text-brand-charcoal">{pol.name}</h3>
+      <h3 className="text-lg font-semibold text-brand-charcoal">{pol.name}</h3>
       <p className="text-sm text-slate">
         {pol.countryFlag} {pol.party}
       </p>

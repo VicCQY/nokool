@@ -50,12 +50,21 @@ export function calculateWeightedGrade(
 
   const clampedPercent = Math.max(0, Math.min(100, rawPercent));
 
-  // Adjusted thresholds for weighted system
+  // Dynamic thresholds: lenient early in term, strict at end
+  // Linear interpolation between early and late thresholds
+  const t = termProgress; // 0 = start, 1 = end
+  const thresholds = {
+    A: 40 + t * 40,   // 40% → 80%
+    B: 30 + t * 35,   // 30% → 65%
+    C: 20 + t * 30,   // 20% → 50%
+    D: 10 + t * 25,   // 10% → 35%
+  };
+
   let letter: string;
-  if (clampedPercent >= 80) letter = "A";
-  else if (clampedPercent >= 65) letter = "B";
-  else if (clampedPercent >= 50) letter = "C";
-  else if (clampedPercent >= 35) letter = "D";
+  if (clampedPercent >= thresholds.A) letter = "A";
+  else if (clampedPercent >= thresholds.B) letter = "B";
+  else if (clampedPercent >= thresholds.C) letter = "C";
+  else if (clampedPercent >= thresholds.D) letter = "D";
   else letter = "F";
 
   return {

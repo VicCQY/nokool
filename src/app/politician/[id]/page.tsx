@@ -230,7 +230,7 @@ export default async function PoliticianPage({
       {/* ═══ HERO ═══ */}
       <section className="bg-[#0D0D0D] -mt-[1px]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          <div className="flex flex-col sm:flex-row items-start gap-6">
+          <div className="flex flex-col sm:flex-row items-start gap-6 overflow-hidden">
             {/* Photo */}
             <div
               className={`h-20 w-20 sm:h-28 sm:w-28 flex-shrink-0 overflow-hidden rounded-full bg-gray-800 ring-4 ${GRADE_RING_COLORS[grade] ?? "ring-gray-400"}`}
@@ -436,7 +436,7 @@ export default async function PoliticianPage({
 
             {isTimelineView && (
               <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <h2 className="text-lg font-headline text-brand-charcoal mb-4">
+                <h2 className="text-lg font-semibold text-brand-charcoal mb-4">
                   Promise Timeline
                 </h2>
                 <PromiseTimeline
@@ -487,7 +487,7 @@ export default async function PoliticianPage({
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <h3 className="text-base font-headline text-brand-charcoal">
+                          <h3 className="text-base font-semibold text-brand-charcoal">
                             {vote.bill.title}
                           </h3>
                           <span className="font-mono text-xs text-slate">
@@ -661,7 +661,7 @@ function PromiseCard({
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-3 mb-2">
-              <h3 className="text-lg font-headline text-brand-charcoal">
+              <h3 className="text-lg font-semibold text-brand-charcoal">
                 {promise.title}
               </h3>
               <StatusStamp status={promise.status} size="sm" id={promise.id} />
