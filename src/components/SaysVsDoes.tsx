@@ -19,6 +19,18 @@ interface BillLinkData {
   votePosition?: VotePosition | null;
 }
 
+interface ActionLinkData {
+  id: string;
+  alignment: string;
+  action: {
+    id: string;
+    title: string;
+    type: string;
+    category: string;
+    dateIssued: string;
+  };
+}
+
 interface PromiseWithLinks {
   id: string;
   title: string;
@@ -26,15 +38,7 @@ interface PromiseWithLinks {
   status: PromiseStatus;
   weight: number;
   billLinks: BillLinkData[];
-}
-
-interface ActionData {
-  id: string;
-  title: string;
-  type: string;
-  category: string;
-  dateIssued: string;
-  relatedPromises: string[];
+  actionLinks?: ActionLinkData[];
 }
 
 const ACTION_TYPE_LABELS: Record<string, string> = {
@@ -50,25 +54,12 @@ const INITIAL_SHOW = 5;
 
 export function SaysVsDoes({
   promises,
-  actions,
   branch,
 }: {
   promises: PromiseWithLinks[];
-  actions?: ActionData[];
   branch?: string;
 }) {
   const isExecutive = branch === "executive";
-
-  // Build action linkage map for executive
-  const actionsByPromiseId: Record<string, ActionData[]> = {};
-  if (actions) {
-    for (const action of actions) {
-      for (const pid of action.relatedPromises) {
-        if (!actionsByPromiseId[pid]) actionsByPromiseId[pid] = [];
-        actionsByPromiseId[pid].push(action);
-      }
-    }
-  }
 
   // Calculate summary stats
   let supportsCount = 0;
@@ -77,11 +68,14 @@ export function SaysVsDoes({
 
   for (const promise of promises) {
     if (isExecutive) {
-      const linkedActions = actionsByPromiseId[promise.id] || [];
-      if (linkedActions.length > 0) {
-        supportsCount += linkedActions.length;
-      } else {
+      const actionLinks = promise.actionLinks || [];
+      if (actionLinks.length === 0) {
         noDataCount++;
+      } else {
+        for (const link of actionLinks) {
+          if (link.alignment === "supports") supportsCount++;
+          else if (link.alignment === "contradicts") opposesCount++;
+        }
       }
     } else {
       const links = promise.billLinks || [];
@@ -111,7 +105,7 @@ export function SaysVsDoes({
         <div className="rounded-xl border border-gray-200 border-t-2 border-t-brand-red bg-white p-4 shadow-sm">
           <p className="text-2xl font-mono font-bold text-brand-charcoal">{opposesCount}</p>
           <p className="text-xs text-slate mt-1">
-            {isExecutive ? "Actions opposing promises" : "Votes opposing promises"}
+            {isExecutive ? "Actions contradicting promises" : "Votes opposing promises"}
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 border-t-2 border-t-gray-400 bg-white p-4 shadow-sm">
@@ -137,7 +131,6 @@ export function SaysVsDoes({
               key={promise.id}
               promise={promise}
               isExecutive={isExecutive}
-              linkedActions={actionsByPromiseId[promise.id] || []}
             />
           ))}
         </div>
@@ -149,14 +142,13 @@ export function SaysVsDoes({
 function PromiseCard({
   promise,
   isExecutive,
-  linkedActions,
 }: {
   promise: PromiseWithLinks;
   isExecutive: boolean;
-  linkedActions: ActionData[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const links = promise.billLinks || [];
+  const actionLinks = promise.actionLinks || [];
   const displayLinks = expanded ? links : links.slice(0, INITIAL_SHOW);
   const remaining = links.length - INITIAL_SHOW;
 
@@ -186,31 +178,40 @@ function PromiseCard({
       </div>
 
       {isExecutive ? (
-        linkedActions.length === 0 ? (
+        actionLinks.length === 0 ? (
           <p className="text-xs text-slate ml-1">
             No executive actions linked to this promise yet
           </p>
         ) : (
           <div className="space-y-2 ml-3 border-l-2 border-gray-200 pl-3">
-            {linkedActions.map((action) => (
+            {actionLinks.map((link) => (
               <div
-                key={action.id}
+                key={link.id}
                 className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3"
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                    {ACTION_TYPE_LABELS[action.type] || action.type}
+                    {ACTION_TYPE_LABELS[link.action.type] || link.action.type}
                   </span>
                   <span className="text-sm text-brand-charcoal truncate">
-                    {action.title}
+                    {link.action.title}
                   </span>
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Action Taken
-                </span>
+                {link.alignment === "supports" ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Supports Promise
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted-red px-2 py-0.5 text-xs font-semibold text-red-700">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Contradicts Promise
+                  </span>
+                )}
               </div>
             ))}
           </div>

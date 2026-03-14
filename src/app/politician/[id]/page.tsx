@@ -105,6 +105,19 @@ export default async function PoliticianPage({
               },
             },
           },
+          actionLinks: {
+            include: {
+              action: {
+                select: {
+                  id: true,
+                  title: true,
+                  type: true,
+                  category: true,
+                  dateIssued: true,
+                },
+              },
+            },
+          },
         },
       },
       votes: {
@@ -584,14 +597,17 @@ export default async function PoliticianPage({
                   },
                   votePosition: voteByBillId[link.billId] ?? null,
                 })),
-              }))}
-              actions={politician.executiveActions.map((a) => ({
-                id: a.id,
-                title: a.title,
-                type: a.type,
-                category: a.category,
-                dateIssued: a.dateIssued.toISOString(),
-                relatedPromises: a.relatedPromises,
+                actionLinks: (p.actionLinks || []).map((link) => ({
+                  id: link.id,
+                  alignment: link.alignment,
+                  action: {
+                    id: link.action.id,
+                    title: link.action.title,
+                    type: link.action.type,
+                    category: link.action.category,
+                    dateIssued: link.action.dateIssued.toISOString(),
+                  },
+                })),
               }))}
               branch={politician.branch}
             />

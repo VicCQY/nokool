@@ -89,6 +89,7 @@ model Promise {
   politician     Politician            @relation(fields: [politicianId], references: [id], onDelete: Cascade)
   statusChanges  PromiseStatusChange[]
   billLinks      PromiseBillLink[]
+  actionLinks    PromiseActionLink[]
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
 
@@ -192,6 +193,7 @@ model ExecutiveAction {
   relatedPromises String[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+  promiseLinks    PromiseActionLink[]
 
   @@index([politicianId])
   @@index([type])
@@ -236,4 +238,18 @@ model PromiseBillLink {
   @@unique([promiseId, billId])
   @@index([promiseId])
   @@index([billId])
+}
+
+model PromiseActionLink {
+  id              String          @id @default(cuid())
+  promiseId       String
+  promise         Promise         @relation(fields: [promiseId], references: [id], onDelete: Cascade)
+  actionId        String
+  action          ExecutiveAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  alignment       String          @default("supports")  // "supports" or "contradicts"
+  createdAt       DateTime        @default(now())
+
+  @@unique([promiseId, actionId])
+  @@index([promiseId])
+  @@index([actionId])
 }
