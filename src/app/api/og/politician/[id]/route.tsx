@@ -1,10 +1,6 @@
 import { ImageResponse } from "next/og";
-import { prisma } from "@/lib/prisma";
-import { calculateFulfillment } from "@/lib/grades";
-import { getIssueWeights } from "@/lib/issue-weights-cache";
-import { calculateKoolAidLevel } from "@/lib/koolaid";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const GRADE_COLORS: Record<string, string> = {
   A: "#22C55E",
@@ -16,43 +12,18 @@ const GRADE_COLORS: Record<string, string> = {
 };
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } },
 ) {
-  const politician = await prisma.politician.findUnique({
-    where: { id: params.id },
-    select: {
-      name: true,
-      party: true,
-      country: true,
-      branch: true,
-      chamber: true,
-      termStart: true,
-      termEnd: true,
-      promises: {
-        select: { status: true, category: true, weight: true, dateMade: true },
-      },
-    },
-  });
+  const origin = new URL(req.url).origin;
+  const res = await fetch(`${origin}/api/politicians/${params.id}/og-data`);
 
-  if (!politician) {
+  if (!res.ok) {
     return new Response("Not found", { status: 404 });
   }
 
-  const weights = await getIssueWeights();
-  const termInfo = {
-    termStart: politician.termStart,
-    termEnd: politician.termEnd,
-    branch: politician.branch,
-    chamber: politician.chamber,
-  };
-  const { percentage, grade } = calculateFulfillment(
-    politician.promises,
-    termInfo,
-    weights,
-  );
-  const koolAid = calculateKoolAidLevel(percentage);
-  const gradeColor = GRADE_COLORS[grade] || "#9CA3AF";
+  const data = await res.json();
+  const gradeColor = GRADE_COLORS[data.grade] || "#9CA3AF";
 
   return new ImageResponse(
     (
@@ -78,7 +49,7 @@ export async function GET(
               lineHeight: 1.1,
             }}
           >
-            {politician.name}
+            {data.name}
           </div>
           <div
             style={{
@@ -87,7 +58,7 @@ export async function GET(
               marginTop: "12px",
             }}
           >
-            {politician.party} &middot; {politician.country}
+            {`${data.party} · ${data.country}`}
           </div>
         </div>
 
@@ -114,19 +85,19 @@ export async function GET(
               color: gradeColor,
             }}
           >
-            {grade}
+            {data.grade}
           </div>
 
           {/* Stats */}
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <div style={{ fontSize: "48px", fontWeight: 700, color: "#FFFFFF" }}>
-              {percentage}% Fulfillment
+              {`${data.percentage}% Fulfillment`}
             </div>
             <div style={{ fontSize: "24px", color: "#9CA3AF" }}>
-              {politician.promises.length} promises tracked
+              {`${data.promiseCount} promises tracked`}
             </div>
-            <div style={{ fontSize: "24px", color: koolAid.color }}>
-              Kool-Aid Level: {koolAid.tier}
+            <div style={{ fontSize: "24px", color: data.koolAidColor }}>
+              {`Kool-Aid Level: ${data.koolAidTier}`}
             </div>
           </div>
         </div>

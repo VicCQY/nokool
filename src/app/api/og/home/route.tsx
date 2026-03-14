@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 export async function GET() {
   return new ImageResponse(
@@ -34,7 +34,7 @@ export async function GET() {
             marginTop: "16px",
           }}
         >
-          We don&apos;t drink it, neither should you.
+          {"We don't drink it, neither should you."}
         </div>
         <div
           style={{
