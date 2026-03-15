@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   searchCandidates,
   getCandidateCommittees,
+  getCandidateDetail,
   getContributionsByEmployer,
   getContributions,
   getContributionsBySize,
@@ -148,6 +149,32 @@ function getFecFilingCycles(
  */
 function getCycleLabel(electionYear: number): string {
   return String(electionYear);
+}
+
+/**
+ * Filter requested election years to only valid ones for this politician type.
+ */
+function filterValidElectionYears(
+  requestedYears: number[],
+  chamber: string | null,
+  branch: string | null,
+  fecElectionYears?: number[]
+): number[] {
+  if (branch === "executive") {
+    return requestedYears.filter((y) => y % 4 === 0);
+  }
+  if (chamber === "senate" && fecElectionYears) {
+    const knownElectionYear = fecElectionYears
+      .filter((y) => y % 2 === 0)
+      .sort((a, b) => b - a)[0];
+    if (knownElectionYear) {
+      const validYears = new Set<number>();
+      for (let y = knownElectionYear; y >= 2000; y -= 6) validYears.add(y);
+      for (let y = knownElectionYear; y <= 2030; y += 6) validYears.add(y);
+      return requestedYears.filter((y) => validYears.has(y));
+    }
+  }
+  return requestedYears.filter((y) => y % 2 === 0);
 }
 
 // ── Donation Sync ──
@@ -390,6 +417,23 @@ export async function syncFecDonations(
     return result;
   }
 
+  // Fetch FEC candidate info to determine valid election years
+  let fecElectionYears: number[] | undefined;
+  try {
+    await delay(400);
+    const candidateInfo = await getCandidateDetail(politician.fecCandidateId);
+    fecElectionYears = candidateInfo?.election_years;
+  } catch {
+    // Non-fatal
+  }
+
+  const validYears = filterValidElectionYears(
+    electionYears,
+    politician.chamber,
+    politician.branch,
+    fecElectionYears
+  );
+
   // Get ALL committees for this candidate
   let committees: FecCommittee[];
   try {
@@ -415,7 +459,7 @@ export async function syncFecDonations(
     allCommitteeIds.add(c.committee_id);
   }
 
-  for (const electionYear of electionYears) {
+  for (const electionYear of validYears) {
     const cycleLabel = getCycleLabel(electionYear);
     const fecFilingCycles = getFecFilingCycles(electionYear, politician.chamber, politician.branch);
 

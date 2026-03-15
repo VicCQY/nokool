@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getCandidateTotals, delay } from "@/lib/fec-api";
+import { getCandidateTotals, getCandidateDetail, delay } from "@/lib/fec-api";
 
 /**
  * Determine FEC 2-year filing cycles for a given election year.
@@ -12,6 +12,42 @@ function getFecFilingCycles(
   if (branch === "executive") return [electionYear, electionYear - 2];
   if (chamber === "senate") return [electionYear, electionYear - 2, electionYear - 4];
   return [electionYear];
+}
+
+/**
+ * Filter a list of requested election years to only the valid ones for this
+ * politician type:
+ * - Senate: every 6 years based on their class (derived from FEC election_years)
+ * - Executive: every 4 years (2020, 2024, ...)
+ * - House: every 2 years (all even years)
+ */
+function filterValidElectionYears(
+  requestedYears: number[],
+  chamber: string | null,
+  branch: string | null,
+  fecElectionYears?: number[]
+): number[] {
+  if (branch === "executive") {
+    // Presidential years only
+    return requestedYears.filter((y) => y % 4 === 0);
+  }
+  if (chamber === "senate") {
+    // Determine senate class from known FEC election years, or from any
+    // requested year that is a valid even year
+    const knownElectionYear =
+      fecElectionYears?.filter((y) => y % 2 === 0).sort((a, b) => b - a)[0];
+    if (knownElectionYear) {
+      // Build valid set from 6-year cycle
+      const validYears = new Set<number>();
+      for (let y = knownElectionYear; y >= 2000; y -= 6) validYears.add(y);
+      for (let y = knownElectionYear; y <= 2030; y += 6) validYears.add(y);
+      return requestedYears.filter((y) => validYears.has(y));
+    }
+    // Fallback: accept all (will just create empty entries that get skipped)
+    return requestedYears;
+  }
+  // House: every even year
+  return requestedYears.filter((y) => y % 2 === 0);
 }
 
 function getCycleLabel(electionYear: number): string {
@@ -48,7 +84,24 @@ export async function syncFecSummary(
     return result;
   }
 
-  for (const electionYear of electionYears) {
+  // Fetch FEC candidate info to get their actual election years
+  let fecElectionYears: number[] | undefined;
+  try {
+    await delay(400);
+    const candidateInfo = await getCandidateDetail(politician.fecCandidateId);
+    fecElectionYears = candidateInfo?.election_years;
+  } catch {
+    // Non-fatal — we'll just use all requested years
+  }
+
+  const validYears = filterValidElectionYears(
+    electionYears,
+    politician.chamber,
+    politician.branch,
+    fecElectionYears
+  );
+
+  for (const electionYear of validYears) {
     const cycleLabel = getCycleLabel(electionYear);
     const fecCycles = getFecFilingCycles(electionYear, politician.chamber, politician.branch);
 

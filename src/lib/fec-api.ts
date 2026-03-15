@@ -160,6 +160,13 @@ export async function searchCandidates(
   return data.results || [];
 }
 
+export async function getCandidateDetail(
+  candidateId: string
+): Promise<FecCandidate | null> {
+  const data = await fetchWithRotation(`/candidate/${candidateId}/`);
+  return data.results?.[0] || null;
+}
+
 export async function getCandidateCommittees(
   candidateId: string
 ): Promise<FecCommittee[]> {
