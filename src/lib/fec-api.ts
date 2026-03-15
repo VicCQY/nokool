@@ -1,14 +1,38 @@
 const BASE_URL = "https://api.open.fec.gov/v1";
 
-function getApiKey(): string {
-  const key = process.env.FEC_API_KEY;
-  if (!key) throw new Error("FEC_API_KEY is not set");
-  return key;
+// ── Key rotation ──
+
+let apiKeys: string[] = [];
+let currentKeyIndex = 0;
+
+function getApiKeys(): string[] {
+  if (apiKeys.length > 0) return apiKeys;
+  const multi = process.env.FEC_API_KEYS;
+  const single = process.env.FEC_API_KEY;
+  if (multi) {
+    apiKeys = multi.split(",").map((k) => k.trim()).filter(Boolean);
+  } else if (single) {
+    apiKeys = [single];
+  }
+  if (apiKeys.length === 0) throw new Error("FEC_API_KEY(S) not set");
+  return apiKeys;
 }
 
-function buildUrl(path: string, params: Record<string, string> = {}): string {
+function getCurrentKey(): string {
+  const keys = getApiKeys();
+  return keys[currentKeyIndex % keys.length];
+}
+
+function rotateKey(): boolean {
+  const keys = getApiKeys();
+  currentKeyIndex = (currentKeyIndex + 1) % keys.length;
+  // Return true if we've cycled back to start (all keys exhausted)
+  return currentKeyIndex === 0;
+}
+
+function buildUrl(path: string, params: Record<string, string> = {}, apiKey?: string): string {
   const url = new URL(`${BASE_URL}${path}`);
-  url.searchParams.set("api_key", getApiKey());
+  url.searchParams.set("api_key", apiKey ?? getCurrentKey());
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
@@ -27,6 +51,39 @@ async function fetchJson(url: string): Promise<any> {
     throw new Error(`FEC API error ${res.status}: ${text.slice(0, 200)}`);
   }
   return res.json();
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchWithRotation(path: string, params: Record<string, string> = {}): Promise<any> {
+  const keys = getApiKeys();
+  let attempts = 0;
+  const maxAttempts = keys.length;
+
+  while (true) {
+    const url = buildUrl(path, params);
+    const res = await fetch(url, { cache: "no-store" });
+
+    if (res.status === 429) {
+      attempts++;
+      const allExhausted = rotateKey();
+      if (allExhausted && attempts >= maxAttempts) {
+        // All keys exhausted — wait 60s then retry from the first key
+        console.warn("All FEC API keys rate-limited. Waiting 60s...");
+        await delay(60_000);
+        attempts = 0;
+      }
+      continue;
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`FEC API error ${res.status}: ${text.slice(0, 200)}`);
+    }
+
+    // Rotate evenly: advance to next key after each successful request
+    rotateKey();
+    return res.json();
+  }
 }
 
 // ── Types ──
@@ -76,6 +133,12 @@ export interface FecEmployerTotal {
   count: number;
 }
 
+export interface FecSizeBreakdown {
+  size: number; // 0, 200, 500, 1000, 2000
+  total: number;
+  count: number;
+}
+
 // ── API Functions ──
 
 export async function searchCandidates(
@@ -88,18 +151,16 @@ export async function searchCandidates(
     per_page: "5",
   };
   if (office) params.office = office;
-  const url = buildUrl("/candidates/search/", params);
-  const data = await fetchJson(url);
+  const data = await fetchWithRotation("/candidates/search/", params);
   return data.results || [];
 }
 
 export async function getCandidateCommittees(
   candidateId: string
 ): Promise<FecCommittee[]> {
-  const url = buildUrl(`/candidate/${candidateId}/committees/`, {
+  const data = await fetchWithRotation(`/candidate/${candidateId}/committees/`, {
     per_page: "20",
   });
-  const data = await fetchJson(url);
   return data.results || [];
 }
 
@@ -108,13 +169,12 @@ export async function getContributionsByEmployer(
   cycle: number,
   perPage = 50
 ): Promise<FecEmployerTotal[]> {
-  const url = buildUrl("/schedules/schedule_a/by_employer/", {
+  const data = await fetchWithRotation("/schedules/schedule_a/by_employer/", {
     committee_id: committeeId,
     cycle: String(cycle),
     sort: "-total",
     per_page: String(perPage),
   });
-  const data = await fetchJson(url);
   return data.results || [];
 }
 
@@ -122,29 +182,21 @@ export async function getCommitteeTotals(
   committeeId: string,
   cycle: number
 ): Promise<FecCommitteeTotals | null> {
-  const url = buildUrl(`/committee/${committeeId}/totals/`, {
+  const data = await fetchWithRotation(`/committee/${committeeId}/totals/`, {
     cycle: String(cycle),
   });
-  const data = await fetchJson(url);
   return data.results?.[0] || null;
-}
-
-export interface FecSizeBreakdown {
-  size: number; // 0, 200, 500, 1000, 2000
-  total: number;
-  count: number;
 }
 
 export async function getContributionsBySize(
   committeeId: string,
   cycle: number
 ): Promise<FecSizeBreakdown[]> {
-  const url = buildUrl("/schedules/schedule_a/by_size/", {
+  const data = await fetchWithRotation("/schedules/schedule_a/by_size/", {
     committee_id: committeeId,
     cycle: String(cycle),
     per_page: "20",
   });
-  const data = await fetchJson(url);
   return data.results || [];
 }
 
@@ -153,13 +205,12 @@ export async function getContributions(
   contributorType: string,
   perPage = 20
 ): Promise<FecContribution[]> {
-  const url = buildUrl("/schedules/schedule_a/", {
+  const data = await fetchWithRotation("/schedules/schedule_a/", {
     committee_id: committeeId,
     contributor_type: contributorType,
     sort: "-contribution_receipt_amount",
     per_page: String(perPage),
   });
-  const data = await fetchJson(url);
   return data.results || [];
 }
 
