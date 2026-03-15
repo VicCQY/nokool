@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncFecSummary, syncAllFecSummaries } from "@/lib/sync-fec-summary";
-import { prisma } from "@/lib/prisma";
-import { getElectionYears } from "@/lib/election-years";
 
 export const maxDuration = 300;
 
@@ -15,30 +13,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { politicianId, cycles } = body;
-
-    let electionYears: number[] | undefined;
-    if (cycles && Array.isArray(cycles) && cycles.length > 0) {
-      electionYears = cycles.filter((c: number) => typeof c === "number" && c >= 2000 && c <= 2030);
-    }
+    const { politicianId } = body;
 
     let result;
     if (politicianId) {
-      if (!electionYears) {
-        const pol = await prisma.politician.findUnique({
-          where: { id: politicianId },
-          select: { branch: true, chamber: true, inOfficeSince: true, termStart: true },
-        });
-        if (!pol) {
-          return NextResponse.json({ error: "Politician not found" }, { status: 404 });
-        }
-        electionYears = getElectionYears(pol.branch, pol.chamber, pol.inOfficeSince || pol.termStart);
-      }
-      result = await syncFecSummary(politicianId, electionYears);
+      // Election years are resolved internally from FEC API / cache / calculation
+      result = await syncFecSummary(politicianId);
     } else {
-      // Sync all politicians — pass a wide range; filterValidElectionYears in sync-fec-summary
-      // will narrow it down per politician
-      result = await syncAllFecSummaries(electionYears || [2018, 2020, 2022, 2024]);
+      result = await syncAllFecSummaries();
     }
 
     return NextResponse.json(result);

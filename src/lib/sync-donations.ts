@@ -10,6 +10,7 @@ import {
 } from "@/lib/fec-api";
 import type { FecCommittee } from "@/lib/fec-api";
 import { classifyIndustry, guessDonorType } from "@/lib/fec-industries";
+import { getElectionYears } from "@/lib/election-years";
 
 // Employer names that are not real organizations — these are FEC employer
 // field entries for individual donors and should be skipped entirely.
@@ -208,35 +209,59 @@ function getCycleLabel(electionYear: number): string {
   return String(electionYear);
 }
 
-/**
- * Determine which election years to sync.
- * For senators: use FEC API's election_years directly (source of truth for senate class).
- * For others: filter requestedYears by cycle length.
- * Always cap at the last completed election year and limit count.
- */
-function resolveElectionYears(
-  requestedYears: number[],
-  chamber: string | null,
-  branch: string | null,
-  fecElectionYears?: number[]
-): number[] {
+/** Cap at last completed election year (before November of even years). */
+function getMaxElectionYear(): number {
   const now = new Date();
   const currentYear = now.getFullYear();
   let maxYear = currentYear % 2 === 0 ? currentYear : currentYear - 1;
   if (currentYear % 2 === 0 && now.getMonth() < 11) maxYear = currentYear - 2;
+  return maxYear;
+}
 
-  if (chamber === "senate" && fecElectionYears && fecElectionYears.length > 0) {
-    // Use FEC's election_years directly — they know the senate class
-    return fecElectionYears
-      .filter((y) => y <= maxYear && y >= 2000)
-      .sort((a, b) => b - a)
-      .slice(0, 2);
+/**
+ * Get election years for a politician. Priority:
+ * 1. Cached fecElectionYears from DB
+ * 2. Fetch from FEC API and cache
+ * 3. Fall back to calculation from getElectionYears()
+ */
+async function getResolvedElectionYears(
+  politicianId: string,
+  fecCandidateId: string | null,
+  branch: string,
+  chamber: string | null,
+  cachedFecYears: string | null,
+  inOfficeSince: Date | null,
+  termStart: Date,
+): Promise<number[]> {
+  const maxYear = getMaxElectionYear();
+
+  // 1. Try cached FEC election years
+  if (cachedFecYears) {
+    const years = cachedFecYears.split(",").map(Number).filter((y) => y >= 2000 && y <= maxYear);
+    if (years.length > 0) return years.sort((a, b) => a - b);
   }
-  if (branch === "executive") {
-    return requestedYears.filter((y) => y % 4 === 0 && y <= maxYear).slice(-2);
+
+  // 2. Fetch from FEC API and cache
+  if (fecCandidateId) {
+    try {
+      await delay(400);
+      const candidateInfo = await getCandidateDetail(fecCandidateId);
+      if (candidateInfo?.election_years && candidateInfo.election_years.length > 0) {
+        const allYears = candidateInfo.election_years;
+        const cached = allYears.sort((a, b) => a - b).join(",");
+        await prisma.politician.update({
+          where: { id: politicianId },
+          data: { fecElectionYears: cached },
+        });
+        return allYears.filter((y) => y >= 2000 && y <= maxYear).sort((a, b) => a - b);
+      }
+    } catch {
+      // Non-fatal — fall through to calculation
+    }
   }
-  // House: every even year
-  return requestedYears.filter((y) => y % 2 === 0 && y <= maxYear).slice(-3);
+
+  // 3. Fall back to calculated years
+  return getElectionYears(branch, chamber, inOfficeSince || termStart);
 }
 
 // ── Donation Sync ──
@@ -455,7 +480,10 @@ export async function syncFecDonations(
 
   const politician = await prisma.politician.findUnique({
     where: { id: politicianId },
-    select: { name: true, fecCandidateId: true, branch: true, chamber: true },
+    select: {
+      name: true, fecCandidateId: true, branch: true, chamber: true,
+      fecElectionYears: true, inOfficeSince: true, termStart: true,
+    },
   });
 
   if (!politician) {
@@ -470,21 +498,14 @@ export async function syncFecDonations(
     return result;
   }
 
-  // Fetch FEC candidate info to determine valid election years
-  let fecElectionYears: number[] | undefined;
-  try {
-    await delay(400);
-    const candidateInfo = await getCandidateDetail(politician.fecCandidateId);
-    fecElectionYears = candidateInfo?.election_years;
-  } catch {
-    // Non-fatal
-  }
-
-  const validYears = resolveElectionYears(
-    electionYears,
-    politician.chamber,
+  const validYears = await getResolvedElectionYears(
+    politicianId,
+    politician.fecCandidateId,
     politician.branch,
-    fecElectionYears
+    politician.chamber,
+    politician.fecElectionYears,
+    politician.inOfficeSince,
+    politician.termStart,
   );
 
   // Get ALL committees for this candidate

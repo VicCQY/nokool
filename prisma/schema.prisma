@@ -61,6 +61,7 @@ model Politician {
   inOfficeSince  DateTime?
   congressId      String?  @unique // Congress.gov bioguideId
   fecCandidateId  String?  @unique // FEC candidate ID
+  fecElectionYears String?  // Cached FEC election years, comma-separated e.g. "2014,2020,2026"
   branch          String   @default("executive") // "executive" or "legislative"
   chamber         String?  // "house" or "senate" — null for executive branch
   state           String?  // e.g. "NY", "TX" — for senators

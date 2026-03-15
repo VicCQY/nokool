@@ -1,6 +1,7 @@
 /**
- * Auto-determine election years for a politician based on their type and start date.
- * Returns only recent cycles (capped at last completed election year, limited count).
+ * Fallback: auto-determine election years from politician type and start date.
+ * Only used when fecElectionYears is not available.
+ * Capped at the last completed election year (before November of even years).
  */
 export function getElectionYears(
   branch: string,
@@ -9,14 +10,11 @@ export function getElectionYears(
 ): number[] {
   const now = new Date();
   const currentYear = now.getFullYear();
-  // Cap at the last even year whose election has already happened (November)
-  // If we're in an even year but before December, that election may not have full FEC data yet
   let maxYear = currentYear % 2 === 0 ? currentYear : currentYear - 1;
   if (currentYear % 2 === 0 && now.getMonth() < 11) maxYear = currentYear - 2;
   const startYear = startDate.getFullYear();
 
   if (branch === "executive") {
-    // Presidential elections every 4 years — return last 2
     const years: number[] = [];
     let y = Math.ceil(startYear / 4) * 4;
     if (y < startYear) y += 4;
@@ -25,11 +23,10 @@ export function getElectionYears(
     for (; y <= maxYear; y += 4) {
       years.push(y);
     }
-    return years.slice(-2);
+    return years;
   }
 
   if (chamber === "senate") {
-    // Senators elected every 6 years — return last 2
     let firstElection = startYear;
     if (firstElection % 2 !== 0) firstElection -= 1;
     if (startYear % 2 !== 0) firstElection = startYear - 1;
@@ -39,10 +36,10 @@ export function getElectionYears(
       if (y >= 2000) years.push(y);
     }
     if (years.length === 0) years.push(firstElection);
-    return years.slice(-2);
+    return years;
   }
 
-  // House: every 2 years — return last 3
+  // House: every 2 years
   let firstElection = startYear;
   if (firstElection % 2 !== 0) firstElection -= 1;
 
@@ -51,5 +48,5 @@ export function getElectionYears(
     if (y >= 2000) years.push(y);
   }
   if (years.length === 0) years.push(firstElection);
-  return years.slice(-3);
+  return years;
 }

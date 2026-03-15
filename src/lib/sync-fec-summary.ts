@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCandidateTotals, getCandidateDetail, delay } from "@/lib/fec-api";
+import { getElectionYears } from "@/lib/election-years";
 
 /**
  * Determine FEC 2-year filing cycles for a given election year.
@@ -14,46 +15,63 @@ function getFecFilingCycles(
   return [electionYear];
 }
 
-/**
- * Filter a list of requested election years to only the valid ones for this
- * politician type:
- * - Senate: every 6 years based on their class (derived from FEC election_years)
- * - Executive: every 4 years (2020, 2024, ...)
- * - House: every 2 years (all even years)
- */
-/**
- * Determine which election years to sync.
- * For senators: use FEC API's election_years directly (source of truth for senate class).
- * For others: filter requestedYears by cycle length.
- * Always cap at the last completed election year and limit count.
- */
-function resolveElectionYears(
-  requestedYears: number[],
-  chamber: string | null,
-  branch: string | null,
-  fecElectionYears?: number[]
-): number[] {
+function getCycleLabel(electionYear: number): string {
+  return String(electionYear);
+}
+
+/** Cap at last completed election year (before November of even years). */
+function getMaxElectionYear(): number {
   const now = new Date();
   const currentYear = now.getFullYear();
   let maxYear = currentYear % 2 === 0 ? currentYear : currentYear - 1;
   if (currentYear % 2 === 0 && now.getMonth() < 11) maxYear = currentYear - 2;
-
-  if (chamber === "senate" && fecElectionYears && fecElectionYears.length > 0) {
-    // Use FEC's election_years directly — they know the senate class
-    return fecElectionYears
-      .filter((y) => y <= maxYear && y >= 2000)
-      .sort((a, b) => b - a)
-      .slice(0, 2);
-  }
-  if (branch === "executive") {
-    return requestedYears.filter((y) => y % 4 === 0 && y <= maxYear).slice(-2);
-  }
-  // House: every even year
-  return requestedYears.filter((y) => y % 2 === 0 && y <= maxYear).slice(-3);
+  return maxYear;
 }
 
-function getCycleLabel(electionYear: number): string {
-  return String(electionYear);
+/**
+ * Get election years for a politician. Priority:
+ * 1. Cached fecElectionYears from DB
+ * 2. Fetch from FEC API and cache
+ * 3. Fall back to calculation from getElectionYears()
+ */
+async function getResolvedElectionYears(
+  politicianId: string,
+  fecCandidateId: string | null,
+  branch: string,
+  chamber: string | null,
+  cachedFecYears: string | null,
+  inOfficeSince: Date | null,
+  termStart: Date,
+): Promise<number[]> {
+  const maxYear = getMaxElectionYear();
+
+  // 1. Try cached FEC election years
+  if (cachedFecYears) {
+    const years = cachedFecYears.split(",").map(Number).filter((y) => y >= 2000 && y <= maxYear);
+    if (years.length > 0) return years.sort((a, b) => a - b);
+  }
+
+  // 2. Fetch from FEC API and cache
+  if (fecCandidateId) {
+    try {
+      await delay(400);
+      const candidateInfo = await getCandidateDetail(fecCandidateId);
+      if (candidateInfo?.election_years && candidateInfo.election_years.length > 0) {
+        const allYears = candidateInfo.election_years;
+        const cached = allYears.sort((a, b) => a - b).join(",");
+        await prisma.politician.update({
+          where: { id: politicianId },
+          data: { fecElectionYears: cached },
+        });
+        return allYears.filter((y) => y >= 2000 && y <= maxYear).sort((a, b) => a - b);
+      }
+    } catch {
+      // Non-fatal — fall through to calculation
+    }
+  }
+
+  // 3. Fall back to calculated years
+  return getElectionYears(branch, chamber, inOfficeSince || termStart);
 }
 
 export interface FecSummarySyncResult {
@@ -67,13 +85,16 @@ export interface FecSummarySyncResult {
  */
 export async function syncFecSummary(
   politicianId: string,
-  electionYears: number[] = [2024]
+  electionYears?: number[]
 ): Promise<FecSummarySyncResult> {
   const result: FecSummarySyncResult = { synced: 0, errors: [] };
 
   const politician = await prisma.politician.findUnique({
     where: { id: politicianId },
-    select: { name: true, fecCandidateId: true, branch: true, chamber: true },
+    select: {
+      name: true, fecCandidateId: true, branch: true, chamber: true,
+      fecElectionYears: true, inOfficeSince: true, termStart: true,
+    },
   });
 
   if (!politician) {
@@ -86,21 +107,14 @@ export async function syncFecSummary(
     return result;
   }
 
-  // Fetch FEC candidate info to get their actual election years
-  let fecElectionYears: number[] | undefined;
-  try {
-    await delay(400);
-    const candidateInfo = await getCandidateDetail(politician.fecCandidateId);
-    fecElectionYears = candidateInfo?.election_years;
-  } catch {
-    // Non-fatal — we'll just use all requested years
-  }
-
-  const validYears = resolveElectionYears(
-    electionYears,
-    politician.chamber,
+  const validYears = await getResolvedElectionYears(
+    politicianId,
+    politician.fecCandidateId,
     politician.branch,
-    fecElectionYears
+    politician.chamber,
+    politician.fecElectionYears,
+    politician.inOfficeSince,
+    politician.termStart,
   );
 
   for (const electionYear of validYears) {
@@ -132,7 +146,6 @@ export async function syncFecSummary(
           partyTotal += totals.transfers_from_affiliated_committee || 0;
           candidateTotal += totals.candidate_contribution || 0;
           disbursements += totals.disbursements || 0;
-          // For cash and debt, use the most recent cycle's value (not cumulative)
           cashOnHand = totals.cash_on_hand_end_period || cashOnHand;
           debt = totals.debts_owed_by_committee || debt;
         }
@@ -193,7 +206,7 @@ export async function syncFecSummary(
  * Sync FEC summaries for ALL US politicians with FEC IDs.
  */
 export async function syncAllFecSummaries(
-  electionYears: number[] = [2024]
+  electionYears?: number[]
 ): Promise<FecSummarySyncResult> {
   const allResult: FecSummarySyncResult = { synced: 0, errors: [] };
 
