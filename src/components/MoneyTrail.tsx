@@ -265,7 +265,7 @@ export function MoneyTrail({
 
       {/* SECTION A — Official Stats from FEC Summary */}
       {activeSummary && activeSummary.totalReceipts > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-xl sm:text-2xl font-mono font-bold text-brand-charcoal truncate">
               {formatCompact(activeSummary.totalReceipts)}
@@ -285,12 +285,6 @@ export function MoneyTrail({
               {formatCompact(activeSummary.pacTotal)}
             </p>
             <p className="text-xs text-slate mt-1">PAC Contributions</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xl sm:text-2xl font-mono font-bold text-brand-charcoal truncate">
-              {formatCompact(activeSummary.cashOnHand)}
-            </p>
-            <p className="text-xs text-slate mt-1">Cash on Hand</p>
           </div>
         </div>
       )}
@@ -334,18 +328,11 @@ export function MoneyTrail({
             })}
           </div>
           {/* Additional stats row */}
-          {(activeSummary.disbursements > 0 || activeSummary.debt > 0) && (
+          {activeSummary.debt > 0 && (
             <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-1">
-              {activeSummary.disbursements > 0 && (
-                <p className="text-xs text-gray-400">
-                  Spent: <span className="font-medium text-brand-charcoal">{formatCompact(activeSummary.disbursements)}</span>
-                </p>
-              )}
-              {activeSummary.debt > 0 && (
-                <p className="text-xs text-gray-400">
-                  Debt: <span className="font-medium text-brand-charcoal">{formatCompact(activeSummary.debt)}</span>
-                </p>
-              )}
+              <p className="text-xs text-gray-400">
+                Debt: <span className="font-medium text-brand-charcoal">{formatCompact(activeSummary.debt)}</span>
+              </p>
             </div>
           )}
         </div>
