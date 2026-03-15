@@ -5,7 +5,6 @@ import {
   getContributionsByEmployer,
   getContributions,
   getContributionsBySize,
-  getCommitteeTotals,
   delay,
 } from "@/lib/fec-api";
 import type { FecCommittee } from "@/lib/fec-api";
@@ -102,6 +101,47 @@ export async function matchFecCandidates(): Promise<FecMatchResult> {
   return { matched, unmatched };
 }
 
+// ── Cycle helpers ──
+
+/**
+ * Determine FEC 2-year filing cycles to pull for a given election year.
+ * - Senate: 6-year term → pull 3 cycles (electionYear, electionYear-2, electionYear-4)
+ * - House: 2-year term → pull 1 cycle (electionYear)
+ * - Executive: 4-year term → pull 2 cycles (electionYear, electionYear-2)
+ */
+function getFecFilingCycles(
+  electionYear: number,
+  chamber: string | null,
+  branch: string | null
+): number[] {
+  if (branch === "executive") {
+    return [electionYear, electionYear - 2];
+  }
+  if (chamber === "senate") {
+    return [electionYear, electionYear - 2, electionYear - 4];
+  }
+  // house or default
+  return [electionYear];
+}
+
+/**
+ * Get the display label for an election cycle.
+ */
+function getCycleLabel(
+  electionYear: number,
+  chamber: string | null,
+  branch: string | null
+): string {
+  if (chamber === "senate") {
+    return `${electionYear} Election`;
+  }
+  if (branch === "executive") {
+    return `${electionYear} Election`;
+  }
+  // house: just the year
+  return String(electionYear);
+}
+
 // ── Donation Sync ──
 
 export interface DonationSyncResult {
@@ -147,9 +187,10 @@ async function upsertDonorAndDonation(
   });
 
   if (existing) {
+    // Update with the higher amount (accumulate across committees)
     await prisma.donation.update({
       where: { id: existing.id },
-      data: { amount },
+      data: { amount: existing.amount + amount },
     });
   } else {
     await prisma.donation.create({
@@ -168,45 +209,141 @@ async function upsertDonorAndDonation(
 }
 
 /**
- * Find the best committee for a candidate in a given cycle.
- * Strategy: get all committees, fetch their financial totals,
- * and pick the one with the highest receipts for this cycle.
+ * Sync donations from a single committee for a single FEC filing cycle.
  */
-async function findBestCommittee(
-  committees: FecCommittee[],
-  cycle: number
-): Promise<{ committeeId: string; committeeName: string; allCommitteeNames: Set<string> }> {
-  // Collect all committee names (used to filter out self-transfers)
-  const allCommitteeNames = new Set<string>();
-  for (const c of committees) {
-    allCommitteeNames.add(c.name.toUpperCase());
-  }
+async function syncCommitteeForCycle(
+  committeeId: string,
+  committeeName: string,
+  allCommitteeNames: Set<string>,
+  politicianName: string,
+  politicianId: string,
+  fecCycle: number,
+  cycleLabel: string,
+  result: DonationSyncResult
+) {
+  // 1. Top employer contributions (aggregated totals)
+  try {
+    await delay(400);
+    const employers = await getContributionsByEmployer(committeeId, fecCycle, 50);
 
-  // Try to find the committee with the most receipts for this cycle
-  let bestId = committees[0].committee_id;
-  let bestName = committees[0].name;
-  let bestReceipts = 0;
+    for (const emp of employers) {
+      if (!emp.employer || !isRealEmployer(emp.employer)) continue;
 
-  for (const c of committees) {
-    try {
-      await delay(300);
-      const totals = await getCommitteeTotals(c.committee_id, cycle);
-      if (totals && totals.receipts > bestReceipts) {
-        bestReceipts = totals.receipts;
-        bestId = c.committee_id;
-        bestName = c.name;
-      }
-    } catch {
-      // skip committees that error
+      const industry = classifyIndustry(emp.employer);
+      const donorType = guessDonorType(emp.employer);
+
+      await upsertDonorAndDonation(
+        emp.employer,
+        donorType,
+        industry,
+        politicianId,
+        emp.total,
+        cycleLabel,
+        result
+      );
     }
+  } catch (err) {
+    result.errors.push(
+      `Employer contributions ${committeeName} (${fecCycle}): ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
-  return { committeeId: bestId, committeeName: bestName, allCommitteeNames };
+  // 2. Top committee/PAC contributions (filter out self-transfers)
+  try {
+    await delay(400);
+    const pacs = await getContributions(committeeId, "committee", 50);
+
+    const polLastName = politicianName.split(" ").pop()?.toUpperCase() || "";
+
+    for (const pac of pacs) {
+      if (!pac.contributor_name || pac.contribution_receipt_amount <= 0)
+        continue;
+
+      // Skip transfers from the candidate's own committees
+      const upperName = pac.contributor_name.toUpperCase();
+      const isSelfTransfer = Array.from(allCommitteeNames).some(
+        (cn) => upperName.includes(cn) || cn.includes(upperName)
+      );
+      if (isSelfTransfer) continue;
+
+      // Also skip committees with the candidate's name (JFCs, victory funds, etc.)
+      if (
+        upperName.includes(polLastName) &&
+        (upperName.includes("COMMITTEE") ||
+          upperName.includes("JFC") ||
+          upperName.includes("JOINT FUNDRAISING") ||
+          upperName.includes("VICTORY FUND") ||
+          upperName.includes("SAVE AMERICA"))
+      ) {
+        continue;
+      }
+
+      const industry = classifyIndustry(pac.contributor_name);
+      const donorType = guessDonorType(pac.contributor_name, "committee");
+
+      await upsertDonorAndDonation(
+        pac.contributor_name,
+        donorType,
+        industry,
+        politicianId,
+        pac.contribution_receipt_amount,
+        cycleLabel,
+        result
+      );
+    }
+  } catch (err) {
+    result.errors.push(
+      `Committee contributions ${committeeName} (${fecCycle}): ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
+  // 3. Aggregated individual donor totals from the by_size endpoint.
+  try {
+    await delay(400);
+    const sizeBreakdown = await getContributionsBySize(committeeId, fecCycle);
+    let smallDollarTotal = 0;
+    let largeDollarTotal = 0;
+    for (const s of sizeBreakdown) {
+      if (s.size <= 200) {
+        smallDollarTotal += s.total;
+      } else {
+        largeDollarTotal += s.total;
+      }
+    }
+
+    if (smallDollarTotal > 0) {
+      await upsertDonorAndDonation(
+        "Small-Dollar Individual Donors (Under $200)",
+        "INDIVIDUAL",
+        "Individual Contributions",
+        politicianId,
+        smallDollarTotal,
+        cycleLabel,
+        result
+      );
+    }
+
+    if (largeDollarTotal > 0) {
+      await upsertDonorAndDonation(
+        "Large-Dollar Individual Donors ($200+)",
+        "INDIVIDUAL",
+        "Individual Contributions",
+        politicianId,
+        largeDollarTotal,
+        cycleLabel,
+        result
+      );
+    }
+  } catch (err) {
+    result.errors.push(
+      `Aggregated contributions ${committeeName} (${fecCycle}): ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 }
 
 export async function syncFecDonations(
   politicianId: string,
-  cycles: number[] = [2024],
+  electionYears: number[] = [2024],
   { replace = true }: { replace?: boolean } = {}
 ): Promise<DonationSyncResult> {
   const result: DonationSyncResult = {
@@ -218,7 +355,7 @@ export async function syncFecDonations(
 
   const politician = await prisma.politician.findUnique({
     where: { id: politicianId },
-    select: { name: true, fecCandidateId: true },
+    select: { name: true, fecCandidateId: true, branch: true, chamber: true },
   });
 
   if (!politician) {
@@ -233,7 +370,7 @@ export async function syncFecDonations(
     return result;
   }
 
-  // Get all committees for this candidate
+  // Get ALL committees for this candidate
   let committees: FecCommittee[];
   try {
     await delay(500);
@@ -250,146 +387,48 @@ export async function syncFecDonations(
     return result;
   }
 
-  for (const cycle of cycles) {
-    const cycleStr = String(cycle);
+  // Collect all committee names (used to filter out self-transfers)
+  const allCommitteeNames = new Set<string>();
+  for (const c of committees) {
+    allCommitteeNames.add(c.name.toUpperCase());
+  }
 
-    // Delete existing donations for this politician+cycle before re-importing
+  for (const electionYear of electionYears) {
+    const cycleLabel = getCycleLabel(electionYear, politician.chamber, politician.branch);
+    const fecFilingCycles = getFecFilingCycles(electionYear, politician.chamber, politician.branch);
+
+    result.errors.push(`${politician.name}: syncing ${cycleLabel} (FEC cycles: ${fecFilingCycles.join(", ")})`);
+
+    // Delete existing donations for this politician+cycle label before re-importing
     if (replace) {
       const deleted = await prisma.donation.deleteMany({
-        where: { politicianId, electionCycle: cycleStr },
+        where: { politicianId, electionCycle: cycleLabel },
       });
       if (deleted.count > 0) {
-        result.errors.push(`Cleared ${deleted.count} existing donations for ${cycleStr} cycle`);
+        result.errors.push(`Cleared ${deleted.count} existing donations for ${cycleLabel}`);
       }
     }
 
-    // Find the committee with the most money for this cycle
-    const { committeeId, committeeName, allCommitteeNames } =
-      await findBestCommittee(committees, cycle);
+    // Sync from ALL committees across all FEC filing cycles
+    for (const committee of committees) {
+      for (const fecCycle of fecFilingCycles) {
+        // Check if this committee has data for this cycle
+        const hasCycleData = committee.cycles?.includes(fecCycle);
+        if (committee.cycles && !hasCycleData) continue;
 
-    result.errors.push(`Using committee: ${committeeName} (${committeeId})`);
+        result.errors.push(`  Pulling from: ${committee.name} (${committee.committee_id}) cycle ${fecCycle}`);
 
-    // 1. Top employer contributions (aggregated totals)
-    try {
-      await delay(500);
-      const employers = await getContributionsByEmployer(committeeId, cycle, 50);
-
-      for (const emp of employers) {
-        if (!emp.employer || !isRealEmployer(emp.employer)) continue;
-
-        const industry = classifyIndustry(emp.employer);
-        const donorType = guessDonorType(emp.employer);
-
-        await upsertDonorAndDonation(
-          emp.employer,
-          donorType,
-          industry,
+        await syncCommitteeForCycle(
+          committee.committee_id,
+          committee.name,
+          allCommitteeNames,
+          politician.name,
           politicianId,
-          emp.total,
-          cycleStr,
+          fecCycle,
+          cycleLabel,
           result
         );
       }
-    } catch (err) {
-      result.errors.push(
-        `Employer contributions (${cycle}): ${err instanceof Error ? err.message : String(err)}`
-      );
-    }
-
-    // 2. Top committee/PAC contributions (filter out self-transfers)
-    try {
-      await delay(500);
-      const pacs = await getContributions(committeeId, "committee", 50);
-
-      for (const pac of pacs) {
-        if (!pac.contributor_name || pac.contribution_receipt_amount <= 0)
-          continue;
-
-        // Skip transfers from the candidate's own committees
-        const upperName = pac.contributor_name.toUpperCase();
-        const isSelfTransfer = Array.from(allCommitteeNames).some(
-          (cn) => upperName.includes(cn) || cn.includes(upperName)
-        );
-        if (isSelfTransfer) continue;
-
-        // Also skip committees with the candidate's name (JFCs, victory funds, etc.)
-        const polLastName = politician.name.split(" ").pop()?.toUpperCase() || "";
-        if (
-          upperName.includes(polLastName) &&
-          (upperName.includes("COMMITTEE") ||
-            upperName.includes("JFC") ||
-            upperName.includes("JOINT FUNDRAISING") ||
-            upperName.includes("VICTORY FUND") ||
-            upperName.includes("SAVE AMERICA"))
-        ) {
-          continue;
-        }
-
-        const industry = classifyIndustry(pac.contributor_name);
-        const donorType = guessDonorType(pac.contributor_name, "committee");
-
-        await upsertDonorAndDonation(
-          pac.contributor_name,
-          donorType,
-          industry,
-          politicianId,
-          pac.contribution_receipt_amount,
-          cycleStr,
-          result
-        );
-      }
-    } catch (err) {
-      result.errors.push(
-        `Committee contributions (${cycle}): ${err instanceof Error ? err.message : String(err)}`
-      );
-    }
-
-    // 3. Aggregated individual donor totals from the by_size endpoint.
-    // We only create two aggregate entries (small-dollar and large-dollar)
-    // rather than importing named individual donors, which would double-count.
-    try {
-      await delay(500);
-      const sizeBreakdown = await getContributionsBySize(committeeId, cycle);
-      let smallDollarTotal = 0;
-      let largeDollarTotal = 0;
-      for (const s of sizeBreakdown) {
-        if (s.size <= 200) {
-          smallDollarTotal += s.total;
-        } else {
-          largeDollarTotal += s.total;
-        }
-      }
-
-      // Add small-dollar donors as an aggregated entry (if significant)
-      if (smallDollarTotal > 0) {
-        // The small-dollar total includes unitemized contributions
-        // Don't double-count with employer data (which only covers itemized)
-        await upsertDonorAndDonation(
-          "Small-Dollar Individual Donors (Under $200)",
-          "INDIVIDUAL",
-          "Individual Contributions",
-          politicianId,
-          smallDollarTotal,
-          cycleStr,
-          result
-        );
-      }
-
-      if (largeDollarTotal > 0) {
-        await upsertDonorAndDonation(
-          "Large-Dollar Individual Donors ($200+)",
-          "INDIVIDUAL",
-          "Individual Contributions",
-          politicianId,
-          largeDollarTotal,
-          cycleStr,
-          result
-        );
-      }
-    } catch (err) {
-      result.errors.push(
-        `Aggregated contributions (${cycle}): ${err instanceof Error ? err.message : String(err)}`
-      );
     }
   }
 

@@ -22,10 +22,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validCycles = (cycles || [2024])
-      .filter((c: number) => [2020, 2022, 2024].includes(c));
+    // These are election years, not FEC filing cycles.
+    // The sync logic determines which FEC 2-year filing cycles to pull
+    // based on the politician's chamber/branch.
+    const electionYears: number[] = (cycles || [2024])
+      .filter((c: number) => typeof c === "number" && c >= 2000 && c <= 2030);
 
-    const result = await syncFecDonations(politicianId, validCycles);
+    const result = await syncFecDonations(politicianId, electionYears);
     return NextResponse.json(result);
   } catch (err) {
     console.error("FEC sync error:", err);

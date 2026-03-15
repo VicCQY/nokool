@@ -437,9 +437,10 @@ export default function SyncPage() {
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Step 2 — Sync Donations</h3>
           <p className="text-xs text-gray-400 mb-4">Fetch top donors for each politician.</p>
           <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-500 mb-2">Election Cycles</label>
-            <div className="flex gap-3">
-              {[2020, 2022, 2024].map(cycle => (
+            <label className="block text-xs font-medium text-gray-500 mb-2">Election Years</label>
+            <p className="text-xs text-gray-400 mb-2">Senate cycles auto-pull 3 FEC filing periods. House pulls 1. Executive pulls 2.</p>
+            <div className="flex flex-wrap gap-3">
+              {[2018, 2020, 2022, 2024, 2026].map(cycle => (
                 <label key={cycle} className="flex items-center gap-1.5 cursor-pointer">
                   <input type="checkbox" checked={fecCycles.includes(cycle)} onChange={() => toggleCycle(cycle)} disabled={fecSyncing !== null} className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
                   <span className="text-sm text-gray-700">{cycle}</span>
