@@ -184,9 +184,6 @@ export default async function PoliticianPage({
       fecSummaries: {
         orderBy: { cycle: "desc" },
       },
-      lobbyingRecords: {
-        orderBy: { amount: "desc" },
-      },
       executiveActions: {
         orderBy: { dateIssued: "desc" },
       },
@@ -742,16 +739,6 @@ export default async function PoliticianPage({
               disbursements: s.disbursements,
               cashOnHand: s.cashOnHand,
               debt: s.debt,
-            }))}
-            lobbyingRecords={politician.lobbyingRecords.map((l) => ({
-              id: l.id,
-              lobbyistName: l.lobbyistName,
-              clientName: l.clientName,
-              clientIndustry: l.clientIndustry,
-              issue: l.issue,
-              amount: l.amount,
-              year: l.year,
-              sourceUrl: l.sourceUrl,
             }))}
           />
         )}

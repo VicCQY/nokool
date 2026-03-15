@@ -32,17 +32,6 @@ interface FecSummaryData {
   debt: number;
 }
 
-interface LobbyingData {
-  id: string;
-  lobbyistName: string;
-  clientName: string;
-  clientIndustry: string;
-  issue: string;
-  amount: number;
-  year: number;
-  sourceUrl: string | null;
-}
-
 const DONOR_TYPE_COLORS: Record<DonorType, { bg: string; text: string }> = {
   CORPORATION: { bg: "bg-blue-50", text: "text-blue-700" },
   PAC: { bg: "bg-purple-50", text: "text-purple-700" },
@@ -80,15 +69,6 @@ const INDUSTRY_COLORS: Record<string, string> = {
   Manufacturing: "bg-gray-500",
 };
 
-const BREAKDOWN_COLORS = [
-  { label: "Individual (Large)", color: "bg-blue-500" },
-  { label: "Individual (Small)", color: "bg-sky-400" },
-  { label: "PAC Contributions", color: "bg-purple-500" },
-  { label: "Party/Committee", color: "bg-amber-500" },
-  { label: "Candidate Self-Fund", color: "bg-emerald-500" },
-  { label: "Other", color: "bg-gray-400" },
-];
-
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -107,11 +87,9 @@ function formatCompact(amount: number): string {
 export function MoneyTrail({
   donations,
   fecSummaries = [],
-  lobbyingRecords,
 }: {
   donations: DonationData[];
   fecSummaries?: FecSummaryData[];
-  lobbyingRecords: LobbyingData[];
 }) {
   // Derive available cycles from both summaries and donations
   const allCycles = useMemo(() => {
