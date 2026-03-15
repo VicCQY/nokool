@@ -44,16 +44,6 @@ async function delay(ms: number) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchJson(url: string): Promise<any> {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`FEC API error ${res.status}: ${text.slice(0, 200)}`);
-  }
-  return res.json();
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchWithRotation(path: string, params: Record<string, string> = {}): Promise<any> {
   const keys = getApiKeys();
   let attempts = 0;
