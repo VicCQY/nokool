@@ -57,6 +57,63 @@ function isPassthroughPlatform(name: string): boolean {
   );
 }
 
+// FEC placeholder text that appears as donor names — not real donors
+function isFecPlaceholder(name: string): boolean {
+  return name.toUpperCase().trim().startsWith("INFORMATION REQUESTED");
+}
+
+// Self-campaign committee patterns (name + year/office combos)
+const SELF_CAMPAIGN_SUFFIXES = [
+  "FOR PRESIDENT",
+  "FOR SENATE",
+  "FOR CONGRESS",
+  "FOR AMERICA",
+  "FOR TEXAS",
+  "FOR KENTUCKY",
+  "FOR IOWA",
+  "FOR FLORIDA",
+  "FOR OHIO",
+  "FOR GEORGIA",
+  "FOR ARIZONA",
+  "VICTORY FUND",
+  "JOINT FUNDRAISING",
+  "LEADERSHIP PAC",
+  "LEADERSHIP FUND",
+];
+
+/**
+ * Check if a donor name looks like the candidate's own campaign committee.
+ * Matches patterns like "BERNIE 2020", "CRUZ FOR PRESIDENT", "FRIENDS OF BERNIE", "AMY FOR AMERICA".
+ */
+function isSelfCampaignName(donorName: string, politicianName: string): boolean {
+  const upper = donorName.toUpperCase();
+  const parts = politicianName.toUpperCase().split(" ");
+  const firstName = parts[0];
+  const lastName = parts[parts.length - 1];
+
+  // Check if donor name contains first or last name
+  const hasFirstName = upper.includes(firstName);
+  const hasLastName = upper.includes(lastName);
+
+  if (!hasFirstName && !hasLastName) return false;
+
+  // Check for year pattern (e.g., "BERNIE 2020", "CRUZ 2024")
+  if (/\b20\d{2}\b/.test(upper)) return true;
+
+  // Check for "FRIENDS OF [NAME]"
+  if (upper.includes("FRIENDS OF")) return true;
+
+  // Check for campaign suffixes
+  for (const suffix of SELF_CAMPAIGN_SUFFIXES) {
+    if (upper.includes(suffix)) return true;
+  }
+
+  // Check for "COMMITTEE" or "JFC" with candidate name
+  if (upper.includes("COMMITTEE") || upper.includes("JFC")) return true;
+
+  return false;
+}
+
 // ── Candidate Matching ──
 
 export interface FecMatchResult {
@@ -265,6 +322,8 @@ async function syncCommitteeForCycle(
     for (const emp of employers) {
       if (!emp.employer || !isRealEmployer(emp.employer)) continue;
       if (isPassthroughPlatform(emp.employer)) continue;
+      if (isFecPlaceholder(emp.employer)) continue;
+      if (isSelfCampaignName(emp.employer, politicianName)) continue;
 
       const industry = classifyIndustry(emp.employer);
       const donorType = guessDonorType(emp.employer);
@@ -301,6 +360,9 @@ async function syncCommitteeForCycle(
       // Skip pass-through fundraising platforms
       if (isPassthroughPlatform(pac.contributor_name)) continue;
 
+      // Skip FEC placeholder names
+      if (isFecPlaceholder(pac.contributor_name)) continue;
+
       // Skip transfers from the candidate's own committees (by committee ID)
       if (pac.committee_id && allCommitteeIds.has(pac.committee_id)) continue;
 
@@ -310,20 +372,8 @@ async function syncCommitteeForCycle(
       );
       if (isSelfTransfer) continue;
 
-      // Skip committees with the candidate's name (JFCs, victory funds, etc.)
-      if (
-        upperName.includes(polLastName) &&
-        (upperName.includes("COMMITTEE") ||
-          upperName.includes("JFC") ||
-          upperName.includes("JOINT FUNDRAISING") ||
-          upperName.includes("VICTORY FUND") ||
-          upperName.includes("SAVE AMERICA") ||
-          upperName.includes("FOR PRESIDENT") ||
-          upperName.includes("FOR SENATE") ||
-          upperName.includes("FOR CONGRESS"))
-      ) {
-        continue;
-      }
+      // Skip self-campaign committees (name-based pattern matching)
+      if (isSelfCampaignName(pac.contributor_name, politicianName)) continue;
 
       const industry = classifyIndustry(pac.contributor_name);
       const donorType = guessDonorType(pac.contributor_name, "committee");
