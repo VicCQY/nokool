@@ -64,7 +64,16 @@ export async function matchFecCandidates(): Promise<FecMatchResult> {
 
     try {
       await delay(500);
-      const candidates = await searchCandidates(pol.name, office);
+      let candidates = await searchCandidates(pol.name, office);
+
+      // If full name search fails, try last name only
+      if (candidates.length === 0) {
+        const lastName = pol.name.split(" ").pop() || "";
+        if (lastName && lastName !== pol.name) {
+          await delay(500);
+          candidates = await searchCandidates(lastName, office);
+        }
+      }
 
       if (candidates.length > 0) {
         const polLast = pol.name.split(" ").pop()?.toLowerCase() || "";

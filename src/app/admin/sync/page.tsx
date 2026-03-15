@@ -135,7 +135,7 @@ export default function SyncPage() {
             id: p.id, name: p.name,
             fecCandidateId: p.fecCandidateId,
             congressId: p.congressId,
-            branch: p.branch || "executive",
+            branch: p.branch || "legislative",
           }))
         );
       })
@@ -411,7 +411,7 @@ export default function SyncPage() {
         {/* Match FEC Candidates */}
         <div className="mb-8">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Step 1 — Match FEC Candidates</h3>
-          <p className="text-xs text-gray-400 mb-3">Links US politicians to their FEC candidate IDs.</p>
+          <p className="text-xs text-gray-400 mb-3">Links US politicians to their FEC candidate IDs. If auto-matching fails, you can manually enter the FEC Candidate ID on the politician&apos;s edit page.</p>
           <button onClick={handleFecMatch} disabled={fecMatching} className="rounded-lg bg-[#0D0D0D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             {fecMatching ? <span className="flex items-center gap-2"><Spinner />Matching...</span> : "Match FEC Candidates"}
           </button>
@@ -420,7 +420,12 @@ export default function SyncPage() {
             <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
               <p className="text-sm font-medium text-green-800 mb-2">{fecMatchResult.matched.length} matched, {fecMatchResult.unmatched.length} unmatched</p>
               {fecMatchResult.matched.length > 0 && <ul className="text-xs text-green-600 space-y-0.5">{fecMatchResult.matched.map(m => <li key={m.fecCandidateId}>{m.name} → {m.fecCandidateId}</li>)}</ul>}
-              {fecMatchResult.unmatched.length > 0 && <ul className="text-xs text-yellow-600 mt-2 space-y-0.5">{fecMatchResult.unmatched.map(name => <li key={name}>{name}</li>)}</ul>}
+              {fecMatchResult.unmatched.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs font-medium text-yellow-700 mb-1">Unmatched ({fecMatchResult.unmatched.length}) — set FEC ID manually on their edit page:</p>
+                  <ul className="text-xs text-yellow-600 space-y-0.5">{fecMatchResult.unmatched.map(name => <li key={name}>{name}</li>)}</ul>
+                </div>
+              )}
             </div>
           )}
         </div>
