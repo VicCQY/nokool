@@ -344,37 +344,10 @@ export async function syncFecDonations(
       );
     }
 
-    // 3. Aggregated donor categories (so totals reflect full fundraising picture)
-    // The employer data above only captures identifiable organizations.
-    // Most campaign money comes from retirees, self-employed, and small donors.
+    // 3. Aggregated individual donor totals from the by_size endpoint.
+    // We only create two aggregate entries (small-dollar and large-dollar)
+    // rather than importing named individual donors, which would double-count.
     try {
-      await delay(500);
-      const employers = await getContributionsByEmployer(committeeId, cycle, 10);
-
-      // Sum up the excluded categories to create aggregated donors
-      const aggregated: Record<string, { total: number; type: "INDIVIDUAL" }> = {};
-      const aggregatedMap: Record<string, string> = {
-        "retired": "Individual Retirees",
-        "self-employed": "Self-Employed Individuals",
-        "self employed": "Self-Employed Individuals",
-        "homemaker": "Individual Homemakers",
-        "not employed": "Individual Small Donors",
-        "none": "Individual Small Donors",
-        "entrepreneur": "Self-Employed Individuals",
-        "information requested": "Individual Small Donors",
-        "information requested per best efforts": "Individual Small Donors",
-      };
-
-      for (const emp of employers) {
-        if (!emp.employer) continue;
-        const mapped = aggregatedMap[emp.employer.toLowerCase().trim()];
-        if (mapped) {
-          if (!aggregated[mapped]) aggregated[mapped] = { total: 0, type: "INDIVIDUAL" };
-          aggregated[mapped].total += emp.total;
-        }
-      }
-
-      // Also get small-dollar unitemized contributions from the by_size endpoint
       await delay(500);
       const sizeBreakdown = await getContributionsBySize(committeeId, cycle);
       let smallDollarTotal = 0;
