@@ -374,13 +374,6 @@ export function MoneyTrail({
                               <span className="font-medium text-brand-charcoal">
                                 {formatCurrency(don.amount)}
                               </span>
-                              <span className="text-gray-400">
-                                {new Date(don.date).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })}
-                              </span>
                               <span className="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-gray-500">
                                 {don.electionCycle}
                               </span>
