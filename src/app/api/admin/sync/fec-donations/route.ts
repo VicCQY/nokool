@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncFecDonations } from "@/lib/sync-donations";
+import { prisma } from "@/lib/prisma";
+import { getElectionYears } from "@/lib/election-years";
 
 export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
-    if (!process.env.FEC_API_KEY) {
+    if (!process.env.FEC_API_KEY && !process.env.FEC_API_KEYS) {
       return NextResponse.json(
-        { error: "FEC_API_KEY is not configured" },
+        { error: "FEC API key is not configured" },
         { status: 400 }
       );
     }
@@ -22,11 +24,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // These are election years, not FEC filing cycles.
-    // The sync logic determines which FEC 2-year filing cycles to pull
-    // based on the politician's chamber/branch.
-    const electionYears: number[] = (cycles || [2024])
-      .filter((c: number) => typeof c === "number" && c >= 2000 && c <= 2030);
+    let electionYears: number[];
+    if (cycles && Array.isArray(cycles) && cycles.length > 0) {
+      electionYears = cycles.filter((c: number) => typeof c === "number" && c >= 2000 && c <= 2030);
+    } else {
+      // Auto-determine election years from politician data
+      const pol = await prisma.politician.findUnique({
+        where: { id: politicianId },
+        select: { branch: true, chamber: true, inOfficeSince: true, termStart: true },
+      });
+      if (!pol) {
+        return NextResponse.json({ error: "Politician not found" }, { status: 404 });
+      }
+      electionYears = getElectionYears(pol.branch, pol.chamber, pol.inOfficeSince || pol.termStart);
+    }
 
     const result = await syncFecDonations(politicianId, electionYears);
     return NextResponse.json(result);

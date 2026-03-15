@@ -48,6 +48,7 @@ interface PoliticianInfo {
   fecCandidateId: string | null;
   congressId: string | null;
   branch: string;
+  chamber: string | null;
 }
 
 function Spinner() {
@@ -116,10 +117,10 @@ export default function SyncPage() {
   const [fecMatchResult, setFecMatchResult] = useState<FecMatchResult | null>(null);
   const [fecMatchError, setFecMatchError] = useState("");
   const [politicians, setPoliticians] = useState<PoliticianInfo[]>([]);
-  const [fecCycles, setFecCycles] = useState<number[]>([2024]);
   const [fecSyncing, setFecSyncing] = useState<string | null>(null);
   const [fecSyncResults, setFecSyncResults] = useState<Record<string, FecSyncResult>>({});
   const [fecSyncErrors, setFecSyncErrors] = useState<Record<string, string>>({});
+  const [fecSyncAllProgress, setFecSyncAllProgress] = useState<{ current: number; total: number; name: string } | null>(null);
 
   // ── FEC Summary state ──
   const [fecSummarySyncing, setFecSummarySyncing] = useState<string | null>(null);
@@ -136,11 +137,13 @@ export default function SyncPage() {
       .then((r) => r.json())
       .then((data) => {
         setPoliticians(
-          data.map((p: PoliticianInfo) => ({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data.map((p: any) => ({
             id: p.id, name: p.name,
             fecCandidateId: p.fecCandidateId,
             congressId: p.congressId,
             branch: p.branch || "legislative",
+            chamber: p.chamber || null,
           }))
         );
       })
@@ -224,13 +227,37 @@ export default function SyncPage() {
       const res = await fetch("/api/admin/sync/fec-donations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ politicianId: polId, cycles: fecCycles }),
+        body: JSON.stringify({ politicianId: polId }),
       });
       const data = await res.json();
       if (!res.ok) setFecSyncErrors(prev => ({ ...prev, [polId]: data.error || "Sync failed" }));
       else setFecSyncResults(prev => ({ ...prev, [polId]: data }));
     } catch { setFecSyncErrors(prev => ({ ...prev, [polId]: "Network error" })); }
     finally { setFecSyncing(null); }
+  }
+
+  async function handleFecSyncAll() {
+    const eligible = politicians.filter(p => p.fecCandidateId);
+    if (eligible.length === 0) return;
+    setFecSyncing("all");
+    setFecSyncResults({});
+    setFecSyncErrors({});
+    for (let i = 0; i < eligible.length; i++) {
+      const pol = eligible[i];
+      setFecSyncAllProgress({ current: i + 1, total: eligible.length, name: pol.name });
+      try {
+        const res = await fetch("/api/admin/sync/fec-donations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ politicianId: pol.id }),
+        });
+        const data = await res.json();
+        if (!res.ok) setFecSyncErrors(prev => ({ ...prev, [pol.id]: data.error || "Sync failed" }));
+        else setFecSyncResults(prev => ({ ...prev, [pol.id]: data }));
+      } catch { setFecSyncErrors(prev => ({ ...prev, [pol.id]: "Network error" })); }
+    }
+    setFecSyncing(null);
+    setFecSyncAllProgress(null);
   }
 
   // ── FEC Summary handlers ──
@@ -242,7 +269,7 @@ export default function SyncPage() {
       const res = await fetch("/api/admin/sync/fec-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ politicianId: polId, cycles: fecCycles }),
+        body: JSON.stringify({ politicianId: polId }),
       });
       const data = await res.json();
       if (!res.ok) setFecSummaryErrors(prev => ({ ...prev, [polId]: data.error || "Sync failed" }));
@@ -259,7 +286,7 @@ export default function SyncPage() {
       const res = await fetch("/api/admin/sync/fec-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cycles: fecCycles }),
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       if (!res.ok) setFecSummaryErrors(prev => ({ ...prev, all: data.error || "Sync failed" }));
@@ -284,10 +311,6 @@ export default function SyncPage() {
       else setExecSyncResults(prev => ({ ...prev, [polId]: data }));
     } catch { setExecSyncErrors(prev => ({ ...prev, [polId]: "Network error or timeout" })); }
     finally { setExecSyncing(null); }
-  }
-
-  function toggleCycle(cycle: number) {
-    setFecCycles(prev => prev.includes(cycle) ? prev.filter(c => c !== cycle) : [...prev, cycle]);
   }
 
   return (
@@ -475,28 +498,37 @@ export default function SyncPage() {
         {/* Sync Donations */}
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Step 2 — Sync Donations</h3>
-          <p className="text-xs text-gray-400 mb-4">Fetch top donors for each politician.</p>
-          <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-500 mb-2">Election Years</label>
-            <p className="text-xs text-gray-400 mb-2">Senate cycles auto-pull 3 FEC filing periods. House pulls 1. Executive pulls 2.</p>
-            <div className="flex flex-wrap gap-3">
-              {[2018, 2020, 2022, 2024, 2026].map(cycle => (
-                <label key={cycle} className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={fecCycles.includes(cycle)} onChange={() => toggleCycle(cycle)} disabled={fecSyncing !== null} className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
-                  <span className="text-sm text-gray-700">{cycle}</span>
-                </label>
-              ))}
+          <p className="text-xs text-gray-400 mb-4">
+            Fetch top donors for each politician. Election years are auto-determined: senators every 6 years, house every 2 years, executive every 4 years.
+          </p>
+          <div className="mb-6">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleFecSyncAll}
+                disabled={fecSyncing !== null}
+                className="rounded-lg bg-[#0D0D0D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {fecSyncing === "all" ? <span className="flex items-center gap-2"><Spinner />Syncing All...</span> : "Sync All Donations"}
+              </button>
+              <Timer running={fecSyncing === "all"} />
             </div>
+            {fecSyncAllProgress && (
+              <p className="mt-2 text-xs text-gray-500 animate-pulse">
+                Syncing {fecSyncAllProgress.name} ({fecSyncAllProgress.current}/{fecSyncAllProgress.total})...
+              </p>
+            )}
           </div>
+          <div className="border-t border-gray-100 mb-4" />
+          <p className="text-xs text-gray-400 mb-4">Or sync individually:</p>
           <div className="space-y-3">
             {politicians.length === 0 && <p className="text-xs text-gray-400">No US politicians in the database.</p>}
-            {politicians.map(pol => (
+            {politicians.filter(p => p.fecCandidateId).map(pol => (
               <div key={pol.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">{pol.name}</p>
-                  <p className="text-xs text-gray-400">{pol.fecCandidateId ? `FEC: ${pol.fecCandidateId}` : "No FEC ID — run Match first"}</p>
+                  <p className="text-xs text-gray-400">FEC: {pol.fecCandidateId}{pol.chamber === "senate" ? " · Senate" : pol.branch === "executive" ? " · Executive" : " · House"}</p>
                 </div>
-                <button onClick={() => handleFecSync(pol.id)} disabled={fecSyncing !== null || !pol.fecCandidateId || fecCycles.length === 0} className="rounded-lg bg-[#0D0D0D] px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                <button onClick={() => handleFecSync(pol.id)} disabled={fecSyncing !== null} className="rounded-lg bg-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                   {fecSyncing === pol.id ? <span className="flex items-center gap-1.5"><Spinner />Syncing...</span> : "Sync Donations"}
                 </button>
                 {fecSyncErrors[pol.id] && <div className="w-full mt-2 rounded-lg border border-red-200 bg-red-50 p-2"><p className="text-xs text-red-700">{fecSyncErrors[pol.id]}</p></div>}
@@ -523,23 +555,11 @@ export default function SyncPage() {
           Pull official pre-calculated campaign finance totals from the FEC candidate totals endpoint. These power the headline stats on each politician&apos;s Money Trail tab.
         </p>
 
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-gray-500 mb-2">Election Years</label>
-          <div className="flex flex-wrap gap-3">
-            {[2018, 2020, 2022, 2024, 2026].map(cycle => (
-              <label key={cycle} className="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" checked={fecCycles.includes(cycle)} onChange={() => toggleCycle(cycle)} disabled={fecSummarySyncing !== null} className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
-                <span className="text-sm text-gray-700">{cycle}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
         <div className="mb-6">
           <div className="flex items-center gap-3">
             <button
               onClick={handleFecSummarySyncAll}
-              disabled={fecSummarySyncing !== null || fecCycles.length === 0}
+              disabled={fecSummarySyncing !== null}
               className="rounded-lg bg-[#0D0D0D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {fecSummarySyncing === "all" ? <span className="flex items-center gap-2"><Spinner />Syncing All...</span> : "Sync All Politicians"}
@@ -571,7 +591,7 @@ export default function SyncPage() {
               </div>
               <button
                 onClick={() => handleFecSummarySync(pol.id)}
-                disabled={fecSummarySyncing !== null || fecCycles.length === 0}
+                disabled={fecSummarySyncing !== null}
                 className="rounded-lg bg-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {fecSummarySyncing === pol.id ? <span className="flex items-center gap-1.5"><Spinner />Syncing...</span> : "Sync Summary"}
