@@ -24,7 +24,7 @@ import { CategoryBreakdownSection } from "@/components/CategoryBreakdownSection"
 import { getIssueWeights } from "@/lib/issue-weights-cache";
 import { SEVERITY_LABELS } from "@/lib/issue-weights";
 import { GradeBreakdown } from "./GradeBreakdown";
-import { getTermEnd } from "@/lib/time-decay";
+import { getTermEnd, getTermProgress } from "@/lib/time-decay";
 
 export const dynamic = "force-dynamic";
 
@@ -202,11 +202,12 @@ export default async function PoliticianPage({
     branch: politician.branch,
     chamber: politician.chamber,
   };
-  const { percentage, grade, termProgress } = calculateFulfillment(
+  const { percentage, grade } = calculateFulfillment(
     politician.promises,
     termInfo,
     issueWeights,
   );
+  const termProgress = getTermProgress(politician.termStart, politician.termEnd, politician.branch, politician.chamber);
   const resolvedTermEnd = getTermEnd(politician.termStart, politician.termEnd, politician.branch, politician.chamber);
   const countryInfo = COUNTRIES[politician.country as keyof typeof COUNTRIES];
 
