@@ -11,12 +11,15 @@ import {
 import type { FecCommittee } from "@/lib/fec-api";
 import { classifyIndustry, guessDonorType } from "@/lib/fec-industries";
 
-// Employer names that are not real organizations
+// Employer names that are not real organizations — these are FEC employer
+// field entries for individual donors and should be skipped entirely.
 const EXCLUDED_EMPLOYERS = new Set([
   "retired",
   "self-employed",
   "self employed",
+  "self",
   "not employed",
+  "not applicable",
   "none",
   "n/a",
   "null",

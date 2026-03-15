@@ -86,13 +86,24 @@ export function classifyIndustry(name: string): string {
   return "Other";
 }
 
+// Fake employer names that indicate individual donors, not corporations
+const INDIVIDUAL_EMPLOYER_NAMES = new Set([
+  "retired", "self-employed", "self employed", "self", "not employed",
+  "not applicable", "none", "n/a", "null", "information requested",
+  "information requested per best efforts", "entrepreneur", "homemaker",
+  "disabled", "student", "unemployed", "refused", "requested",
+]);
+
 export function guessDonorType(
   name: string,
   contributorType?: string
 ): "INDIVIDUAL" | "CORPORATION" | "PAC" | "SUPER_PAC" | "UNION" | "NONPROFIT" {
-  const lower = name.toLowerCase();
+  const lower = name.toLowerCase().trim();
 
   if (contributorType === "individual") return "INDIVIDUAL";
+
+  // Never classify fake employer names as corporations
+  if (INDIVIDUAL_EMPLOYER_NAMES.has(lower)) return "INDIVIDUAL";
 
   if (lower.includes("union") || lower.includes("afl") || lower.includes("teamster"))
     return "UNION";
