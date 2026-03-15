@@ -108,9 +108,13 @@ export async function POST(request: NextRequest) {
       termEnd: Date | null;
       inOfficeSince: Date | null;
       branch: string;
+      branchProvided: boolean;
       chamber: string | null;
+      chamberProvided: boolean;
       state: string | null;
+      stateProvided: boolean;
       district: string | null;
+      districtProvided: boolean;
       rowNum: number;
     }
 
@@ -180,9 +184,13 @@ export async function POST(request: NextRequest) {
           termEnd,
           inOfficeSince,
           branch,
+          branchProvided: !!branchRaw,
           chamber,
+          chamberProvided: !!chamberRaw,
           state: stateRaw || null,
+          stateProvided: !!stateRaw,
           district: districtRaw || null,
+          districtProvided: !!districtRaw,
           rowNum,
         });
       }
@@ -420,19 +428,23 @@ export async function POST(request: NextRequest) {
       });
 
       if (existing) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const updateData: any = {
+          party: pol.party,
+          photoUrl: pol.photoUrl || null,
+          termStart: pol.termStart,
+          termEnd: pol.termEnd,
+          inOfficeSince: pol.inOfficeSince,
+        };
+        // Only overwrite branch/chamber/state/district if explicitly provided in spreadsheet
+        if (pol.branchProvided) updateData.branch = pol.branch;
+        if (pol.chamberProvided) updateData.chamber = pol.chamber;
+        if (pol.stateProvided) updateData.state = pol.state;
+        if (pol.districtProvided) updateData.district = pol.district;
+
         await prisma.politician.update({
           where: { id: existing.id },
-          data: {
-            party: pol.party,
-            photoUrl: pol.photoUrl || null,
-            termStart: pol.termStart,
-            termEnd: pol.termEnd,
-            inOfficeSince: pol.inOfficeSince,
-            branch: pol.branch,
-            chamber: pol.chamber,
-            state: pol.state,
-            district: pol.district,
-          },
+          data: updateData,
         });
         politicianIdMap[pol.name] = existing.id;
         politiciansUpdated++;
