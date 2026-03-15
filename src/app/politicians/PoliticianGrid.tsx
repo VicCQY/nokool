@@ -22,7 +22,7 @@ const GRADE_ORDER: Record<string, number> = {
   F: 0, D: 1, C: 2, B: 3, A: 4, "N/A": 5,
 };
 
-const PARTY_FILTERS = ["All", "Republican", "Democrat", "Independent"] as const;
+const PARTY_FILTERS = ["All", "Republican", "Democratic", "Independent"] as const;
 
 type SortOption = "grade" | "name" | "party";
 
