@@ -144,20 +144,9 @@ function getFecFilingCycles(
 }
 
 /**
- * Get the display label for an election cycle.
+ * Get the display label for an election cycle — always just the year.
  */
-function getCycleLabel(
-  electionYear: number,
-  chamber: string | null,
-  branch: string | null
-): string {
-  if (chamber === "senate") {
-    return `${electionYear} Election`;
-  }
-  if (branch === "executive") {
-    return `${electionYear} Election`;
-  }
-  // house: just the year
+function getCycleLabel(electionYear: number): string {
   return String(electionYear);
 }
 
@@ -427,7 +416,7 @@ export async function syncFecDonations(
   }
 
   for (const electionYear of electionYears) {
-    const cycleLabel = getCycleLabel(electionYear, politician.chamber, politician.branch);
+    const cycleLabel = getCycleLabel(electionYear);
     const fecFilingCycles = getFecFilingCycles(electionYear, politician.chamber, politician.branch);
 
     result.errors.push(`${politician.name}: syncing ${cycleLabel} (FEC cycles: ${fecFilingCycles.join(", ")})`);

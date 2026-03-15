@@ -82,7 +82,7 @@ model FecSummary {
   id                String     @id @default(cuid())
   politicianId      String
   politician        Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
-  cycle             String     // "2024 Election" for senators, "2024" for house
+  cycle             String     // election year e.g. "2024"
   totalReceipts     Float
   individualTotal   Float      // itemized + unitemized individual contributions
   pacTotal          Float      // other_political_committee_contributions

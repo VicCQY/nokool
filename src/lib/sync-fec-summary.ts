@@ -14,12 +14,7 @@ function getFecFilingCycles(
   return [electionYear];
 }
 
-function getCycleLabel(
-  electionYear: number,
-  chamber: string | null,
-  branch: string | null
-): string {
-  if (chamber === "senate" || branch === "executive") return `${electionYear} Election`;
+function getCycleLabel(electionYear: number): string {
   return String(electionYear);
 }
 
@@ -54,7 +49,7 @@ export async function syncFecSummary(
   }
 
   for (const electionYear of electionYears) {
-    const cycleLabel = getCycleLabel(electionYear, politician.chamber, politician.branch);
+    const cycleLabel = getCycleLabel(electionYear);
     const fecCycles = getFecFilingCycles(electionYear, politician.chamber, politician.branch);
 
     // Accumulate totals across all FEC filing cycles
