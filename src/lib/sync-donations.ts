@@ -206,7 +206,8 @@ async function findBestCommittee(
 
 export async function syncFecDonations(
   politicianId: string,
-  cycles: number[] = [2024]
+  cycles: number[] = [2024],
+  { replace = true }: { replace?: boolean } = {}
 ): Promise<DonationSyncResult> {
   const result: DonationSyncResult = {
     donorsCreated: 0,
@@ -251,6 +252,16 @@ export async function syncFecDonations(
 
   for (const cycle of cycles) {
     const cycleStr = String(cycle);
+
+    // Delete existing donations for this politician+cycle before re-importing
+    if (replace) {
+      const deleted = await prisma.donation.deleteMany({
+        where: { politicianId, electionCycle: cycleStr },
+      });
+      if (deleted.count > 0) {
+        result.errors.push(`Cleared ${deleted.count} existing donations for ${cycleStr} cycle`);
+      }
+    }
 
     // Find the committee with the most money for this cycle
     const { committeeId, committeeName, allCommitteeNames } =
