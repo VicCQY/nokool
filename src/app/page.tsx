@@ -77,7 +77,10 @@ export default async function HomePage() {
 
   const issueWeights = await getIssueWeights();
 
+  const totalPoliticians = politicians.length;
+
   const politiciansWithGrades = politicians
+    .filter((pol) => pol.promises.length > 0)
     .map((pol) => ({
       ...pol,
       ...calculateFulfillment(
@@ -161,7 +164,7 @@ export default async function HomePage() {
                   Politicians We&apos;re Tracking
                 </h2>
                 <p className="mt-1 text-sm text-slate">
-                  Sorted by worst grade first.
+                  Sorted by grade.
                 </p>
               </div>
               <Link
@@ -185,8 +188,18 @@ export default async function HomePage() {
                   grade={pol.grade}
                   percentage={pol.percentage}
                   promiseCount={pol.promises.length}
+                  state={pol.state}
+                  district={pol.district}
                 />
               ))}
+            </div>
+            <div className="mt-8 text-center">
+              <Link
+                href="/politicians"
+                className="text-sm font-medium text-[#2563EB] hover:text-blue-800 transition-colors"
+              >
+                Browse all {totalPoliticians} politicians &rarr;
+              </Link>
             </div>
           </div>
         </section>

@@ -83,7 +83,7 @@ export function PoliticianGrid({ politicians }: { politicians: PoliticianData[] 
             onChange={(e) => setSort(e.target.value as SortOption)}
             className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900"
           >
-            <option value="grade">Grade (worst first)</option>
+            <option value="grade">Grade (F → A)</option>
             <option value="name">Name (A-Z)</option>
             <option value="party">Party</option>
           </select>
