@@ -181,6 +181,9 @@ export default async function PoliticianPage({
         include: { donor: true },
         orderBy: { amount: "desc" },
       },
+      fecSummaries: {
+        orderBy: { cycle: "desc" },
+      },
       lobbyingRecords: {
         orderBy: { amount: "desc" },
       },
@@ -727,6 +730,18 @@ export default async function PoliticianPage({
                 type: d.donor.type,
                 industry: d.donor.industry,
               },
+            }))}
+            fecSummaries={politician.fecSummaries.map((s) => ({
+              cycle: s.cycle,
+              totalReceipts: s.totalReceipts,
+              individualTotal: s.individualTotal,
+              pacTotal: s.pacTotal,
+              partyTotal: s.partyTotal,
+              candidateTotal: s.candidateTotal,
+              otherTotal: s.otherTotal,
+              disbursements: s.disbursements,
+              cashOnHand: s.cashOnHand,
+              debt: s.debt,
             }))}
             lobbyingRecords={politician.lobbyingRecords.map((l) => ({
               id: l.id,

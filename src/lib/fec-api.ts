@@ -129,6 +129,21 @@ export interface FecSizeBreakdown {
   count: number;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface FecCandidateTotals {
+  receipts: number;
+  individual_contributions: number;
+  individual_itemized_contributions: number;
+  individual_unitemized_contributions: number;
+  other_political_committee_contributions: number;
+  transfers_from_affiliated_committee: number;
+  candidate_contribution: number;
+  disbursements: number;
+  cash_on_hand_end_period: number;
+  debts_owed_by_committee: number;
+  [key: string]: unknown;
+}
+
 // ── API Functions ──
 
 export async function searchCandidates(
@@ -202,6 +217,17 @@ export async function getContributions(
     per_page: String(perPage),
   });
   return data.results || [];
+}
+
+export async function getCandidateTotals(
+  candidateId: string,
+  cycle: number
+): Promise<FecCandidateTotals | null> {
+  const data = await fetchWithRotation(`/candidate/${candidateId}/totals/`, {
+    cycle: String(cycle),
+    election_full: "true",
+  });
+  return data.results?.[0] || null;
 }
 
 export { delay };

@@ -19,6 +19,19 @@ interface DonationData {
   donor: DonorData;
 }
 
+interface FecSummaryData {
+  cycle: string;
+  totalReceipts: number;
+  individualTotal: number;
+  pacTotal: number;
+  partyTotal: number;
+  candidateTotal: number;
+  otherTotal: number;
+  disbursements: number;
+  cashOnHand: number;
+  debt: number;
+}
+
 interface LobbyingData {
   id: string;
   lobbyistName: string;
@@ -67,6 +80,15 @@ const INDUSTRY_COLORS: Record<string, string> = {
   Manufacturing: "bg-gray-500",
 };
 
+const BREAKDOWN_COLORS = [
+  { label: "Individual (Large)", color: "bg-blue-500" },
+  { label: "Individual (Small)", color: "bg-sky-400" },
+  { label: "PAC Contributions", color: "bg-purple-500" },
+  { label: "Party/Committee", color: "bg-amber-500" },
+  { label: "Candidate Self-Fund", color: "bg-emerald-500" },
+  { label: "Other", color: "bg-gray-400" },
+];
+
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -76,29 +98,70 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+function formatCompact(amount: number): string {
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+  return formatCurrency(amount);
+}
+
 export function MoneyTrail({
   donations,
+  fecSummaries = [],
   lobbyingRecords,
 }: {
   donations: DonationData[];
+  fecSummaries?: FecSummaryData[];
   lobbyingRecords: LobbyingData[];
 }) {
-  // Derive available cycles from data, sorted descending
+  // Derive available cycles from both summaries and donations
   const allCycles = useMemo(() => {
-    const cycles = Array.from(new Set(donations.map((d) => d.electionCycle))).sort(
-      (a, b) => b.localeCompare(a),
-    );
-    return cycles;
-  }, [donations]);
+    const cycleSet = new Set<string>();
+    for (const s of fecSummaries) cycleSet.add(s.cycle);
+    for (const d of donations) cycleSet.add(d.electionCycle);
+    return Array.from(cycleSet).sort((a, b) => b.localeCompare(a));
+  }, [fecSummaries, donations]);
 
-  // Default to most recent cycle
   const [selectedCycle, setSelectedCycle] = useState(allCycles[0] || "All");
   const [donorTypeFilter, setDonorTypeFilter] = useState("");
   const [industryFilter, setIndustryFilter] = useState("");
   const [donorSort, setDonorSort] = useState("amount");
   const [showAllDonors, setShowAllDonors] = useState(false);
   const [expandedDonor, setExpandedDonor] = useState<string | null>(null);
-  const [lobbyIndustryFilter, setLobbyIndustryFilter] = useState("");
+
+  // Get the FEC summary for the selected cycle
+  const activeSummary = useMemo(() => {
+    if (selectedCycle === "All") {
+      // Combine all summaries
+      if (fecSummaries.length === 0) return null;
+      return fecSummaries.reduce(
+        (acc, s) => ({
+          cycle: "All",
+          totalReceipts: acc.totalReceipts + s.totalReceipts,
+          individualTotal: acc.individualTotal + s.individualTotal,
+          pacTotal: acc.pacTotal + s.pacTotal,
+          partyTotal: acc.partyTotal + s.partyTotal,
+          candidateTotal: acc.candidateTotal + s.candidateTotal,
+          otherTotal: acc.otherTotal + s.otherTotal,
+          disbursements: acc.disbursements + s.disbursements,
+          cashOnHand: s.cashOnHand, // use most recent
+          debt: s.debt,
+        }),
+        {
+          cycle: "All",
+          totalReceipts: 0,
+          individualTotal: 0,
+          pacTotal: 0,
+          partyTotal: 0,
+          candidateTotal: 0,
+          otherTotal: 0,
+          disbursements: 0,
+          cashOnHand: 0,
+          debt: 0,
+        },
+      );
+    }
+    return fecSummaries.find((s) => s.cycle === selectedCycle) || null;
+  }, [fecSummaries, selectedCycle]);
 
   // Filter donations by selected cycle
   const cycleDonations = useMemo(() => {
@@ -106,32 +169,27 @@ export function MoneyTrail({
     return donations.filter((d) => d.electionCycle === selectedCycle);
   }, [donations, selectedCycle]);
 
-  // Stats (computed from cycle-filtered donations)
-  const totalDonations = cycleDonations.reduce((sum, d) => sum + d.amount, 0);
-  const uniqueDonors = new Set(cycleDonations.map((d) => d.donor.id)).size;
-  const largestDonation = cycleDonations.reduce(
-    (max, d) => (d.amount > max.amount ? d : max),
-    cycleDonations[0] || { amount: 0, donor: { name: "N/A" } },
+  // Industry breakdown (from cycle-filtered donations, excluding aggregate individual entries)
+  const nonAggregateDonations = cycleDonations.filter(
+    (d) => !d.donor.name.includes("Small-Dollar") && !d.donor.name.includes("Large-Dollar"),
   );
-
-  // Industry breakdown (from cycle-filtered donations)
   const industryTotals: Record<string, number> = {};
-  for (const d of cycleDonations) {
+  for (const d of nonAggregateDonations) {
     industryTotals[d.donor.industry] =
       (industryTotals[d.donor.industry] || 0) + d.amount;
   }
   const sortedIndustries = Object.entries(industryTotals).sort(
     (a, b) => b[1] - a[1],
   );
-  const topIndustry = sortedIndustries[0]?.[0] || "N/A";
   const maxIndustryAmount = sortedIndustries[0]?.[1] || 1;
+  const industryDonationTotal = nonAggregateDonations.reduce((s, d) => s + d.amount, 0);
 
-  // Aggregate donors (from cycle-filtered donations)
+  // Aggregate donors (from cycle-filtered donations, excluding aggregate entries)
   const donorMap = new Map<
     string,
     { donor: DonorData; total: number; count: number; donations: DonationData[] }
   >();
-  for (const d of cycleDonations) {
+  for (const d of nonAggregateDonations) {
     const existing = donorMap.get(d.donor.id);
     if (existing) {
       existing.total += d.amount;
@@ -149,7 +207,6 @@ export function MoneyTrail({
 
   let donorList = Array.from(donorMap.values());
 
-  // Filter donors
   if (donorTypeFilter) {
     donorList = donorList.filter((d) => d.donor.type === donorTypeFilter);
   }
@@ -157,42 +214,45 @@ export function MoneyTrail({
     donorList = donorList.filter((d) => d.donor.industry === industryFilter);
   }
 
-  // Sort donors
   if (donorSort === "amount") {
     donorList.sort((a, b) => b.total - a.total);
   } else if (donorSort === "name") {
     donorList.sort((a, b) => a.donor.name.localeCompare(b.donor.name));
   } else if (donorSort === "date") {
     donorList.sort((a, b) => {
-      const aLatest = Math.max(
-        ...a.donations.map((d) => new Date(d.date).getTime()),
-      );
-      const bLatest = Math.max(
-        ...b.donations.map((d) => new Date(d.date).getTime()),
-      );
+      const aLatest = Math.max(...a.donations.map((d) => new Date(d.date).getTime()));
+      const bLatest = Math.max(...b.donations.map((d) => new Date(d.date).getTime()));
       return bLatest - aLatest;
     });
   }
 
   const displayedDonors = showAllDonors ? donorList : donorList.slice(0, 10);
 
-  // Unique industries for filter dropdown (from cycle-filtered data)
   const allIndustries = Array.from(
-    new Set(cycleDonations.map((d) => d.donor.industry)),
-  ).sort();
-  const lobbyIndustries = Array.from(
-    new Set(lobbyingRecords.map((l) => l.clientIndustry)),
+    new Set(nonAggregateDonations.map((d) => d.donor.industry)),
   ).sort();
 
-  // Filtered lobbying
-  let filteredLobbying = lobbyingRecords;
-  if (lobbyIndustryFilter) {
-    filteredLobbying = filteredLobbying.filter(
-      (l) => l.clientIndustry === lobbyIndustryFilter,
-    );
-  }
+  // Contribution breakdown data from FEC summary
+  const breakdownItems = useMemo(() => {
+    if (!activeSummary || activeSummary.totalReceipts === 0) return [];
+    const s = activeSummary;
+    // Split individual into itemized (large) and unitemized (small)
+    // We don't have the split in the summary, so approximate:
+    // individualTotal is the full amount
+    const items: { label: string; amount: number; color: string }[] = [];
+    // We store individualTotal as itemized + unitemized combined
+    // For the breakdown, show as one "Individual" category
+    if (s.individualTotal > 0) items.push({ label: "Individual Contributions", amount: s.individualTotal, color: "bg-blue-500" });
+    if (s.pacTotal > 0) items.push({ label: "PAC Contributions", amount: s.pacTotal, color: "bg-purple-500" });
+    if (s.partyTotal > 0) items.push({ label: "Party/Committee Transfers", amount: s.partyTotal, color: "bg-amber-500" });
+    if (s.candidateTotal > 0) items.push({ label: "Candidate Self-Funding", amount: s.candidateTotal, color: "bg-emerald-500" });
+    if (s.otherTotal > 0) items.push({ label: "Other", amount: s.otherTotal, color: "bg-gray-400" });
+    return items;
+  }, [activeSummary]);
 
-  if (donations.length === 0) {
+  const hasData = donations.length > 0 || fecSummaries.length > 0;
+
+  if (!hasData) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
         <p className="text-slate">No campaign finance data available.</p>
@@ -203,9 +263,9 @@ export function MoneyTrail({
   return (
     <div className="space-y-8">
       {/* CYCLE SELECTOR */}
-      {donations.length > 0 && allCycles.length > 0 && (
+      {allCycles.length > 0 && (
         <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 p-1 w-fit max-w-full overflow-x-auto">
-          {[...allCycles, "All"].map((cycle) => (
+          {[...allCycles, ...(allCycles.length > 1 ? ["All"] : [])].map((cycle) => (
             <button
               key={cycle}
               onClick={() => {
@@ -213,7 +273,7 @@ export function MoneyTrail({
                 setShowAllDonors(false);
                 setExpandedDonor(null);
               }}
-              className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-all ${
+              className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-all whitespace-nowrap ${
                 selectedCycle === cycle
                   ? "bg-[#0D0D0D] text-white shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
@@ -225,47 +285,106 @@ export function MoneyTrail({
         </div>
       )}
 
-      {/* SECTION A — Stats */}
-      {cycleDonations.length > 0 && (
+      {/* SECTION A — Official Stats from FEC Summary */}
+      {activeSummary && activeSummary.totalReceipts > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-xl sm:text-2xl font-mono font-bold text-brand-charcoal truncate">
-              {formatCurrency(totalDonations)}
+              {formatCompact(activeSummary.totalReceipts)}
             </p>
             <p className="text-xs text-slate mt-1">
-              Total Received{selectedCycle !== "All" ? ` (${selectedCycle})` : ""}
+              Total Receipts
             </p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-2xl font-mono font-bold text-brand-charcoal">{uniqueDonors}</p>
-            <p className="text-xs text-slate mt-1">Unique Donors</p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-xl sm:text-2xl font-mono font-bold text-brand-charcoal truncate">
-              {formatCurrency(largestDonation.amount)}
+              {formatCompact(activeSummary.individualTotal)}
             </p>
-            <p className="text-xs text-slate mt-1 truncate">
-              Largest — {largestDonation.donor.name}
-            </p>
+            <p className="text-xs text-slate mt-1">Individual Contributions</p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-2xl font-mono font-bold text-brand-charcoal truncate">
-              {topIndustry}
+            <p className="text-xl sm:text-2xl font-mono font-bold text-brand-charcoal truncate">
+              {formatCompact(activeSummary.pacTotal)}
             </p>
-            <p className="text-xs text-slate mt-1">Top Industry</p>
+            <p className="text-xs text-slate mt-1">PAC Contributions</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-xl sm:text-2xl font-mono font-bold text-brand-charcoal truncate">
+              {formatCompact(activeSummary.cashOnHand)}
+            </p>
+            <p className="text-xs text-slate mt-1">Cash on Hand</p>
           </div>
         </div>
       )}
 
-      {/* SECTION B — Top Donors + Industry Breakdown */}
-      {cycleDonations.length > 0 && (
+      {/* SECTION B — Contribution Breakdown */}
+      {breakdownItems.length > 0 && activeSummary && (
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-5">
+          <h3 className="text-lg font-semibold text-brand-charcoal mb-4">
+            Contribution Breakdown
+          </h3>
+          {/* Stacked bar */}
+          <div className="h-6 w-full rounded-full bg-gray-100 overflow-hidden flex mb-4">
+            {breakdownItems.map((item) => {
+              const pct = (item.amount / activeSummary.totalReceipts) * 100;
+              if (pct < 0.5) return null;
+              return (
+                <div
+                  key={item.label}
+                  className={`h-full ${item.color} transition-all duration-500`}
+                  style={{ width: `${pct}%` }}
+                  title={`${item.label}: ${formatCurrency(item.amount)} (${pct.toFixed(1)}%)`}
+                />
+              );
+            })}
+          </div>
+          {/* Legend */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {breakdownItems.map((item) => {
+              const pct = ((item.amount / activeSummary.totalReceipts) * 100).toFixed(1);
+              return (
+                <div key={item.label} className="flex items-center gap-2">
+                  <div className={`h-3 w-3 rounded-sm ${item.color} shrink-0`} />
+                  <span className="text-xs text-brand-charcoal font-medium truncate">
+                    {item.label}
+                  </span>
+                  <span className="text-xs text-gray-400 whitespace-nowrap ml-auto">
+                    {formatCompact(item.amount)} ({pct}%)
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {/* Additional stats row */}
+          {(activeSummary.disbursements > 0 || activeSummary.debt > 0) && (
+            <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-1">
+              {activeSummary.disbursements > 0 && (
+                <p className="text-xs text-gray-400">
+                  Spent: <span className="font-medium text-brand-charcoal">{formatCompact(activeSummary.disbursements)}</span>
+                </p>
+              )}
+              {activeSummary.debt > 0 && (
+                <p className="text-xs text-gray-400">
+                  Debt: <span className="font-medium text-brand-charcoal">{formatCompact(activeSummary.debt)}</span>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SECTION C — Top Donors + Industry Breakdown */}
+      {nonAggregateDonations.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left: Top Donors */}
           <div className="lg:col-span-3 rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="p-5 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-brand-charcoal mb-3">
+              <h3 className="text-lg font-semibold text-brand-charcoal mb-1">
                 Top Donors
               </h3>
+              <p className="text-xs text-gray-400 mb-3">
+                Based on itemized contributions ($200+). Small-dollar donors are not individually listed.
+              </p>
               <div className="flex flex-wrap gap-2">
                 <select
                   value={donorTypeFilter}
@@ -307,7 +426,6 @@ export function MoneyTrail({
               {displayedDonors.map((item, i) => {
                 const typeStyle = DONOR_TYPE_COLORS[item.donor.type];
                 const isExpanded = expandedDonor === item.donor.id;
-                // Collect unique cycles for this donor's donations
                 const donorCycles = Array.from(
                   new Set(item.donations.map((d) => d.electionCycle)),
                 ).sort((a, b) => b.localeCompare(a));
@@ -420,12 +538,15 @@ export function MoneyTrail({
 
           {/* Right: Industry Breakdown */}
           <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm p-5">
-            <h3 className="text-lg font-semibold text-brand-charcoal mb-4">
+            <h3 className="text-lg font-semibold text-brand-charcoal mb-1">
               By Industry
             </h3>
+            <p className="text-xs text-gray-400 mb-4">
+              Based on itemized contributions ($200+).
+            </p>
             <div className="space-y-3">
               {sortedIndustries.map(([industry, amount]) => {
-                const pct = Math.round((amount / totalDonations) * 100);
+                const pct = Math.round((amount / industryDonationTotal) * 100);
                 const barWidth = Math.round(
                   (amount / maxIndustryAmount) * 100,
                 );
@@ -455,122 +576,11 @@ export function MoneyTrail({
         </div>
       )}
 
-      {/* SECTION C — Lobbying Records (hidden until we have data) */}
-      {false && lobbyingRecords.length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="p-5 border-b border-gray-100">
-            <h3 className="text-lg font-semibold text-brand-charcoal mb-3">
-              Lobbying Records
-            </h3>
-            <select
-              value={lobbyIndustryFilter}
-              onChange={(e) => setLobbyIndustryFilter(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-slate shadow-sm focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal focus:outline-none"
-            >
-              <option value="">All Industries</option>
-              {lobbyIndustries.map((ind) => (
-                <option key={ind} value={ind}>
-                  {ind}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Desktop table */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">
-                    Lobbyist
-                  </th>
-                  <th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">
-                    Client
-                  </th>
-                  <th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">
-                    Industry
-                  </th>
-                  <th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">
-                    Issue
-                  </th>
-                  <th className="px-5 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">
-                    Amount
-                  </th>
-                  <th className="px-5 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">
-                    Year
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredLobbying.map((record) => (
-                  <tr key={record.id} className="hover:bg-gray-50">
-                    <td className="px-5 py-3 text-sm text-gray-900">
-                      {record.lobbyistName}
-                    </td>
-                    <td className="px-5 py-3 text-sm font-medium text-gray-900">
-                      {record.clientName}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-slate">
-                        {record.clientIndustry}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-gray-500 max-w-xs truncate">
-                      {record.issue}
-                    </td>
-                    <td className="px-5 py-3 text-sm font-mono font-semibold text-brand-charcoal text-right whitespace-nowrap">
-                      {formatCurrency(record.amount)}
-                    </td>
-                    <td className="px-5 py-3 text-sm text-gray-400 text-right">
-                      {record.year}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile cards */}
-          <div className="sm:hidden divide-y divide-gray-100">
-            {filteredLobbying.map((record) => (
-              <div key={record.id} className="p-4 space-y-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-brand-charcoal">
-                      {record.clientName}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      via {record.lobbyistName}
-                    </p>
-                  </div>
-                  <span className="text-sm font-mono font-bold text-brand-charcoal">
-                    {formatCurrency(record.amount)}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 font-medium text-slate">
-                    {record.clientIndustry}
-                  </span>
-                  <span className="text-gray-400">{record.year}</span>
-                </div>
-                <p className="text-xs text-gray-500">{record.issue}</p>
-              </div>
-            ))}
-          </div>
-
-          {filteredLobbying.length === 0 && (
-            <p className="p-5 text-center text-sm text-gray-400">
-              No lobbying records match the current filter.
-            </p>
-          )}
-        </div>
-      )}
-
       {/* DISCLAIMER */}
-      {donations.length > 0 && (
+      {hasData && (
         <p className="text-xs text-gray-400 leading-relaxed italic">
-          Donation data sourced from FEC filings. Figures reflect itemized
-          contributions and may not represent total fundraising. Visit{" "}
+          Headline totals sourced from official FEC candidate filings.
+          Donor details based on itemized FEC Schedule A filings ($200+). Visit{" "}
           <a
             href="https://www.fec.gov"
             target="_blank"

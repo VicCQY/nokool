@@ -121,6 +121,11 @@ export default function SyncPage() {
   const [fecSyncResults, setFecSyncResults] = useState<Record<string, FecSyncResult>>({});
   const [fecSyncErrors, setFecSyncErrors] = useState<Record<string, string>>({});
 
+  // ── FEC Summary state ──
+  const [fecSummarySyncing, setFecSummarySyncing] = useState<string | null>(null);
+  const [fecSummaryResults, setFecSummaryResults] = useState<Record<string, { synced: number; errors: string[] }>>({});
+  const [fecSummaryErrors, setFecSummaryErrors] = useState<Record<string, string>>({});
+
   // ── Executive Actions state ──
   const [execSyncing, setExecSyncing] = useState<string | null>(null);
   const [execSyncResults, setExecSyncResults] = useState<Record<string, ExecSyncResult>>({});
@@ -226,6 +231,41 @@ export default function SyncPage() {
       else setFecSyncResults(prev => ({ ...prev, [polId]: data }));
     } catch { setFecSyncErrors(prev => ({ ...prev, [polId]: "Network error" })); }
     finally { setFecSyncing(null); }
+  }
+
+  // ── FEC Summary handlers ──
+  async function handleFecSummarySync(polId: string) {
+    setFecSummarySyncing(polId);
+    setFecSummaryResults(prev => { const next = { ...prev }; delete next[polId]; return next; });
+    setFecSummaryErrors(prev => { const next = { ...prev }; delete next[polId]; return next; });
+    try {
+      const res = await fetch("/api/admin/sync/fec-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politicianId: polId, cycles: fecCycles }),
+      });
+      const data = await res.json();
+      if (!res.ok) setFecSummaryErrors(prev => ({ ...prev, [polId]: data.error || "Sync failed" }));
+      else setFecSummaryResults(prev => ({ ...prev, [polId]: data }));
+    } catch { setFecSummaryErrors(prev => ({ ...prev, [polId]: "Network error" })); }
+    finally { setFecSummarySyncing(null); }
+  }
+
+  async function handleFecSummarySyncAll() {
+    setFecSummarySyncing("all");
+    setFecSummaryResults({});
+    setFecSummaryErrors({});
+    try {
+      const res = await fetch("/api/admin/sync/fec-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cycles: fecCycles }),
+      });
+      const data = await res.json();
+      if (!res.ok) setFecSummaryErrors(prev => ({ ...prev, all: data.error || "Sync failed" }));
+      else setFecSummaryResults(prev => ({ ...prev, all: data }));
+    } catch { setFecSummaryErrors(prev => ({ ...prev, all: "Network error" })); }
+    finally { setFecSummarySyncing(null); }
   }
 
   // ── Executive Actions handlers ──
@@ -473,6 +513,80 @@ export default function SyncPage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* ── FEC Summary Totals Section ── */}
+      <div className="rounded-xl border border-gray-200 bg-white p-6 mt-8">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">FEC Official Totals</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Pull official pre-calculated campaign finance totals from the FEC candidate totals endpoint. These power the headline stats on each politician&apos;s Money Trail tab.
+        </p>
+
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-500 mb-2">Election Years</label>
+          <div className="flex flex-wrap gap-3">
+            {[2018, 2020, 2022, 2024, 2026].map(cycle => (
+              <label key={cycle} className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={fecCycles.includes(cycle)} onChange={() => toggleCycle(cycle)} disabled={fecSummarySyncing !== null} className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
+                <span className="text-sm text-gray-700">{cycle}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleFecSummarySyncAll}
+              disabled={fecSummarySyncing !== null || fecCycles.length === 0}
+              className="rounded-lg bg-[#0D0D0D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {fecSummarySyncing === "all" ? <span className="flex items-center gap-2"><Spinner />Syncing All...</span> : "Sync All Politicians"}
+            </button>
+            <Timer running={fecSummarySyncing === "all"} />
+          </div>
+          {fecSummaryErrors["all"] && <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2"><p className="text-xs text-red-700">{fecSummaryErrors["all"]}</p></div>}
+          {fecSummaryResults["all"] && (
+            <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-2">
+              <p className="text-xs font-medium text-green-800">Synced {fecSummaryResults["all"].synced} summaries</p>
+              {fecSummaryResults["all"].errors.length > 0 && (
+                <div className="mt-1 max-h-40 overflow-y-auto">
+                  <ul className="text-xs text-yellow-600 space-y-0.5">{fecSummaryResults["all"].errors.map((err, i) => <li key={i}>{err}</li>)}</ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-gray-100 mb-4" />
+        <p className="text-xs text-gray-400 mb-4">Or sync individually:</p>
+
+        <div className="space-y-3">
+          {politicians.filter(p => p.fecCandidateId).map(pol => (
+            <div key={pol.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900">{pol.name}</p>
+                <p className="text-xs text-gray-400">FEC: {pol.fecCandidateId}</p>
+              </div>
+              <button
+                onClick={() => handleFecSummarySync(pol.id)}
+                disabled={fecSummarySyncing !== null || fecCycles.length === 0}
+                className="rounded-lg bg-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {fecSummarySyncing === pol.id ? <span className="flex items-center gap-1.5"><Spinner />Syncing...</span> : "Sync Summary"}
+              </button>
+              {fecSummaryErrors[pol.id] && <div className="w-full mt-2 rounded-lg border border-red-200 bg-red-50 p-2"><p className="text-xs text-red-700">{fecSummaryErrors[pol.id]}</p></div>}
+              {fecSummaryResults[pol.id] && (
+                <div className="w-full mt-2 rounded-lg border border-green-200 bg-green-50 p-2">
+                  <p className="text-xs font-medium text-green-800">Synced {fecSummaryResults[pol.id].synced} summaries</p>
+                  {fecSummaryResults[pol.id].errors.length > 0 && (
+                    <ul className="text-xs text-yellow-600 mt-1 space-y-0.5">{fecSummaryResults[pol.id].errors.map((err, i) => <li key={i}>{err}</li>)}</ul>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 

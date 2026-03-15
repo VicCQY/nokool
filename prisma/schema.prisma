@@ -73,8 +73,28 @@ model Politician {
   lobbyingRecords  LobbyingRecord[]
   executiveActions ExecutiveAction[]
   newsArticles     NewsArticle[]
+  fecSummaries     FecSummary[]
 
   @@index([country])
+}
+
+model FecSummary {
+  id                String     @id @default(cuid())
+  politicianId      String
+  politician        Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  cycle             String     // "2024 Election" for senators, "2024" for house
+  totalReceipts     Float
+  individualTotal   Float      // itemized + unitemized individual contributions
+  pacTotal          Float      // other_political_committee_contributions
+  partyTotal        Float      // transfers_from_affiliated_committee
+  candidateTotal    Float      // candidate_contribution (self-funding)
+  otherTotal        Float      // everything else
+  disbursements     Float
+  cashOnHand        Float
+  debt              Float
+  fetchedAt         DateTime   @default(now())
+
+  @@unique([politicianId, cycle])
 }
 
 model Promise {
