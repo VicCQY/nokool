@@ -37,6 +37,25 @@ function isRealEmployer(name: string): boolean {
   return !EXCLUDED_EMPLOYERS.has(name.toLowerCase().trim());
 }
 
+// Fundraising platforms that process donations but aren't real donors.
+// Individual donations flow through these — counting both the individuals
+// AND the platform transfer would double-count.
+const PASSTHROUGH_PLATFORMS = new Set([
+  "winred",
+  "actblue",
+  "anedot",
+  "efundraising connections",
+  "piryx",
+  "revv",
+]);
+
+function isPassthroughPlatform(name: string): boolean {
+  const lower = name.toLowerCase().trim();
+  return Array.from(PASSTHROUGH_PLATFORMS).some(
+    (p) => lower.includes(p)
+  );
+}
+
 // ── Candidate Matching ──
 
 export interface FecMatchResult {
@@ -215,6 +234,7 @@ async function syncCommitteeForCycle(
   committeeId: string,
   committeeName: string,
   allCommitteeNames: Set<string>,
+  allCommitteeIds: Set<string>,
   politicianName: string,
   politicianId: string,
   fecCycle: number,
@@ -228,6 +248,7 @@ async function syncCommitteeForCycle(
 
     for (const emp of employers) {
       if (!emp.employer || !isRealEmployer(emp.employer)) continue;
+      if (isPassthroughPlatform(emp.employer)) continue;
 
       const industry = classifyIndustry(emp.employer);
       const donorType = guessDonorType(emp.employer);
@@ -248,7 +269,7 @@ async function syncCommitteeForCycle(
     );
   }
 
-  // 2. Top committee/PAC contributions (filter out self-transfers)
+  // 2. Top committee/PAC contributions (filter out self-transfers and platforms)
   try {
     await delay(400);
     const pacs = await getContributions(committeeId, "committee", 50);
@@ -259,21 +280,31 @@ async function syncCommitteeForCycle(
       if (!pac.contributor_name || pac.contribution_receipt_amount <= 0)
         continue;
 
-      // Skip transfers from the candidate's own committees
       const upperName = pac.contributor_name.toUpperCase();
+
+      // Skip pass-through fundraising platforms
+      if (isPassthroughPlatform(pac.contributor_name)) continue;
+
+      // Skip transfers from the candidate's own committees (by committee ID)
+      if (pac.committee_id && allCommitteeIds.has(pac.committee_id)) continue;
+
+      // Skip transfers from the candidate's own committees (by name match)
       const isSelfTransfer = Array.from(allCommitteeNames).some(
         (cn) => upperName.includes(cn) || cn.includes(upperName)
       );
       if (isSelfTransfer) continue;
 
-      // Also skip committees with the candidate's name (JFCs, victory funds, etc.)
+      // Skip committees with the candidate's name (JFCs, victory funds, etc.)
       if (
         upperName.includes(polLastName) &&
         (upperName.includes("COMMITTEE") ||
           upperName.includes("JFC") ||
           upperName.includes("JOINT FUNDRAISING") ||
           upperName.includes("VICTORY FUND") ||
-          upperName.includes("SAVE AMERICA"))
+          upperName.includes("SAVE AMERICA") ||
+          upperName.includes("FOR PRESIDENT") ||
+          upperName.includes("FOR SENATE") ||
+          upperName.includes("FOR CONGRESS"))
       ) {
         continue;
       }
@@ -387,10 +418,12 @@ export async function syncFecDonations(
     return result;
   }
 
-  // Collect all committee names (used to filter out self-transfers)
+  // Collect all committee names and IDs (used to filter out self-transfers)
   const allCommitteeNames = new Set<string>();
+  const allCommitteeIds = new Set<string>();
   for (const c of committees) {
     allCommitteeNames.add(c.name.toUpperCase());
+    allCommitteeIds.add(c.committee_id);
   }
 
   for (const electionYear of electionYears) {
@@ -422,6 +455,7 @@ export async function syncFecDonations(
           committee.committee_id,
           committee.name,
           allCommitteeNames,
+          allCommitteeIds,
           politician.name,
           politicianId,
           fecCycle,
