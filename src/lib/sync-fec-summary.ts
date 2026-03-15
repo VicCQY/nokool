@@ -85,7 +85,6 @@ export interface FecSummarySyncResult {
  */
 export async function syncFecSummary(
   politicianId: string,
-  electionYears?: number[]
 ): Promise<FecSummarySyncResult> {
   const result: FecSummarySyncResult = { synced: 0, errors: [] };
 
@@ -205,9 +204,7 @@ export async function syncFecSummary(
 /**
  * Sync FEC summaries for ALL US politicians with FEC IDs.
  */
-export async function syncAllFecSummaries(
-  electionYears?: number[]
-): Promise<FecSummarySyncResult> {
+export async function syncAllFecSummaries(): Promise<FecSummarySyncResult> {
   const allResult: FecSummarySyncResult = { synced: 0, errors: [] };
 
   const politicians = await prisma.politician.findMany({
@@ -216,7 +213,7 @@ export async function syncAllFecSummaries(
   });
 
   for (const pol of politicians) {
-    const r = await syncFecSummary(pol.id, electionYears);
+    const r = await syncFecSummary(pol.id);
     allResult.synced += r.synced;
     allResult.errors.push(...r.errors);
   }

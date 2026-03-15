@@ -468,7 +468,6 @@ async function syncCommitteeForCycle(
 
 export async function syncFecDonations(
   politicianId: string,
-  electionYears: number[] = [2024],
   { replace = true }: { replace?: boolean } = {}
 ): Promise<DonationSyncResult> {
   const result: DonationSyncResult = {
