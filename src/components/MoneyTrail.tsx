@@ -192,7 +192,7 @@ export function MoneyTrail({
     );
   }
 
-  if (donations.length === 0 && lobbyingRecords.length === 0) {
+  if (donations.length === 0) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
         <p className="text-slate">No campaign finance data available.</p>
@@ -462,8 +462,8 @@ export function MoneyTrail({
         </div>
       )}
 
-      {/* SECTION C — Lobbying Records */}
-      {lobbyingRecords.length > 0 && (
+      {/* SECTION C — Lobbying Records (hidden until we have data) */}
+      {false && lobbyingRecords.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="p-5 border-b border-gray-100">
             <h3 className="text-lg font-semibold text-brand-charcoal mb-3">

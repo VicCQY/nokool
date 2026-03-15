@@ -93,12 +93,6 @@ export default async function AdminPage() {
                   >
                     Donations
                   </Link>
-                  <Link
-                    href={`/admin/politician/${pol.id}/lobbying`}
-                    className="text-teal-600 hover:underline"
-                  >
-                    Lobbying
-                  </Link>
                   <DeleteButton id={pol.id} name={pol.name} />
                 </td>
               </tr>
