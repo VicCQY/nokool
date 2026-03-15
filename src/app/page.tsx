@@ -158,21 +158,13 @@ export default async function HomePage() {
       {politiciansWithGrades.length > 0 && (
         <section className="bg-cool-gray">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-            <div className="flex items-end justify-between mb-8">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-headline text-brand-charcoal">
-                  Politicians We&apos;re Tracking
-                </h2>
-                <p className="mt-1 text-sm text-slate">
-                  Sorted by grade.
-                </p>
-              </div>
-              <Link
-                href="/politicians"
-                className="text-sm font-medium text-[#2563EB] hover:text-blue-800 transition-colors whitespace-nowrap"
-              >
-                View All &rarr;
-              </Link>
+            <div className="mb-8">
+              <h2 className="text-2xl sm:text-3xl font-headline text-brand-charcoal">
+                Trending Politicians
+              </h2>
+              <p className="mt-1 text-sm text-slate">
+                Sorted by grade.
+              </p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {politiciansWithGrades.map((pol) => (
