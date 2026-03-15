@@ -28,6 +28,8 @@ export async function GET() {
     ["- photoUrl and sourceUrl are optional"],
     ["- termEnd is optional (leave blank for current office holders)"],
     ["- inOfficeSince is optional (when they first entered this office, for display)"],
+    ["- branch is optional: 'executive' or 'legislative' (default: legislative)"],
+    ["- chamber is optional: 'house' or 'senate' (for legislative branch politicians)"],
   ];
   const instrSheet = XLSX.utils.aoa_to_sheet(instructions);
   instrSheet["!cols"] = [{ wch: 100 }];
@@ -35,7 +37,7 @@ export async function GET() {
 
   // ── Politicians sheet ──
   const polData = [
-    ["name", "country", "party", "photoUrl", "termStart", "termEnd", "inOfficeSince"],
+    ["name", "country", "party", "photoUrl", "termStart", "termEnd", "inOfficeSince", "branch", "chamber"],
     [
       "Full name of the politician",
       "Country code (US, CA, UK, AU, FR, DE)",
@@ -44,6 +46,8 @@ export async function GET() {
       "Date term started (YYYY-MM-DD)",
       "Date term ends (optional, YYYY-MM-DD)",
       "When they first entered this office (optional, YYYY-MM-DD)",
+      "executive or legislative (optional, default: legislative)",
+      "house or senate (optional, for legislative branch)",
     ],
   ];
   const polSheet = XLSX.utils.aoa_to_sheet(polData);
@@ -55,6 +59,8 @@ export async function GET() {
     { wch: 18 },
     { wch: 18 },
     { wch: 22 },
+    { wch: 18 },
+    { wch: 18 },
   ];
 
   // Add data validation for country column (B3:B1000)
@@ -63,6 +69,16 @@ export async function GET() {
       sqref: "B3:B1000",
       type: "list",
       formula1: '"US,CA,UK,AU,FR,DE"',
+    },
+    {
+      sqref: "I3:I1000",
+      type: "list",
+      formula1: '"executive,legislative"',
+    },
+    {
+      sqref: "J3:J1000",
+      type: "list",
+      formula1: '"house,senate"',
     },
   ];
 

@@ -107,6 +107,8 @@ export async function POST(request: NextRequest) {
       termStart: Date;
       termEnd: Date | null;
       inOfficeSince: Date | null;
+      branch: string;
+      chamber: string | null;
       rowNum: number;
     }
 
@@ -124,6 +126,8 @@ export async function POST(request: NextRequest) {
       const termStartRaw = row[4];
       const termEndRaw = row[5];
       const inOfficeSinceRaw = row[6];
+      const branchRaw = str(row[7]).toLowerCase();
+      const chamberRaw = str(row[8]).toLowerCase();
 
       if (!name) errors.push(`Politicians sheet, row ${rowNum}: name is required`);
       if (!VALID_COUNTRIES.includes(country))
@@ -150,6 +154,18 @@ export async function POST(request: NextRequest) {
           `Politicians sheet, row ${rowNum}: inOfficeSince '${str(inOfficeSinceRaw)}' is not a valid date`
         );
 
+      const branch = branchRaw || "legislative";
+      if (!["executive", "legislative"].includes(branch))
+        errors.push(
+          `Politicians sheet, row ${rowNum}: branch '${str(row[7])}' must be 'executive' or 'legislative'`
+        );
+
+      const chamber = chamberRaw || null;
+      if (chamber && !["house", "senate"].includes(chamber))
+        errors.push(
+          `Politicians sheet, row ${rowNum}: chamber '${str(row[8])}' must be 'house' or 'senate'`
+        );
+
       if (name && VALID_COUNTRIES.includes(country) && party && termStart) {
         politicianRows.push({
           name,
@@ -159,6 +175,8 @@ export async function POST(request: NextRequest) {
           termStart,
           termEnd,
           inOfficeSince,
+          branch,
+          chamber,
           rowNum,
         });
       }
@@ -404,6 +422,8 @@ export async function POST(request: NextRequest) {
             termStart: pol.termStart,
             termEnd: pol.termEnd,
             inOfficeSince: pol.inOfficeSince,
+            branch: pol.branch,
+            chamber: pol.chamber,
           },
         });
         politicianIdMap[pol.name] = existing.id;
@@ -418,6 +438,8 @@ export async function POST(request: NextRequest) {
             termStart: pol.termStart,
             termEnd: pol.termEnd,
             inOfficeSince: pol.inOfficeSince,
+            branch: pol.branch,
+            chamber: pol.chamber,
           },
         });
         politicianIdMap[pol.name] = created.id;
