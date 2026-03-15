@@ -21,33 +21,35 @@ function getFecFilingCycles(
  * - Executive: every 4 years (2020, 2024, ...)
  * - House: every 2 years (all even years)
  */
-function filterValidElectionYears(
+/**
+ * Determine which election years to sync.
+ * For senators: use FEC API's election_years directly (source of truth for senate class).
+ * For others: filter requestedYears by cycle length.
+ * Always cap at the last completed election year and limit count.
+ */
+function resolveElectionYears(
   requestedYears: number[],
   chamber: string | null,
   branch: string | null,
   fecElectionYears?: number[]
 ): number[] {
-  if (branch === "executive") {
-    // Presidential years only
-    return requestedYears.filter((y) => y % 4 === 0);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  let maxYear = currentYear % 2 === 0 ? currentYear : currentYear - 1;
+  if (currentYear % 2 === 0 && now.getMonth() < 11) maxYear = currentYear - 2;
+
+  if (chamber === "senate" && fecElectionYears && fecElectionYears.length > 0) {
+    // Use FEC's election_years directly — they know the senate class
+    return fecElectionYears
+      .filter((y) => y <= maxYear && y >= 2000)
+      .sort((a, b) => b - a)
+      .slice(0, 2);
   }
-  if (chamber === "senate") {
-    // Determine senate class from known FEC election years, or from any
-    // requested year that is a valid even year
-    const knownElectionYear =
-      fecElectionYears?.filter((y) => y % 2 === 0).sort((a, b) => b - a)[0];
-    if (knownElectionYear) {
-      // Build valid set from 6-year cycle
-      const validYears = new Set<number>();
-      for (let y = knownElectionYear; y >= 2000; y -= 6) validYears.add(y);
-      for (let y = knownElectionYear; y <= 2030; y += 6) validYears.add(y);
-      return requestedYears.filter((y) => validYears.has(y));
-    }
-    // Fallback: accept all (will just create empty entries that get skipped)
-    return requestedYears;
+  if (branch === "executive") {
+    return requestedYears.filter((y) => y % 4 === 0 && y <= maxYear).slice(-2);
   }
   // House: every even year
-  return requestedYears.filter((y) => y % 2 === 0);
+  return requestedYears.filter((y) => y % 2 === 0 && y <= maxYear).slice(-3);
 }
 
 function getCycleLabel(electionYear: number): string {
@@ -94,7 +96,7 @@ export async function syncFecSummary(
     // Non-fatal — we'll just use all requested years
   }
 
-  const validYears = filterValidElectionYears(
+  const validYears = resolveElectionYears(
     electionYears,
     politician.chamber,
     politician.branch,

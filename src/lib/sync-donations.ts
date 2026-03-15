@@ -209,29 +209,34 @@ function getCycleLabel(electionYear: number): string {
 }
 
 /**
- * Filter requested election years to only valid ones for this politician type.
+ * Determine which election years to sync.
+ * For senators: use FEC API's election_years directly (source of truth for senate class).
+ * For others: filter requestedYears by cycle length.
+ * Always cap at the last completed election year and limit count.
  */
-function filterValidElectionYears(
+function resolveElectionYears(
   requestedYears: number[],
   chamber: string | null,
   branch: string | null,
   fecElectionYears?: number[]
 ): number[] {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  let maxYear = currentYear % 2 === 0 ? currentYear : currentYear - 1;
+  if (currentYear % 2 === 0 && now.getMonth() < 11) maxYear = currentYear - 2;
+
+  if (chamber === "senate" && fecElectionYears && fecElectionYears.length > 0) {
+    // Use FEC's election_years directly — they know the senate class
+    return fecElectionYears
+      .filter((y) => y <= maxYear && y >= 2000)
+      .sort((a, b) => b - a)
+      .slice(0, 2);
+  }
   if (branch === "executive") {
-    return requestedYears.filter((y) => y % 4 === 0);
+    return requestedYears.filter((y) => y % 4 === 0 && y <= maxYear).slice(-2);
   }
-  if (chamber === "senate" && fecElectionYears) {
-    const knownElectionYear = fecElectionYears
-      .filter((y) => y % 2 === 0)
-      .sort((a, b) => b - a)[0];
-    if (knownElectionYear) {
-      const validYears = new Set<number>();
-      for (let y = knownElectionYear; y >= 2000; y -= 6) validYears.add(y);
-      for (let y = knownElectionYear; y <= 2030; y += 6) validYears.add(y);
-      return requestedYears.filter((y) => validYears.has(y));
-    }
-  }
-  return requestedYears.filter((y) => y % 2 === 0);
+  // House: every even year
+  return requestedYears.filter((y) => y % 2 === 0 && y <= maxYear).slice(-3);
 }
 
 // ── Donation Sync ──
@@ -475,7 +480,7 @@ export async function syncFecDonations(
     // Non-fatal
   }
 
-  const validYears = filterValidElectionYears(
+  const validYears = resolveElectionYears(
     electionYears,
     politician.chamber,
     politician.branch,
