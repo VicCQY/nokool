@@ -325,8 +325,8 @@ async function syncCommitteeForCycle(
       if (isFecPlaceholder(emp.employer)) continue;
       if (isSelfCampaignName(emp.employer, politicianName)) continue;
 
-      const industry = classifyIndustry(emp.employer);
       const donorType = guessDonorType(emp.employer);
+      const industry = classifyIndustry(emp.employer, donorType);
 
       await upsertDonorAndDonation(
         emp.employer,
@@ -373,8 +373,8 @@ async function syncCommitteeForCycle(
       // Skip self-campaign committees (name-based pattern matching)
       if (isSelfCampaignName(pac.contributor_name, politicianName)) continue;
 
-      const industry = classifyIndustry(pac.contributor_name);
       const donorType = guessDonorType(pac.contributor_name, "committee");
+      const industry = classifyIndustry(pac.contributor_name, donorType);
 
       await upsertDonorAndDonation(
         pac.contributor_name,
