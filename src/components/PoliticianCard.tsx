@@ -38,6 +38,8 @@ interface Props {
   grade: string;
   percentage: number;
   promiseCount: number;
+  state?: string | null;
+  district?: string | null;
 }
 
 export function PoliticianCard({
@@ -51,6 +53,8 @@ export function PoliticianCard({
   grade,
   percentage,
   promiseCount,
+  state,
+  district,
 }: Props) {
   const partyBorder = PARTY_BORDER_COLORS[party] || "border-l-gray-300";
 
@@ -84,7 +88,12 @@ export function PoliticianCard({
           <h3 className="text-base font-semibold text-brand-charcoal truncate group-hover:text-[#2563EB] transition-colors">
             {name}
           </h3>
-          <p className="text-sm text-slate mt-0.5">{party}</p>
+          <p className="text-sm text-slate mt-0.5">
+            {party}
+            {(district || state) && (
+              <span className="text-gray-400"> · {district || state}</span>
+            )}
+          </p>
           <p className="text-xs font-data text-gray-400 mt-1">
             {inOfficeSinceStr
               ? `Since ${new Date(inOfficeSinceStr).getFullYear()}`

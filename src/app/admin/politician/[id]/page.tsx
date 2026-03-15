@@ -36,6 +36,8 @@ export default async function EditPoliticianPage({
             : "",
           congressId: politician.congressId ?? "",
           fecCandidateId: politician.fecCandidateId ?? "",
+          state: politician.state ?? "",
+          district: politician.district ?? "",
         }}
       />
     </div>

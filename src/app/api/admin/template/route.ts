@@ -30,6 +30,8 @@ export async function GET() {
     ["- inOfficeSince is optional (when they first entered this office, for display)"],
     ["- branch is optional: 'executive' or 'legislative' (default: legislative)"],
     ["- chamber is optional: 'house' or 'senate' (for legislative branch politicians)"],
+    ["- state is optional: state code (e.g. NY, TX) — for senators"],
+    ["- district is optional: district identifier (e.g. NY-14, KY-4) — for House members"],
   ];
   const instrSheet = XLSX.utils.aoa_to_sheet(instructions);
   instrSheet["!cols"] = [{ wch: 100 }];
@@ -37,7 +39,7 @@ export async function GET() {
 
   // ── Politicians sheet ──
   const polData = [
-    ["name", "country", "party", "photoUrl", "termStart", "termEnd", "inOfficeSince", "branch", "chamber"],
+    ["name", "country", "party", "photoUrl", "termStart", "termEnd", "inOfficeSince", "branch", "chamber", "state", "district"],
     [
       "Full name of the politician",
       "Country code (US, CA, UK, AU, FR, DE)",
@@ -48,6 +50,8 @@ export async function GET() {
       "When they first entered this office (optional, YYYY-MM-DD)",
       "executive or legislative (optional, default: legislative)",
       "house or senate (optional, for legislative branch)",
+      "State code (optional, e.g. NY, TX)",
+      "District (optional, e.g. NY-14, KY-4)",
     ],
   ];
   const polSheet = XLSX.utils.aoa_to_sheet(polData);
@@ -61,6 +65,8 @@ export async function GET() {
     { wch: 22 },
     { wch: 18 },
     { wch: 18 },
+    { wch: 12 },
+    { wch: 16 },
   ];
 
   // Add data validation for country column (B3:B1000)

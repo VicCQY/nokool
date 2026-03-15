@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
       fecCandidateId: body.fecCandidateId || null,
       branch: body.branch || "executive",
       chamber: body.chamber || null,
+      state: body.state || null,
+      district: body.district || null,
     },
   });
 

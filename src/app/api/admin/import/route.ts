@@ -109,6 +109,8 @@ export async function POST(request: NextRequest) {
       inOfficeSince: Date | null;
       branch: string;
       chamber: string | null;
+      state: string | null;
+      district: string | null;
       rowNum: number;
     }
 
@@ -128,6 +130,8 @@ export async function POST(request: NextRequest) {
       const inOfficeSinceRaw = row[6];
       const branchRaw = str(row[7]).toLowerCase();
       const chamberRaw = str(row[8]).toLowerCase();
+      const stateRaw = str(row[9]).toUpperCase();
+      const districtRaw = str(row[10]);
 
       if (!name) errors.push(`Politicians sheet, row ${rowNum}: name is required`);
       if (!VALID_COUNTRIES.includes(country))
@@ -177,6 +181,8 @@ export async function POST(request: NextRequest) {
           inOfficeSince,
           branch,
           chamber,
+          state: stateRaw || null,
+          district: districtRaw || null,
           rowNum,
         });
       }
@@ -424,6 +430,8 @@ export async function POST(request: NextRequest) {
             inOfficeSince: pol.inOfficeSince,
             branch: pol.branch,
             chamber: pol.chamber,
+            state: pol.state,
+            district: pol.district,
           },
         });
         politicianIdMap[pol.name] = existing.id;
@@ -440,6 +448,8 @@ export async function POST(request: NextRequest) {
             inOfficeSince: pol.inOfficeSince,
             branch: pol.branch,
             chamber: pol.chamber,
+            state: pol.state,
+            district: pol.district,
           },
         });
         politicianIdMap[pol.name] = created.id;

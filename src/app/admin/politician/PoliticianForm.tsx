@@ -15,6 +15,8 @@ interface PoliticianData {
   inOfficeSince: string;
   congressId: string;
   fecCandidateId: string;
+  state: string;
+  district: string;
 }
 
 export function PoliticianForm({
@@ -35,6 +37,8 @@ export function PoliticianForm({
       inOfficeSince: "",
       congressId: "",
       fecCandidateId: "",
+      state: "",
+      district: "",
     },
   );
 
@@ -157,6 +161,36 @@ export function PoliticianForm({
         <p className="mt-1 text-xs text-gray-500">
           When they first entered this office (for display).
         </p>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            State
+          </label>
+          <input
+            className={inputClass}
+            placeholder="e.g. NY, TX"
+            value={form.state}
+            onChange={(e) => setForm({ ...form, state: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            State code for senators (e.g. NY).
+          </p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            District
+          </label>
+          <input
+            className={inputClass}
+            placeholder="e.g. NY-14, KY-4"
+            value={form.district}
+            onChange={(e) => setForm({ ...form, district: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            District for House members (e.g. NY-14).
+          </p>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>

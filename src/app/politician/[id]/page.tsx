@@ -346,6 +346,9 @@ export default async function PoliticianPage({
               </h1>
               <p className="text-gray-400 mt-1.5 text-sm">
                 {countryInfo.flag} {politician.party}
+                {(politician.district || politician.state) && (
+                  <span className="text-gray-500"> · {politician.district || politician.state}</span>
+                )}
               </p>
               {politician.inOfficeSince && (
                 <p className="text-sm text-gray-400 mt-1">

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { calculateFulfillment } from "@/lib/grades";
-import { PoliticianCard } from "@/components/PoliticianCard";
 import { COUNTRIES, type CountryCode } from "@/lib/countries";
 import { getIssueWeights } from "@/lib/issue-weights-cache";
 import { BrowseFlow } from "./BrowseFlow";
+import { PoliticianGrid } from "./PoliticianGrid";
 
 export const metadata: Metadata = {
   title: "Browse Politicians",
@@ -13,10 +13,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
-
-const GRADE_ORDER: Record<string, number> = {
-  F: 0, D: 1, C: 2, B: 3, A: 4, "N/A": 5,
-};
 
 interface PageProps {
   searchParams: { country?: string; branch?: string; chamber?: string };
@@ -54,8 +50,7 @@ export default async function PoliticiansPage({ searchParams }: PageProps) {
         { termStart: pol.termStart, termEnd: pol.termEnd, branch: pol.branch, chamber: pol.chamber },
         issueWeights,
       ),
-    }))
-    .sort((a, b) => (GRADE_ORDER[a.grade] ?? 5) - (GRADE_ORDER[b.grade] ?? 5));
+    }));
 
   const countryCounts = await prisma.politician.groupBy({
     by: ["country"],
@@ -105,46 +100,37 @@ export default async function PoliticiansPage({ searchParams }: PageProps) {
       />
 
       {showPoliticians && (
-        <div className="mt-10">
-          {politiciansWithGrades.length > 0 ? (
-            <>
-              <p className="text-sm text-slate font-data mb-6">
-                {politiciansWithGrades.length} politician
-                {politiciansWithGrades.length !== 1 ? "s" : ""} &mdash; worst grades first.
-              </p>
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {politiciansWithGrades.map((pol) => (
-                  <PoliticianCard
-                    key={pol.id}
-                    id={pol.id}
-                    name={pol.name}
-                    party={pol.party}
-                    photoUrl={pol.photoUrl}
-                    termStartStr={pol.termStart.toISOString()}
-                    termEndStr={pol.termEnd?.toISOString() ?? null}
-                    inOfficeSinceStr={pol.inOfficeSince?.toISOString() ?? null}
-                    grade={pol.grade}
-                    percentage={pol.percentage}
-                    promiseCount={pol.promises.length}
-                  />
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
-              <p className="text-slate">
-                No politicians tracked in this category yet.
-              </p>
-              <p className="text-sm text-gray-400 mt-1">
-                Want to help?{" "}
-                <a href="/about" className="text-[#2563EB] hover:underline">
-                  Contact us
-                </a>
-                .
-              </p>
-            </div>
-          )}
-        </div>
+        politiciansWithGrades.length > 0 ? (
+          <PoliticianGrid
+            politicians={politiciansWithGrades.map((pol) => ({
+              id: pol.id,
+              name: pol.name,
+              party: pol.party,
+              photoUrl: pol.photoUrl,
+              termStartStr: pol.termStart.toISOString(),
+              termEndStr: pol.termEnd?.toISOString() ?? null,
+              inOfficeSinceStr: pol.inOfficeSince?.toISOString() ?? null,
+              grade: pol.grade,
+              percentage: pol.percentage,
+              promiseCount: pol.promises.length,
+              state: pol.state ?? null,
+              district: pol.district ?? null,
+            }))}
+          />
+        ) : (
+          <div className="mt-10 rounded-lg border border-gray-200 bg-white p-12 text-center">
+            <p className="text-slate">
+              No politicians tracked in this category yet.
+            </p>
+            <p className="text-sm text-gray-400 mt-1">
+              Want to help?{" "}
+              <a href="/about" className="text-[#2563EB] hover:underline">
+                Contact us
+              </a>
+              .
+            </p>
+          </div>
+        )
       )}
     </div>
   );

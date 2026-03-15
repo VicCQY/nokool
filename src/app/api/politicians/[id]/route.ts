@@ -20,6 +20,8 @@ export async function PUT(
       inOfficeSince: body.inOfficeSince ? new Date(body.inOfficeSince) : null,
       congressId: body.congressId || null,
       fecCandidateId: body.fecCandidateId || null,
+      state: body.state || null,
+      district: body.district || null,
     },
   });
 

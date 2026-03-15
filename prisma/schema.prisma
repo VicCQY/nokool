@@ -63,6 +63,8 @@ model Politician {
   fecCandidateId  String?  @unique // FEC candidate ID
   branch          String   @default("executive") // "executive" or "legislative"
   chamber         String?  // "house" or "senate" — null for executive branch
+  state           String?  // e.g. "NY", "TX" — for senators
+  district        String?  // e.g. "NY-14", "KY-4" — for House members
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   promises         Promise[]
