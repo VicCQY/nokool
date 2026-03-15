@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
       termStart: Date;
       termEnd: Date | null;
       inOfficeSince: Date | null;
+      inOfficeSinceProvided: boolean;
       branch: string;
       branchProvided: boolean;
       chamber: string | null;
@@ -183,6 +184,7 @@ export async function POST(request: NextRequest) {
           termStart,
           termEnd,
           inOfficeSince,
+          inOfficeSinceProvided: !!inOfficeSinceRaw && !!str(inOfficeSinceRaw),
           branch,
           branchProvided: !!branchRaw,
           chamber,
@@ -434,9 +436,9 @@ export async function POST(request: NextRequest) {
           photoUrl: pol.photoUrl || null,
           termStart: pol.termStart,
           termEnd: pol.termEnd,
-          inOfficeSince: pol.inOfficeSince,
         };
-        // Only overwrite branch/chamber/state/district if explicitly provided in spreadsheet
+        // Only overwrite optional fields if explicitly provided in spreadsheet
+        if (pol.inOfficeSinceProvided) updateData.inOfficeSince = pol.inOfficeSince;
         if (pol.branchProvided) updateData.branch = pol.branch;
         if (pol.chamberProvided) updateData.chamber = pol.chamber;
         if (pol.stateProvided) updateData.state = pol.state;
