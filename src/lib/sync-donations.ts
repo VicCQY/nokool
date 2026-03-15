@@ -349,8 +349,6 @@ async function syncCommitteeForCycle(
     await delay(400);
     const pacs = await getContributions(committeeId, "committee", 50);
 
-    const polLastName = politicianName.split(" ").pop()?.toUpperCase() || "";
-
     for (const pac of pacs) {
       if (!pac.contributor_name || pac.contribution_receipt_amount <= 0)
         continue;
