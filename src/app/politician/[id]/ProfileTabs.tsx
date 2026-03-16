@@ -24,11 +24,15 @@ const EXECUTIVE_TABS: Tab[] = [
   { key: "news", label: "News", shortLabel: "News" },
 ];
 
-export function ProfileTabs({ branch }: { branch: string }) {
+export function ProfileTabs({ branch, hasVotes }: { branch: string; hasVotes?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab") ?? "saysvsdoes";
-  const tabs = branch === "executive" ? EXECUTIVE_TABS : LEGISLATIVE_TABS;
+  let tabs = branch === "executive" ? EXECUTIVE_TABS : LEGISLATIVE_TABS;
+  // Executives with historical votes (e.g., Vance was a senator) get a votes tab too
+  if (branch === "executive" && hasVotes) {
+    tabs = [...EXECUTIVE_TABS.slice(0, 3), { key: "votes", label: "Voting Record", shortLabel: "Votes" }, ...EXECUTIVE_TABS.slice(3)];
+  }
 
   function setTab(tab: string) {
     const params = new URLSearchParams();

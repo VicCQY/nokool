@@ -441,7 +441,7 @@ export default async function PoliticianPage({
       )}
 
       {/* Vote Stats */}
-      {politician.branch !== "executive" && activeTab === "votes" && totalVotes > 0 && (
+      {(politician.branch !== "executive" || totalVotes > 0) && activeTab === "votes" && totalVotes > 0 && (
         <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 -mt-6 relative z-10">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="rounded-xl border border-gray-200 border-t-2 border-t-brand-charcoal bg-white p-4 shadow-sm">
@@ -517,7 +517,7 @@ export default async function PoliticianPage({
       {/* ═══ TABS ═══ */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8">
         <Suspense>
-          <ProfileTabs branch={politician.branch} />
+          <ProfileTabs branch={politician.branch} hasVotes={totalVotes > 0} />
         </Suspense>
         <div className="border-t border-gray-200 mt-1" />
       </section>
@@ -573,8 +573,12 @@ export default async function PoliticianPage({
         )}
 
         {/* VOTING RECORD TAB */}
-        {politician.branch !== "executive" && activeTab === "votes" && (
+        {(politician.branch !== "executive" || totalVotes > 0) && activeTab === "votes" && (
           <>
+            {/* Executives with historical votes (e.g., Vance was a senator 2023-2025) */}
+            {politician.branch === "executive" && (
+              <p className="text-sm text-slate italic mb-4">From Senate term (2023–2025)</p>
+            )}
             <div className="mb-6">
               <Suspense>
                 <VoteFilters />
