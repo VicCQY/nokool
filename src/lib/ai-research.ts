@@ -1,79 +1,115 @@
 import { callPerplexity, parseJsonFromResponse } from "./perplexity-api";
 import { prisma } from "./prisma";
-import { sanitizeSourceUrl, validateSource } from "./source-validator";
+import { sanitizeSourceUrl } from "./source-validator";
 
 // ── Model Configuration ──
-// sonar = cheaper, good for research/discovery tasks with web search
-// sonar-pro = more accurate, use for fact-checking where precision matters
 const MODEL_RESEARCH = "sonar";
-const MODEL_FACTCHECK = "sonar-pro";
 const MODEL_MATCHING = "sonar-pro";
 
-// ── Promise Research ──
+// ══════════════════════════════════════════════
+// STEP 1: RESEARCH (Full Timeline Per Promise)
+// ══════════════════════════════════════════════
+
+export interface TimelineEvent {
+  date: string;
+  type: "status_change" | "executive_action" | "legislation" | "news";
+  title: string;
+  description: string;
+  sourceUrl: string;
+  newStatus: string | null;
+}
 
 export interface ResearchedPromise {
   title: string;
   description: string;
   category: string;
   status: string;
-  statusConfidence: string;
-  statusReason: string;
-  statusDate: string;
-  statusSource: string;
   dateMade: string;
   sourceUrl: string;
   severity: number;
   expectedMonths: number;
   billRelated: boolean;
+  timeline: TimelineEvent[];
 }
 
 export async function researchPromises(
   politicianName: string,
   party: string,
   position: string,
+  todayDate?: string,
 ): Promise<ResearchedPromise[]> {
-  const systemPrompt = `You are a political researcher. For each campaign promise you find, provide:
-1. title: Short clear promise name
-2. description: 2-3 sentences explaining the promise
+  const today = todayDate || new Date().toISOString().split("T")[0];
+
+  const systemPrompt = `You are an expert political researcher with access to current information. Your job is to find campaign promises and trace their COMPLETE HISTORY from when they were made to today.
+
+=== WHAT COUNTS AS A PROMISE ===
+A promise MUST have ALL of these elements:
+1. A clear FIELD (policy area: education, immigration, economy, healthcare, etc.)
+2. A clear SUBJECT (specific thing: school lunches, TikTok, the border wall, Medicare, Jan 6 defendants)
+3. A clear DIRECTION (specific action: make free, ban, build, pardon, eliminate, increase by X%, impose X% tariff)
+4. A TIMEFRAME if one was stated (optional: 'within 24 hours', 'by 2028', 'day one')
+
+GOOD promises (specific, verifiable, clear yes/no outcome):
+- 'Make school lunches free' (field: education, subject: school lunches, direction: make free)
+- 'Pardon January 6 defendants' (field: justice, subject: J6 defendants, direction: pardon)
+- 'Impose 10% universal tariff on all imports' (field: economy, subject: imports, direction: 10% tariff)
+- 'End the war in Ukraine within 24 hours' (field: foreign policy, subject: Ukraine war, direction: end, timeframe: 24 hours)
+- 'Eliminate the Department of Education' (field: education, subject: Dept of Education, direction: eliminate)
+
+BAD — these are slogans or themes, NOT promises (reject these):
+- 'Strengthen National Defense' (no specific subject or action)
+- 'Fight for working families' (slogan, not actionable)
+- 'Support Ukraine' (support how? no specific action)
+- 'Cut federal spending' (cut what specifically? no subject)
+- 'Make America Great Again' (slogan)
+- 'Protect pre-existing conditions' (protect how? with what?)
+
+If a topic is too vague, break it into the SPECIFIC commitments the politician actually made.
+
+=== NO OVERLAP ===
+ONE promise per distinct policy action. Do NOT create multiple promises for the same thing:
+- 'Repeal ACA' and 'Replace ACA with Graham-Cassidy' = ONE promise: 'Repeal and Replace the Affordable Care Act'
+- 'Build the wall' and 'Secure the border' = ONE promise if they refer to the same action
+- 'Ban assault weapons' and 'Universal background checks' = TWO promises (different actions, different bills)
+
+For each promise, provide:
+1. title: Clear, concise promise name following the rules above
+2. description: 2-3 sentences explaining what was promised
 3. category: Economy, Healthcare, Environment, Immigration, Education, Infrastructure, Foreign Policy, Justice, Housing, Technology, Other
-4. dateMade: When the promise was made (YYYY-MM-DD)
-5. sourceUrl: Link to where they said it. NEVER use wikipedia.org. Use: official campaign sites, .gov, C-SPAN, AP, Reuters, NYT, WaPo, Politico, The Hill, CNN, Fox News, NPR.
-6. severity: 1-5 (5=cornerstone, 4=major, 3=standard, 2=minor, 1=trivial)
-7. expectedMonths: How many months to reasonably fulfill
-8. billRelated: true/false — is this directly tied to specific legislation or executive action?
-9. status: Current status (FULFILLED/PARTIAL/IN_PROGRESS/NOT_STARTED/BROKEN/REVERSED)
-10. statusConfidence: high/medium/low — how confident are you in this status?
-11. statusReason: 1-2 sentences explaining WHY this is the current status
-12. statusDate: YYYY-MM-DD — CRITICAL: this must be the date the status actually changed, such as when a bill was signed, an executive order was issued, or the promise was publicly abandoned. NEVER use today's date. If you are unsure of the exact date, use the closest known date of the real event.
-13. statusSource: URL proving the current status (different from the promise source). NEVER use wikipedia.org.
+4. severity: 1-5 (5=cornerstone campaign promise, 4=major, 3=standard, 2=minor, 1=trivial)
+5. expectedMonths: reasonable months to fulfill
+6. billRelated: true/false — is this directly tied to specific legislation or executive action?
+7. sourceUrl: where the promise was made. NEVER use wikipedia.org.
+8. dateMade: YYYY-MM-DD when the promise was made
 
-NEVER use Wikipedia (wikipedia.org) as a source URL. If your only source is Wikipedia, find the original source that Wikipedia cites instead. Preferred sources: official campaign websites, government records (.gov), C-SPAN, AP, Reuters, NYT, Washington Post, Politico, The Hill, CNN, Fox News, NPR, local newspapers, official press releases.
+9. timeline: An array of events tracing the promise from when it was made to today. Each event:
+   {
+     date: 'YYYY-MM-DD',
+     type: 'status_change' | 'executive_action' | 'legislation' | 'news',
+     title: 'Short description of what happened',
+     description: '1-2 sentences with details',
+     sourceUrl: 'URL proving this happened',
+     newStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'PARTIAL' | 'FULFILLED' | 'BROKEN' | 'REVERSED' (only for status_change events, null for others)
+   }
 
-Assign severity 5 to cornerstone promises that defined their campaign, 4 to major policy items, 3 to standard promises, 2 to minor ones, 1 to trivial/specific ones.
+The timeline MUST:
+- Start with the first action taken on the promise (skip if still NOT_STARTED)
+- Include EVERY major development with its REAL DATE — executive orders, bills introduced, votes, statements, policy changes
+- Each status_change event must have a REAL DATE when the status actually changed, NOT today's date
+- Events must be chronologically ordered
+- The LAST status_change event determines the promise's current status
+- If no action has been taken, timeline can be empty (status remains NOT_STARTED)
 
-For status:
-- FULFILLED: Fully delivered with clear evidence
-- PARTIAL: Some progress but not fully delivered
-- IN_PROGRESS: Active work being done but not complete
-- NOT_STARTED: No meaningful action taken
-- BROKEN: Clearly gone against the promise
-- REVERSED: Was fulfilled/partial then undone or rolled back
+IMPORTANT:
+- Do NOT create multiple promises for the same topic. One promise per distinct policy goal.
+- NEVER use wikipedia.org as a source URL. Use: official campaign sites, .gov, C-SPAN, AP, Reuters, NYT, WaPo, Politico, The Hill, CNN, Fox News, NPR.
+- Every date must be the REAL date of the event, never today's date
+- Be thorough — find at least 15 promises, cover ALL major policy areas they campaigned on
+- Prioritize: cornerstone promises first, then major, then minor
 
-If unsure about status, default to NOT_STARTED with statusConfidence: "low".
+Return ONLY a JSON array. No markdown, no explanation.`;
 
-IMPORTANT: Do NOT create multiple promises that cover the same topic. Combine related commitments into ONE promise. For example, "Reopen Schools During COVID-19" and "Move On from COVID-19 Shutdowns" should be ONE promise about COVID response. "Repeal ACA", "Replace ACA with Graham-Cassidy", and "Repeal Employer Mandate" should be ONE promise about healthcare reform. Each promise should be a distinct policy goal, not variations of the same theme.
-
-Return ONLY a JSON array. No markdown, no explanation. Each object should have: title, description, category, status, statusConfidence, statusReason, statusDate, statusSource, dateMade, sourceUrl, severity, expectedMonths, billRelated`;
-
-  const userPrompt = `Find ALL major campaign promises made by ${politicianName} (${party}), who serves as ${position}.
-
-PRIORITY ORDER:
-1. Cornerstone promises (the 3-5 things they are MOST known for promising)
-2. Major policy promises (economy, healthcare, immigration, etc.)
-3. Specific legislative promises (bills they promised to pass or oppose)
-4. Smaller commitments (district-specific, procedural, or minor)
-
-Find at least 15 specific, verifiable promises with real source URLs. Cover ALL major policy areas. For each promise, include the status with an actual event date (not today's date) and a source URL proving the status.
+  const userPrompt = `Research ALL major campaign promises made by ${politicianName} (${party}), who serves as ${position}. Trace each promise's complete history from when it was made through today (${today}). Include every major development, executive action, legislative action, and status change with real dates and sources.
 
 NEVER use Wikipedia as a source.`;
 
@@ -89,63 +125,74 @@ NEVER use Wikipedia as a source.`;
 
 function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
   const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
-  const VALID_CONFIDENCE = ["high", "medium", "low"];
 
   // Source validation
   const rawSourceUrl = String(item.sourceUrl || "");
   const sourceUrl = sanitizeSourceUrl(rawSourceUrl, String(item.title || ""));
 
-  const rawStatusSource = String(item.statusSource || "");
-  const statusSource = sanitizeSourceUrl(rawStatusSource, `${item.title} (status)`);
-
-  // Confidence scoring
-  let confidence = String(item.statusConfidence || "low").toLowerCase();
-  if (!VALID_CONFIDENCE.includes(confidence)) confidence = "low";
-
-  // Downgrade confidence if no source or untrusted source
-  const statusSourceValidation = validateSource(statusSource);
-  if (!statusSource || !statusSourceValidation.valid) {
-    confidence = "low";
-  } else if (statusSourceValidation.trusted === false && confidence === "high") {
-    confidence = "medium";
-  }
-
-  // Date validation
-  const now = new Date();
-  let statusDate = String(item.statusDate || "");
-  const statusDateObj = new Date(statusDate);
-  if (!statusDate || isNaN(statusDateObj.getTime()) || statusDateObj > now) {
-    // Invalid or future date — downgrade confidence
-    statusDate = "";
-    if (confidence !== "low") confidence = "low";
-  }
-
   const dateMade = String(item.dateMade || new Date().toISOString().split("T")[0]);
-  // If statusDate is before dateMade, flag
-  if (statusDate && dateMade && new Date(statusDate) < new Date(dateMade)) {
-    confidence = "low";
+
+  // Process timeline
+  const rawTimeline = Array.isArray(item.timeline) ? item.timeline : [];
+  const now = new Date();
+  const timeline: TimelineEvent[] = [];
+
+  for (const evt of rawTimeline) {
+    if (!evt || typeof evt !== "object") continue;
+    const evtObj = evt as Record<string, unknown>;
+
+    const evtDate = String(evtObj.date || "");
+    const evtDateObj = new Date(evtDate);
+    if (!evtDate || isNaN(evtDateObj.getTime()) || evtDateObj > now) continue;
+
+    const evtType = String(evtObj.type || "news");
+    const validTypes = ["status_change", "executive_action", "legislation", "news"];
+    const type = validTypes.includes(evtType) ? evtType : "news";
+
+    const evtSourceUrl = sanitizeSourceUrl(String(evtObj.sourceUrl || ""), String(evtObj.title || ""));
+
+    let newStatus: string | null = null;
+    if (type === "status_change" && evtObj.newStatus) {
+      const s = String(evtObj.newStatus);
+      if (VALID_STATUSES.includes(s)) newStatus = s;
+    }
+
+    timeline.push({
+      date: evtDate,
+      type: type as TimelineEvent["type"],
+      title: String(evtObj.title || ""),
+      description: String(evtObj.description || ""),
+      sourceUrl: evtSourceUrl,
+      newStatus,
+    });
   }
 
-  const status = VALID_STATUSES.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED";
+  // Sort chronologically
+  timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Determine current status from last status_change event
+  const lastStatusEvent = [...timeline].reverse().find((e) => e.type === "status_change" && e.newStatus);
+  const status = lastStatusEvent?.newStatus && VALID_STATUSES.includes(lastStatusEvent.newStatus)
+    ? lastStatusEvent.newStatus
+    : (VALID_STATUSES.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED");
 
   return {
     title: String(item.title || ""),
     description: String(item.description || ""),
     category: String(item.category || "Other"),
     status,
-    statusConfidence: confidence,
-    statusReason: String(item.statusReason || ""),
-    statusDate,
-    statusSource,
     dateMade,
     sourceUrl,
     severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),
     expectedMonths: Math.max(1, Number(item.expectedMonths) || 12),
     billRelated: item.billRelated === true || item.billRelated === "true",
+    timeline,
   };
 }
 
-// ── News Research ──
+// ══════════════════════════════════════════════
+// News Research (unchanged)
+// ══════════════════════════════════════════════
 
 export interface ResearchedArticle {
   title: string;
@@ -178,127 +225,9 @@ export async function researchNews(
   }));
 }
 
-// ── Promise Status Updates ──
-
-export interface StatusSuggestion {
-  promiseId: string;
-  title: string;
-  currentStatus: string;
-  suggestedStatus: string;
-  confidence: string;
-  eventDate: string;
-  reason: string;
-  sourceUrl: string;
-  changed: boolean;
-}
-
-export async function checkPromiseStatuses(
-  politicianName: string,
-  party: string,
-  promises: { id: string; title: string; description: string; status: string }[],
-): Promise<StatusSuggestion[]> {
-  if (promises.length === 0) return [];
-
-  const systemPrompt = `You are a political fact-checker. For each promise, determine if the status has changed based on the latest available information.
-
-For each promise, return:
-1. title: The promise title (must match exactly)
-2. currentStatus: What the status currently is in our database (provided to you)
-3. suggestedStatus: What you think the status should be now
-4. confidence: high/medium/low
-5. eventDate: YYYY-MM-DD — CRITICAL: the date the status actually changed (when the bill was signed, the EO was issued, the promise was broken). NEVER use today's date. Use the closest known date of the real event.
-6. reason: 1-2 sentences explaining what happened
-7. sourceUrl: URL proving the change. NEVER use wikipedia.org.
-8. changed: true/false — did the status actually change from currentStatus?
-
-IMPORTANT RULES:
-- If nothing has changed, set changed: false and keep suggestedStatus = currentStatus
-- eventDate must be the date of the ACTUAL EVENT, not today
-- NEVER use wikipedia.org as a source
-- Be fair: if there is ANY evidence of effort, even small steps, use IN_PROGRESS not NOT_STARTED
-- REVERSED means it was done then undone — not that progress stalled
-
-Status definitions:
-- FULFILLED: Fully delivered, clear evidence
-- PARTIAL: Meaningful progress but not complete
-- IN_PROGRESS: Active work being done, even early-stage
-- NOT_STARTED: Genuinely NO action taken at all
-- BROKEN: Actively contradicted or abandoned
-- REVERSED: Was fulfilled/partial then undone or rolled back
-
-Return ONLY a JSON array.`;
-
-  // Include current status so AI knows what we have
-  const promiseList = promises
-    .map((p, i) => `${i + 1}. [${p.status}] "${p.title}": ${p.description.slice(0, 100)}`)
-    .join("\n");
-
-  const userPrompt = `Here are campaign promises made by ${politicianName} (${party}) with their CURRENT status in brackets. For each one, determine if the status should change based on the latest information.
-
-${promiseList}
-
-Return ONLY a JSON array with objects having: title, currentStatus, suggestedStatus, confidence, eventDate, reason, sourceUrl, changed`;
-
-  const text = await callPerplexity(systemPrompt, userPrompt, MODEL_FACTCHECK);
-  const parsed = parseJsonFromResponse(text);
-
-  if (!Array.isArray(parsed)) {
-    throw new Error("Expected JSON array from status check response");
-  }
-
-  const VALID = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
-  const VALID_CONFIDENCE = ["high", "medium", "low"];
-  const now = new Date();
-
-  return parsed.map((item: Record<string, unknown>, i: number) => {
-    const promise = promises[i] || promises.find((p) => p.title === String(item.title));
-    if (!promise) return null;
-
-    const suggestedStatus = VALID.includes(String(item.suggestedStatus || ""))
-      ? String(item.suggestedStatus)
-      : promise.status;
-
-    // Source validation
-    const rawUrl = String(item.sourceUrl || "");
-    const sourceUrl = sanitizeSourceUrl(rawUrl, promise.title);
-
-    // Confidence with validation
-    let confidence = String(item.confidence || "low").toLowerCase();
-    if (!VALID_CONFIDENCE.includes(confidence)) confidence = "low";
-
-    // Downgrade if no source or untrusted
-    const srcValidation = validateSource(sourceUrl);
-    if (!sourceUrl || !srcValidation.valid) {
-      confidence = "low";
-    } else if (srcValidation.trusted === false && confidence === "high") {
-      confidence = "medium";
-    }
-
-    // Date validation
-    let eventDate = String(item.eventDate || "");
-    const eventDateObj = new Date(eventDate);
-    if (!eventDate || isNaN(eventDateObj.getTime()) || eventDateObj > now) {
-      eventDate = new Date().toISOString().split("T")[0]; // fallback to today
-      if (confidence !== "low") confidence = "low";
-    }
-
-    const changed = item.changed === true || item.changed === "true";
-
-    return {
-      promiseId: promise.id,
-      title: promise.title,
-      currentStatus: promise.status,
-      suggestedStatus,
-      confidence,
-      eventDate,
-      reason: String(item.reason || ""),
-      sourceUrl,
-      changed,
-    };
-  }).filter((x): x is StatusSuggestion => x !== null);
-}
-
-// ── Promise-to-Bill/Action Matching ──
+// ══════════════════════════════════════════════
+// STEP 2: BILL MATCHING
+// ══════════════════════════════════════════════
 
 export interface SuggestedMatch {
   promiseId: string;
@@ -328,14 +257,12 @@ interface ItemSummary {
 // ── Local keyword pre-filter ──
 
 const MATCH_STOP_WORDS = new Set([
-  // Common English
   "the", "a", "an", "to", "of", "and", "in", "on", "for", "with", "is", "it",
   "by", "as", "at", "or", "from", "that", "this", "be", "will", "all", "their",
   "his", "her", "no", "not", "has", "have", "been", "was", "were", "are",
   "do", "does", "did", "would", "could", "should", "may", "can", "shall",
   "its", "also", "such", "than", "other", "which", "who", "whom", "more",
   "under", "over", "about", "into", "through", "during", "before", "after",
-  // Congressional procedural terms (appear in nearly all bill titles)
   "act", "bill", "resolution", "motion", "agreeing", "passage", "ordering",
   "previous", "question", "providing", "consideration", "suspend", "rules",
   "pass", "agree", "amended", "amend", "amendment", "table", "recommit",
@@ -365,9 +292,6 @@ function scoreItemRelevance(promiseKeywords: string[], itemTitle: string): numbe
   return score;
 }
 
-/** Pre-filter: for each promise, find the top N most keyword-relevant items.
- *  Requires score >= 2 to avoid noise from single-word matches.
- *  Falls back to most recent items if keyword matching finds nothing. */
 function preFilterItems(
   promises: PromiseSummary[],
   items: ItemSummary[],
@@ -379,13 +303,11 @@ function preFilterItems(
     const keywords = extractKeywords(promise.title + " " + promise.description);
     if (keywords.length === 0) continue;
 
-    // Score all items against this promise's keywords
     const scored = items.map((item) => ({
       item,
       score: scoreItemRelevance(keywords, item.title),
     }));
 
-    // Take top N with score >= 2 (require at least 2 keyword matches)
     const good = scored
       .filter((s) => s.score >= 2)
       .sort((a, b) => b.score - a.score)
@@ -394,32 +316,46 @@ function preFilterItems(
     good.forEach((s) => selectedIds.add(s.item.id));
   }
 
-  // Fallback: if keyword matching found very few items, add the most recent bills
-  // (items at end of array tend to be more recent since they're fetched in order)
   if (selectedIds.size < 20 && items.length > 0) {
     const fallbackCount = Math.min(20, items.length);
     const fallbackItems = items.slice(-fallbackCount);
     for (const item of fallbackItems) {
       selectedIds.add(item.id);
     }
-    console.log(
-      `[Match] Keyword filter found only ${selectedIds.size - fallbackCount} items, added ${fallbackCount} recent items as fallback`,
-    );
   }
 
   return items.filter((item) => selectedIds.has(item.id));
 }
 
-const MATCH_SYSTEM_PROMPT = `You are a political analyst matching campaign promises to legislative bills and executive actions. For each promise, find bills or actions that are directly relevant.
+const MATCH_SYSTEM_PROMPT = `You are a legislative analyst matching campaign promises to specific bills.
 
-STRICT MATCHING RULES:
-- Only match bills that are DIRECTLY about the promise's specific policy goal.
-- Confirmation votes for nominees are NOT matches for broad policy promises. A "Strengthen National Defense" promise should match defense spending bills or military policy bills, NOT personnel confirmation votes.
-- Procedural votes, naming resolutions, and ceremonial bills are NOT matches.
-- A weak or tangential match is WORSE than no match — only include clear, obvious connections.
-- The bill/action must substantively advance or contradict the specific promise.
+=== WHAT COUNTS AS A MATCH ===
+A bill matches a promise ONLY if the bill's PRIMARY PURPOSE directly addresses the promise's specific action. The connection must be OBVIOUS and DIRECT.
 
-For each match, determine if the bill/action ALIGNS with the promise (supports its goal) or CONTRADICTS the promise (works against its goal). Return ONLY a JSON array of matches.`;
+GOOD matches:
+- Promise: 'Ban TikTok' ↔ Bill: 'Protecting Americans from Foreign Adversary Controlled Applications Act' (bill literally bans TikTok)
+- Promise: 'Impose 10% tariff on all imports' ↔ Bill: 'Universal Baseline Tariff Act' (bill imposes tariffs)
+- Promise: 'Pardon Jan 6 defendants' ↔ Executive Action: 'Executive Grant of Clemency for January 6 defendants' (direct action on promise)
+
+BAD matches (DO NOT MAKE THESE):
+- Promise: 'Strengthen National Defense' ↔ Bill: 'Confirmation of Pete Hegseth as Secretary of Defense' (confirmation vote ≠ defense policy)
+- Promise: 'Secure the border' ↔ Bill: 'Motion to proceed to executive session' (procedural, not substantive)
+- Promise: 'Cut taxes' ↔ Bill: 'Continuing Resolution to fund government' (tangentially related at best)
+
+RULES:
+- Confirmation votes for nominees are NEVER matches for broad policy promises
+- Procedural votes (cloture, motion to proceed) only match if the UNDERLYING BILL directly addresses the promise
+- If you have to stretch to explain the connection, it's NOT a match
+- Quality over quantity — 2 perfect matches are better than 10 weak ones
+
+For each match, provide:
+- promiseId: ID of the promise
+- itemId: ID of the bill/action
+- alignment: 'aligns' or 'contradicts'
+- confidence: 'high' or 'medium'
+- reason: ONE sentence explaining the DIRECT connection
+
+Return ONLY a JSON array of matches. If no bills clearly match a promise, return an empty array for that promise.`;
 
 function buildMatchUserPrompt(
   politicianName: string,
@@ -455,7 +391,6 @@ export async function matchPromisesToBills(
   });
   if (!politician) throw new Error("Politician not found");
 
-  // Fetch only bill-related promises (billRelated = true)
   const promises = await prisma.promise.findMany({
     where: { politicianId, billRelated: true },
     select: { id: true, title: true, description: true, category: true },
@@ -469,28 +404,18 @@ export async function matchPromisesToBills(
     category: p.category,
   }));
 
-  // Collect all items (bills + actions) — only fetch titles, not summaries
   const items: ItemSummary[] = [];
 
-  // For legislative: fetch bills they voted on
   if (politician.branch !== "executive") {
     const votes = await prisma.vote.findMany({
       where: { politicianId },
-      select: {
-        bill: { select: { id: true, title: true, billNumber: true } },
-      },
+      select: { bill: { select: { id: true, title: true, billNumber: true } } },
     });
     for (const v of votes) {
-      items.push({
-        id: v.bill.id,
-        title: v.bill.title,
-        type: "bill",
-        billNumber: v.bill.billNumber,
-      });
+      items.push({ id: v.bill.id, title: v.bill.title, type: "bill", billNumber: v.bill.billNumber });
     }
   }
 
-  // For executive: fetch executive actions + any votes
   if (politician.branch === "executive") {
     const actions = await prisma.executiveAction.findMany({
       where: { politicianId },
@@ -502,21 +427,13 @@ export async function matchPromisesToBills(
 
     const votes = await prisma.vote.findMany({
       where: { politicianId },
-      select: {
-        bill: { select: { id: true, title: true, billNumber: true } },
-      },
+      select: { bill: { select: { id: true, title: true, billNumber: true } } },
     });
     for (const v of votes) {
-      items.push({
-        id: v.bill.id,
-        title: v.bill.title,
-        type: "bill",
-        billNumber: v.bill.billNumber,
-      });
+      items.push({ id: v.bill.id, title: v.bill.title, type: "bill", billNumber: v.bill.billNumber });
     }
   }
 
-  // Deduplicate items by id
   const seen = new Set<string>();
   const uniqueItems = items.filter((b) => {
     if (seen.has(b.id)) return false;
@@ -526,7 +443,6 @@ export async function matchPromisesToBills(
 
   if (uniqueItems.length === 0) return [];
 
-  // Local keyword pre-filter: only send relevant bills to AI
   const filteredItems = preFilterItems(promiseSummaries, uniqueItems, 20);
 
   console.log(
@@ -535,7 +451,6 @@ export async function matchPromisesToBills(
 
   if (filteredItems.length === 0) return [];
 
-  // Single AI call with pre-filtered candidates
   const text = await callPerplexity(
     MATCH_SYSTEM_PROMPT,
     buildMatchUserPrompt(politician.name, promiseSummaries, filteredItems),
@@ -545,11 +460,9 @@ export async function matchPromisesToBills(
 
   if (!Array.isArray(parsed)) return [];
 
-  // Build lookup maps for titles
   const promiseMap = new Map(promiseSummaries.map((p) => [p.id, p.title]));
   const itemMap = new Map(filteredItems.map((b) => [b.id, { title: b.title, type: b.type }]));
 
-  // Deduplicate matches
   const matchSeen = new Set<string>();
   return parsed
     .filter((m: Record<string, unknown>) => m.promiseId && m.itemId && promiseMap.has(String(m.promiseId)) && itemMap.has(String(m.itemId)))

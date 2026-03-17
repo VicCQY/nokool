@@ -17,6 +17,15 @@ interface ExistingPromise {
   status: string;
 }
 
+interface TimelineEvent {
+  date: string;
+  type: "status_change" | "executive_action" | "legislation" | "news";
+  title: string;
+  description: string;
+  sourceUrl: string;
+  newStatus: string | null;
+}
+
 interface ResearchedPromise {
   title: string;
   description: string;
@@ -27,20 +36,8 @@ interface ResearchedPromise {
   severity: number;
   expectedMonths: number;
   billRelated: boolean;
+  timeline: TimelineEvent[];
   selected: boolean;
-}
-
-interface StatusSuggestion {
-  promiseId: string;
-  title: string;
-  currentStatus: string;
-  suggestedStatus: string;
-  confidence: string;
-  eventDate: string;
-  reason: string;
-  sourceUrl: string;
-  changed: boolean;
-  accepted: boolean;
 }
 
 interface NewsArticle {
@@ -64,6 +61,22 @@ const STATUSES = [
   { value: "BROKEN", label: "Broken", color: "bg-red-500" },
   { value: "REVERSED", label: "Reversed", color: "bg-orange-500" },
 ];
+
+const STATUS_COLORS: Record<string, string> = {
+  FULFILLED: "bg-green-100 text-green-700",
+  PARTIAL: "bg-amber-100 text-amber-700",
+  IN_PROGRESS: "bg-blue-100 text-blue-700",
+  NOT_STARTED: "bg-gray-100 text-gray-600",
+  BROKEN: "bg-red-100 text-red-700",
+  REVERSED: "bg-orange-100 text-orange-700",
+};
+
+const EVENT_TYPE_COLORS: Record<string, string> = {
+  status_change: "bg-purple-100 text-purple-700",
+  executive_action: "bg-indigo-100 text-indigo-700",
+  legislation: "bg-blue-100 text-blue-700",
+  news: "bg-gray-100 text-gray-600",
+};
 
 const STOP_WORDS = new Set(["the", "a", "an", "to", "of", "and", "in", "on", "for", "with", "is", "it", "by", "as", "at", "or", "from", "that", "this", "be", "will", "all", "their", "his", "her"]);
 
@@ -95,6 +108,10 @@ function findDuplicateMatch(title: string, existing: ExistingPromise[]): string 
   return null;
 }
 
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 export default function ResearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Politician[]>([]);
@@ -109,15 +126,17 @@ export default function ResearchPage() {
   const [error, setError] = useState("");
   const [importResult, setImportResult] = useState("");
   const [apiConfigured, setApiConfigured] = useState(true);
+  const [expandedPromises, setExpandedPromises] = useState<Set<number>>(new Set());
   // News state
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
   const [newsStatus, setNewsStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [newsError, setNewsError] = useState("");
-  // Status update state
-  const [statusSuggestions, setStatusSuggestions] = useState<StatusSuggestion[]>([]);
-  const [statusCheckStatus, setStatusCheckStatus] = useState<"idle" | "checking" | "done" | "applying" | "applied" | "error">("idle");
-  const [statusCheckError, setStatusCheckError] = useState("");
-  const [statusCheckResult, setStatusCheckResult] = useState("");
+  // Monitor state
+  const [monitorStatus, setMonitorStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [monitorResults, setMonitorResults] = useState<{ name: string; checked: number; changed: number; autoApplied: number; flagged: number }[]>([]);
+  const [monitorError, setMonitorError] = useState("");
+  const [monitorProgress, setMonitorProgress] = useState("");
+  const [allPoliticians, setAllPoliticians] = useState<Politician[]>([]);
 
   // Debounced search for politicians
   useEffect(() => {
@@ -157,11 +176,25 @@ export default function ResearchPage() {
     })();
   }, [selectedPolId]);
 
+  // Load all politicians for monitor
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/politicians/search?q=");
+        const data = await res.json();
+        setAllPoliticians(data || []);
+      } catch {
+        // Non-critical
+      }
+    })();
+  }, []);
+
   async function handleResearch() {
     setStatus("researching");
     setError("");
     setPromises([]);
     setImportResult("");
+    setExpandedPromises(new Set());
 
     try {
       const body = selectedPolId
@@ -253,12 +286,12 @@ export default function ResearchPage() {
             title: p.title,
             description: p.description,
             category: p.category,
-            status: p.status || "NOT_STARTED",
-            weight: p.severity,
+            severity: p.severity,
             expectedMonths: p.expectedMonths,
             billRelated: p.billRelated,
             dateMade: p.dateMade,
             sourceUrl: p.sourceUrl,
+            timeline: p.timeline,
           })),
         }),
       });
@@ -279,7 +312,7 @@ export default function ResearchPage() {
     }
   }
 
-  function updatePromise(index: number, field: string, value: string | number | boolean) {
+  function updatePromise(index: number, field: string, value: unknown) {
     setPromises((prev) =>
       prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)),
     );
@@ -289,143 +322,28 @@ export default function ResearchPage() {
     setPromises((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function addBlankPromise() {
-    setPromises((prev) => [
-      ...prev,
-      {
-        title: "",
-        description: "",
-        category: "Other",
-        status: "NOT_STARTED",
-        dateMade: new Date().toISOString().split("T")[0],
-        sourceUrl: "",
-        severity: 3,
-        expectedMonths: 12,
-        billRelated: false,
-        selected: true,
-      },
-    ]);
+  function removeTimelineEvent(promiseIndex: number, eventIndex: number) {
+    setPromises((prev) =>
+      prev.map((p, i) =>
+        i === promiseIndex
+          ? { ...p, timeline: p.timeline.filter((_, ei) => ei !== eventIndex) }
+          : p,
+      ),
+    );
   }
 
   function toggleAll(selected: boolean) {
     setPromises((prev) => prev.map((p) => ({ ...p, selected })));
   }
 
-  async function handleCheckStatuses() {
-    if (!selectedPolId) return;
-    setStatusCheckStatus("checking");
-    setStatusCheckError("");
-    setStatusSuggestions([]);
-    setStatusCheckResult("");
-
-    const selectedIds = existingPromises.map((p) => p.id);
-
-    try {
-      const res = await fetch("/api/nk-manage/research/check-statuses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ politicianId: selectedPolId, promiseIds: selectedIds }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setStatusCheckStatus("error");
-        setStatusCheckError(data.error || "Status check failed");
-        return;
-      }
-
-      setStatusSuggestions(
-        (data.suggestions || []).map((s: StatusSuggestion) => ({
-          ...s,
-          accepted: s.changed === true || s.currentStatus !== s.suggestedStatus,
-        })),
-      );
-      setStatusCheckStatus("done");
-    } catch {
-      setStatusCheckStatus("error");
-      setStatusCheckError("Network error during status check");
-    }
+  function toggleExpanded(index: number) {
+    setExpandedPromises((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
   }
-
-  async function handleApplyStatuses() {
-    const accepted = statusSuggestions.filter((s) => s.accepted && s.currentStatus !== s.suggestedStatus);
-    if (accepted.length === 0) {
-      setStatusCheckError("No status changes to apply");
-      return;
-    }
-
-    setStatusCheckStatus("applying");
-    setStatusCheckError("");
-
-    try {
-      const res = await fetch("/api/nk-manage/research/update-statuses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          updates: accepted.map((s) => ({
-            promiseId: s.promiseId,
-            status: s.suggestedStatus,
-            reason: s.reason,
-            confidence: s.confidence,
-            eventDate: s.eventDate,
-            sourceUrl: s.sourceUrl,
-            humanApproved: true,
-          })),
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setStatusCheckStatus("error");
-        setStatusCheckError(data.error || "Update failed");
-        return;
-      }
-
-      setStatusCheckStatus("applied");
-      setStatusCheckResult(`Updated ${data.updated} promise statuses`);
-      // Refresh existing promises
-      const refreshRes = await fetch(`/api/politicians/${selectedPolId}/promises`);
-      if (refreshRes.ok) {
-        const refreshData = await refreshRes.json();
-        setExistingPromises(Array.isArray(refreshData) ? refreshData : refreshData.promises || []);
-      }
-    } catch {
-      setStatusCheckStatus("error");
-      setStatusCheckError("Network error during status update");
-    }
-  }
-
-  function toggleStatusAccepted(index: number) {
-    setStatusSuggestions((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, accepted: !s.accepted } : s)),
-    );
-  }
-
-  function toggleAllStatuses(val: boolean) {
-    setStatusSuggestions((prev) =>
-      prev.map((s) => ({ ...s, accepted: s.currentStatus !== s.suggestedStatus ? val : false })),
-    );
-  }
-
-  // Monitor state
-  const [monitorStatus, setMonitorStatus] = useState<"idle" | "running" | "done" | "error">("idle");
-  const [monitorResults, setMonitorResults] = useState<{ name: string; checked: number; changed: number; autoApplied: number; flagged: number }[]>([]);
-  const [monitorError, setMonitorError] = useState("");
-  const [monitorProgress, setMonitorProgress] = useState("");
-  const [allPoliticians, setAllPoliticians] = useState<Politician[]>([]);
-
-  // Load all politicians for monitor
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/politicians/search?q=");
-        const data = await res.json();
-        setAllPoliticians(data || []);
-      } catch {
-        // Non-critical
-      }
-    })();
-  }, []);
 
   async function handleMonitorOne(polId: string, polName: string) {
     setMonitorStatus("running");
@@ -458,7 +376,7 @@ export default function ResearchPage() {
     setMonitorError("");
     setMonitorResults([]);
 
-    const pols = allPoliticians.length > 0 ? allPoliticians : [];
+    const pols = allPoliticians;
     for (let i = 0; i < pols.length; i++) {
       const pol = pols[i];
       setMonitorProgress(`Monitoring ${pol.name} (${i + 1}/${pols.length})...`);
@@ -475,7 +393,6 @@ export default function ResearchPage() {
       } catch {
         // Continue with next
       }
-      // 2-second delay between politicians
       if (i < pols.length - 1) {
         await new Promise((r) => setTimeout(r, 2000));
       }
@@ -486,8 +403,6 @@ export default function ResearchPage() {
 
   const selectedCount = promises.filter((p) => p.selected).length;
   const researchTarget = selectedPolName || customName;
-  const acceptedStatusCount = statusSuggestions.filter((s) => s.accepted && s.currentStatus !== s.suggestedStatus).length;
-  const changedStatusCount = statusSuggestions.filter((s) => s.currentStatus !== s.suggestedStatus).length;
 
   return (
     <div className="max-w-5xl">
@@ -501,8 +416,8 @@ export default function ResearchPage() {
         </Link>
       </div>
       <p className="text-sm text-gray-500 mb-8">
-        Use Perplexity AI to research a politician&apos;s campaign promises. Review the results,
-        edit as needed, then import directly to the database.
+        Use Perplexity AI to research a politician&apos;s campaign promises with full timeline history.
+        Review the results, edit as needed, then import directly to the database.
       </p>
 
       {!apiConfigured && (
@@ -585,27 +500,20 @@ export default function ResearchPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Politician Name
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Politician Name</label>
               <input
                 type="text"
                 value={customName}
                 onChange={(e) => {
                   setCustomName(e.target.value);
-                  if (e.target.value) {
-                    setSelectedPolId("");
-                    setSelectedPolName("");
-                  }
+                  if (e.target.value) { setSelectedPolId(""); setSelectedPolName(""); }
                 }}
                 placeholder="e.g. Kamala Harris"
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Party
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Party</label>
               <input
                 type="text"
                 value={customParty}
@@ -628,11 +536,9 @@ export default function ResearchPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Researching Promises...
+                  Researching...
                 </span>
-              ) : (
-                "Research Promises"
-              )}
+              ) : "Research Promises"}
             </button>
             {selectedPolId && (
               <button
@@ -648,9 +554,7 @@ export default function ResearchPage() {
                     </svg>
                     Researching News...
                   </span>
-                ) : (
-                  "Research News"
-                )}
+                ) : "Research News"}
               </button>
             )}
           </div>
@@ -684,27 +588,25 @@ export default function ResearchPage() {
       {status === "researching" && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6">
           <p className="text-sm text-blue-800">
-            Researching promises for <strong>{researchTarget}</strong>... This may take
-            30-60 seconds while Perplexity searches the web.
+            Researching promises for <strong>{researchTarget}</strong> with full timeline history...
+            This may take 30-90 seconds.
           </p>
         </div>
       )}
 
-      {/* Error */}
       {status === "error" && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-5 mb-6">
           <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
 
-      {/* Import success */}
       {status === "imported" && (
         <div className="rounded-xl border border-green-200 bg-green-50 p-5 mb-6">
           <p className="text-sm font-semibold text-green-800">{importResult}</p>
         </div>
       )}
 
-      {/* Step 2: Review Results */}
+      {/* Step 2: Review Results with Timeline */}
       {promises.length > 0 && status !== "imported" && (
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -712,168 +614,224 @@ export default function ResearchPage() {
               Step 2: Review Results ({promises.length} promises found)
             </h2>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => toggleAll(true)} className="text-xs text-blue-600 hover:underline">
-                Select All
-              </button>
-              <button onClick={() => toggleAll(false)} className="text-xs text-blue-600 hover:underline">
-                Deselect All
-              </button>
-              <button
-                onClick={addBlankPromise}
-                className="rounded-md border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-              >
-                + Add Another
-              </button>
+              <button onClick={() => toggleAll(true)} className="text-xs text-blue-600 hover:underline">Select All</button>
+              <button onClick={() => toggleAll(false)} className="text-xs text-blue-600 hover:underline">Deselect All</button>
             </div>
           </div>
 
           <div className="space-y-4">
             {promises.map((p, i) => {
               const dupMatch = findDuplicateMatch(p.title, existingPromises);
+              const isExpanded = expandedPromises.has(i);
+              const statusInfo = STATUSES.find((s) => s.value === p.status);
               return (
-              <div
-                key={i}
-                className={`rounded-xl border bg-white p-4 shadow-sm transition-colors ${
-                  dupMatch ? "border-amber-300" : p.selected ? "border-gray-200" : "border-gray-100 opacity-60"
-                }`}
-              >
-                {dupMatch && (
-                  <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
-                    Possible duplicate of: <strong>{dupMatch}</strong>
-                  </div>
-                )}
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={p.selected}
-                    onChange={(e) => updatePromise(i, "selected", e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                  />
-                  <div className="flex-1 min-w-0 space-y-3">
-                    <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={p.title}
-                      onChange={(e) => updatePromise(i, "title", e.target.value)}
-                      placeholder="Promise title"
-                      className="flex-1 text-sm font-semibold text-gray-900 border-b border-transparent hover:border-gray-200 focus:border-gray-900 focus:outline-none pb-0.5"
-                    />
+                <div
+                  key={i}
+                  className={`rounded-xl border bg-white shadow-sm transition-colors ${
+                    dupMatch ? "border-amber-300" : p.selected ? "border-gray-200" : "border-gray-100 opacity-60"
+                  }`}
+                >
+                  {dupMatch && (
+                    <div className="rounded-t-xl bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-700">
+                      Possible duplicate of: <strong>{dupMatch}</strong>
+                    </div>
+                  )}
+
+                  {/* Card header */}
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={p.selected}
+                        onChange={(e) => updatePromise(i, "selected", e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <input
+                            type="text"
+                            value={p.title}
+                            onChange={(e) => updatePromise(i, "title", e.target.value)}
+                            className="flex-1 text-sm font-semibold text-gray-900 border-b border-transparent hover:border-gray-200 focus:border-gray-900 focus:outline-none min-w-[200px]"
+                          />
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[p.status] || "bg-gray-100 text-gray-600"}`}>
+                            {statusInfo?.label || p.status}
+                          </span>
+                          <button
+                            onClick={() => updatePromise(i, "billRelated", !p.billRelated)}
+                            className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                              p.billRelated ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                            }`}
+                          >
+                            {p.billRelated ? "Bill-Related" : "No Bill"}
+                          </button>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400 mb-2">
+                          <span>{p.category}</span>
+                          <span>&middot;</span>
+                          <span>Made: {formatDate(p.dateMade)}</span>
+                          <span>&middot;</span>
+                          <span>Severity: {p.severity}/5</span>
+                          {p.timeline.length > 0 && (
+                            <>
+                              <span>&middot;</span>
+                              <span className="text-blue-600">{p.timeline.length} timeline events</span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Expand/collapse */}
+                        <button
+                          onClick={() => toggleExpanded(i)}
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          {isExpanded ? "Collapse" : "Expand details & timeline"}
+                        </button>
+                      </div>
                       <button
-                        onClick={() => updatePromise(i, "billRelated", !p.billRelated)}
-                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                          p.billRelated
-                            ? "bg-green-100 text-green-700 hover:bg-green-200"
-                            : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                        }`}
+                        onClick={() => removePromise(i)}
+                        className="text-gray-300 hover:text-red-500 transition-colors"
+                        title="Remove"
                       >
-                        {p.billRelated ? "Bill-Related" : "No Bill"}
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                       </button>
                     </div>
-                    <textarea
-                      value={p.description}
-                      onChange={(e) => updatePromise(i, "description", e.target.value)}
-                      rows={2}
-                      placeholder="Description..."
-                      className="w-full text-sm text-gray-600 border border-gray-100 rounded-md px-2 py-1.5 hover:border-gray-200 focus:border-gray-900 focus:outline-none resize-none"
-                    />
-                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-0.5">Category</label>
-                        <select
-                          value={p.category}
-                          onChange={(e) => updatePromise(i, "category", e.target.value)}
-                          className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
-                        >
-                          {CATEGORIES.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-0.5">Status</label>
-                        <select
-                          value={p.status}
-                          onChange={(e) => updatePromise(i, "status", e.target.value)}
-                          className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
-                        >
-                          {STATUSES.map((s) => (
-                            <option key={s.value} value={s.value}>{s.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-0.5">Date Made</label>
-                        <input
-                          type="date"
-                          value={p.dateMade}
-                          onChange={(e) => updatePromise(i, "dateMade", e.target.value)}
-                          className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
+
+                    {/* Expanded section */}
+                    {isExpanded && (
+                      <div className="mt-4 ml-7 space-y-4">
+                        {/* Editable fields */}
+                        <textarea
+                          value={p.description}
+                          onChange={(e) => updatePromise(i, "description", e.target.value)}
+                          rows={2}
+                          placeholder="Description..."
+                          className="w-full text-sm text-gray-600 border border-gray-100 rounded-md px-2 py-1.5 hover:border-gray-200 focus:border-gray-900 focus:outline-none resize-none"
                         />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-0.5">Severity (1-5)</label>
-                        <div className="flex gap-1">
-                          {[1, 2, 3, 4, 5].map((w) => (
-                            <button
-                              key={w}
-                              onClick={() => updatePromise(i, "severity", w)}
-                              className={`flex-1 rounded py-1 text-xs font-medium transition-colors ${
-                                p.severity === w
-                                  ? "bg-gray-900 text-white"
-                                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                              }`}
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Category</label>
+                            <select
+                              value={p.category}
+                              onChange={(e) => updatePromise(i, "category", e.target.value)}
+                              className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
                             >
-                              {w}
-                            </button>
-                          ))}
+                              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Status</label>
+                            <select
+                              value={p.status}
+                              onChange={(e) => updatePromise(i, "status", e.target.value)}
+                              className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
+                            >
+                              {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Date Made</label>
+                            <input
+                              type="date"
+                              value={p.dateMade}
+                              onChange={(e) => updatePromise(i, "dateMade", e.target.value)}
+                              className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Severity (1-5)</label>
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4, 5].map((w) => (
+                                <button
+                                  key={w}
+                                  onClick={() => updatePromise(i, "severity", w)}
+                                  className={`flex-1 rounded py-1 text-xs font-medium transition-colors ${
+                                    p.severity === w ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                  }`}
+                                >
+                                  {w}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-0.5">Source</label>
+                            <input
+                              type="url"
+                              value={p.sourceUrl}
+                              onChange={(e) => updatePromise(i, "sourceUrl", e.target.value)}
+                              placeholder="URL"
+                              className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
+                            />
+                          </div>
                         </div>
+
+                        {/* Timeline preview */}
+                        {p.timeline.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-gray-700 mb-2">Timeline ({p.timeline.length} events)</h4>
+                            <div className="relative ml-3 border-l-2 border-gray-200 pl-4 space-y-2">
+                              {p.timeline.map((evt, ei) => (
+                                <div key={ei} className="relative group">
+                                  <div className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-gray-300 border border-gray-400" />
+                                  <div className="flex items-start gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${EVENT_TYPE_COLORS[evt.type] || "bg-gray-100 text-gray-600"}`}>
+                                          {evt.type.replace("_", " ")}
+                                        </span>
+                                        <span className="text-[11px] text-gray-400">{formatDate(evt.date)}</span>
+                                        {evt.newStatus && (
+                                          <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[evt.newStatus] || "bg-gray-100"}`}>
+                                            → {evt.newStatus.replace("_", " ")}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-xs text-gray-700 mt-0.5">{evt.title}</p>
+                                      {evt.description && (
+                                        <p className="text-[11px] text-gray-400 mt-0.5">{evt.description}</p>
+                                      )}
+                                      {evt.sourceUrl && (
+                                        <a href={evt.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-600 hover:underline">
+                                          Source
+                                        </a>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={() => removeTimelineEvent(i, ei)}
+                                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all"
+                                      title="Remove event"
+                                    >
+                                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {p.timeline.length === 0 && (
+                          <p className="text-xs text-gray-400 italic">No timeline events — status is {p.status}</p>
+                        )}
                       </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-0.5">Expected Months</label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={120}
-                          value={p.expectedMonths}
-                          onChange={(e) => updatePromise(i, "expectedMonths", Number(e.target.value) || 1)}
-                          className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-0.5">Source</label>
-                        <input
-                          type="url"
-                          value={p.sourceUrl}
-                          onChange={(e) => updatePromise(i, "sourceUrl", e.target.value)}
-                          placeholder="URL"
-                          className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
-                        />
-                      </div>
-                    </div>
+                    )}
                   </div>
-                  <button
-                    onClick={() => removePromise(i)}
-                    className="text-gray-300 hover:text-red-500 transition-colors"
-                    title="Remove"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
                 </div>
-              </div>
               );
             })}
           </div>
 
-          {/* Step 3: Import */}
+          {/* Import */}
           <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p className="text-sm text-gray-500">
               {selectedCount} of {promises.length} promises selected
               {!selectedPolId && (
-                <span className="text-amber-600 ml-2">
-                  (select a politician from dropdown to import)
-                </span>
+                <span className="text-amber-600 ml-2">(select a politician from dropdown to import)</span>
               )}
             </p>
             <button
@@ -889,9 +847,7 @@ export default function ResearchPage() {
                   </svg>
                   Importing...
                 </span>
-              ) : (
-                `Import ${selectedCount} Selected Promises`
-              )}
+              ) : `Import ${selectedCount} Selected Promises`}
             </button>
           </div>
         </div>
@@ -910,9 +866,7 @@ export default function ResearchPage() {
       )}
       {newsArticles.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-base font-bold text-gray-900 mb-4">
-            Recent News ({newsArticles.length} articles)
-          </h2>
+          <h2 className="text-base font-bold text-gray-900 mb-4">Recent News ({newsArticles.length} articles)</h2>
           <div className="space-y-3">
             {newsArticles.map((a, i) => (
               <div key={i} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -923,12 +877,7 @@ export default function ResearchPage() {
                     <p className="text-sm text-gray-600 mt-2">{a.summary}</p>
                   </div>
                   {a.url && (
-                    <a
-                      href={a.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                    >
+                    <a href={a.url} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
                       View
                     </a>
                   )}
@@ -938,161 +887,12 @@ export default function ResearchPage() {
           </div>
         </div>
       )}
-      {/* ═══ STEP 2: UPDATE EXISTING PROMISE STATUSES ═══ */}
-      {selectedPolId && existingPromises.length > 0 && (
-        <div className="mt-12 pt-8 border-t border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Step 2 — Update Promise Statuses</h2>
-          <p className="text-sm text-gray-500 mb-6">
-            Use AI to check the current status of existing promises for {selectedPolName}.
-          </p>
-
-          <div className="flex items-center gap-3 mb-6">
-            <button
-              onClick={handleCheckStatuses}
-              disabled={statusCheckStatus === "checking" || !apiConfigured}
-              className="rounded-lg bg-[#0D0D0D] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {statusCheckStatus === "checking" ? (
-                <span className="flex items-center gap-2">
-                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Checking Statuses...
-                </span>
-              ) : (
-                `Check All ${existingPromises.length} Promises`
-              )}
-            </button>
-          </div>
-
-          {statusCheckStatus === "checking" && (
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6">
-              <p className="text-sm text-blue-800">
-                Fact-checking {existingPromises.length} promises... This may take 30-60 seconds.
-              </p>
-            </div>
-          )}
-
-          {statusCheckStatus === "error" && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-5 mb-6">
-              <p className="text-sm text-red-800">{statusCheckError}</p>
-            </div>
-          )}
-
-          {statusCheckStatus === "applied" && (
-            <div className="rounded-xl border border-green-200 bg-green-50 p-5 mb-6">
-              <p className="text-sm font-semibold text-green-800">{statusCheckResult}</p>
-            </div>
-          )}
-
-          {statusSuggestions.length > 0 && statusCheckStatus !== "applied" && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-gray-500">
-                  {changedStatusCount} of {statusSuggestions.length} promises have status changes suggested
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => toggleAllStatuses(true)}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    Accept All Changes
-                  </button>
-                  <button
-                    onClick={() => toggleAllStatuses(false)}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    Reject All
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 w-8"></th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Promise</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 w-28">Current</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 w-28">Suggested</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {statusSuggestions.map((s, i) => {
-                      const changed = s.currentStatus !== s.suggestedStatus;
-                      const currentInfo = STATUSES.find((st) => st.value === s.currentStatus);
-                      const suggestedInfo = STATUSES.find((st) => st.value === s.suggestedStatus);
-                      return (
-                        <tr key={s.promiseId} className={changed ? "" : "opacity-50"}>
-                          <td className="px-4 py-3">
-                            {changed && (
-                              <input
-                                type="checkbox"
-                                checked={s.accepted}
-                                onChange={() => toggleStatusAccepted(i)}
-                                className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                              />
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-gray-900 font-medium">{s.title}</td>
-                          <td className="px-4 py-3">
-                            <span className="inline-flex items-center gap-1.5 text-xs">
-                              <span className={`inline-block w-2 h-2 rounded-full ${currentInfo?.color || "bg-gray-300"}`} />
-                              {currentInfo?.label || s.currentStatus}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            {changed ? (
-                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
-                                <span className={`inline-block w-2 h-2 rounded-full ${suggestedInfo?.color || "bg-gray-300"}`} />
-                                {suggestedInfo?.label || s.suggestedStatus}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">No change</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-gray-500">{s.reason}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-sm text-gray-500">
-                  {acceptedStatusCount} status change{acceptedStatusCount !== 1 ? "s" : ""} selected
-                </p>
-                <button
-                  onClick={handleApplyStatuses}
-                  disabled={acceptedStatusCount === 0 || statusCheckStatus === "applying"}
-                  className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {statusCheckStatus === "applying" ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Applying...
-                    </span>
-                  ) : (
-                    `Apply ${acceptedStatusCount} Status Changes`
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ═══ MONITOR SECTION ═══ */}
       <div className="mt-12 pt-8 border-t border-gray-200">
         <h2 className="text-xl font-bold text-gray-900 mb-1">AI Promise Monitor</h2>
         <p className="text-sm text-gray-500 mb-6">
-          Automatically check active promises for recent developments using AI. High-confidence changes are auto-applied; others go to the Review Queue.
+          Check active promises for NEW developments since their last known event. High-confidence changes are auto-applied; others go to the Review Queue.
         </p>
 
         <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -1109,9 +909,7 @@ export default function ResearchPage() {
                 </svg>
                 Monitoring...
               </span>
-            ) : (
-              `Monitor All Politicians (${allPoliticians.length})`
-            )}
+            ) : `Monitor All Politicians (${allPoliticians.length})`}
           </button>
         </div>
 
@@ -1154,7 +952,6 @@ export default function ResearchPage() {
           </div>
         )}
 
-        {/* Per-politician monitor buttons */}
         {allPoliticians.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-gray-700">Monitor Individual</h3>

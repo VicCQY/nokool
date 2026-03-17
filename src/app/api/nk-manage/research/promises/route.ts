@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "politicianName is required" }, { status: 400 });
     }
 
-    const promises = await researchPromises(politicianName, party, position);
+    const today = new Date().toISOString().split("T")[0];
+    const promises = await researchPromises(politicianName, party, position, today);
 
     return NextResponse.json({ success: true, promises });
   } catch (err) {

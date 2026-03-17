@@ -7,6 +7,13 @@ const VALID_STATUSES: Set<string> = new Set([
   "NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED",
 ]);
 
+const EVENT_TYPE_MAP: Record<string, string> = {
+  status_change: "status_change",
+  executive_action: "executive_action",
+  legislation: "bill_vote",
+  news: "news",
+};
+
 export async function POST(request: NextRequest) {
   try {
     const { politicianId, promises } = await request.json();
@@ -29,10 +36,8 @@ export async function POST(request: NextRequest) {
 
     let created = 0;
     for (const p of promises) {
-      const status = VALID_STATUSES.has(p.status) ? p.status : "NOT_STARTED";
       const weight = Math.max(1, Math.min(5, Number(p.weight || p.severity) || 3));
       const expectedMonths = p.expectedMonths ? Math.max(1, Number(p.expectedMonths)) : null;
-      const confidence = p.statusConfidence || "low";
 
       // Create the promise with NOT_STARTED initially
       const promise = await prisma.promise.create({
@@ -56,7 +61,7 @@ export async function POST(request: NextRequest) {
           promiseId: promise.id,
           oldStatus: null,
           newStatus: "NOT_STARTED" as PromiseStatus,
-          note: "Initial status from AI research import",
+          note: "Promise created",
         },
       });
 
@@ -67,32 +72,52 @@ export async function POST(request: NextRequest) {
         eventDate: new Date(p.dateMade || Date.now()),
         title: `Promise made: ${String(p.title || "").slice(0, 200)}`,
         sourceUrl: p.sourceUrl || undefined,
-        createdBy: "ai_auto",
-        confidence,
-        reviewed: false,
+        createdBy: "human",
+        reviewed: true,
         approved: true,
       });
 
-      // If AI provided a non-NOT_STARTED status, apply it through the rules engine
-      if (status !== "NOT_STARTED") {
-        // Use AI's statusDate, fall back to dateMade (never today's date)
-        let eventDate: Date;
-        if (p.statusDate && !isNaN(new Date(p.statusDate).getTime())) {
-          eventDate = new Date(p.statusDate);
-        } else {
-          eventDate = new Date(p.dateMade || Date.now());
-        }
+      // Process timeline events
+      const timeline = Array.isArray(p.timeline) ? p.timeline : [];
+      let lastAppliedStatus: string = "NOT_STARTED";
 
-        await applyStatusChange({
-          promiseId: promise.id,
-          newStatus: status as PromiseStatus,
-          eventDate,
-          title: p.statusReason || `Status changed to ${status}`,
-          description: p.statusReason || undefined,
-          sourceUrl: p.statusSource || undefined,
-          createdBy: confidence === "high" ? "ai_auto" : "ai_flagged",
-          confidence,
-        });
+      for (const evt of timeline) {
+        if (!evt || typeof evt !== "object") continue;
+
+        const evtDate = String(evt.date || "");
+        if (!evtDate || isNaN(new Date(evtDate).getTime())) continue;
+
+        const evtType = String(evt.type || "news");
+
+        if (evtType === "status_change" && evt.newStatus && VALID_STATUSES.has(String(evt.newStatus))) {
+          const newStatus = String(evt.newStatus);
+          if (newStatus === lastAppliedStatus) continue;
+
+          await applyStatusChange({
+            promiseId: promise.id,
+            newStatus: newStatus as PromiseStatus,
+            eventDate: new Date(evtDate),
+            title: String(evt.title || `Status changed to ${newStatus}`),
+            description: String(evt.description || "") || undefined,
+            sourceUrl: String(evt.sourceUrl || "") || undefined,
+            createdBy: "human",
+          });
+          lastAppliedStatus = newStatus;
+        } else {
+          // Non-status events
+          const mappedType = EVENT_TYPE_MAP[evtType] || "news";
+          await recordPromiseEvent({
+            promiseId: promise.id,
+            eventType: mappedType,
+            eventDate: new Date(evtDate),
+            title: String(evt.title || ""),
+            description: String(evt.description || "") || undefined,
+            sourceUrl: String(evt.sourceUrl || "") || undefined,
+            createdBy: "human",
+            reviewed: true,
+            approved: true,
+          });
+        }
       }
 
       created++;

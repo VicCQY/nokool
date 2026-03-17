@@ -1,17 +1,30 @@
 /**
- * Words that indicate an internal correction/admin event
+ * Phrases that indicate an internal/admin event
  * that should never appear on public timelines.
  */
-const INTERNAL_KEYWORDS = [
-  "revert", "regression", "correction", "fix",
-  "via AI research", "Initial status set", "AI research",
+const INTERNAL_PHRASES = [
+  "revert",
+  "regression",
+  "correction",
+  "fix",
+  "via AI research",
+  "via AI",
+  "Initial status set",
+  "Initial status",
+  "AI research",
+  "auto-applied",
+  "ai_auto",
+  "ai_flagged",
 ];
 
-const INTERNAL_PATTERN = new RegExp(INTERNAL_KEYWORDS.join("|"), "i");
+const INTERNAL_PATTERN = new RegExp(
+  INTERNAL_PHRASES.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+  "i",
+);
 
 /**
  * Returns true if the event title or description contains
- * internal correction keywords and should be hidden from public view.
+ * internal bookkeeping phrases and should be hidden from public view.
  */
 export function isInternalEvent(
   title: string | null | undefined,
