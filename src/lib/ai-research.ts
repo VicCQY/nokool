@@ -19,6 +19,7 @@ export interface ResearchedPromise {
   sourceUrl: string;
   severity: number;
   expectedMonths: number;
+  billRelated: boolean;
 }
 
 export async function researchPromises(
@@ -46,7 +47,9 @@ For each promise, also determine its current status based on your knowledge:
 
 Be accurate and fair. If unsure, default to NOT_STARTED.
 
-Return ONLY a JSON array of promises. No markdown, no explanation. Each object should have: title, description, category, status, dateMade, sourceUrl, severity, expectedMonths`;
+For each promise, also determine if this promise is directly related to specific legislation that would be voted on in Congress, OR for executive branch politicians, related to a specific executive action (executive order, memorandum, proclamation, bill signing). Set billRelated: true if it is, false if it's a general/aspirational/economic promise that wouldn't have a specific bill vote or executive action.
+
+Return ONLY a JSON array of promises. No markdown, no explanation. Each object should have: title, description, category, status, dateMade, sourceUrl, severity, expectedMonths, billRelated`;
 
   const userPrompt = `Find ALL major campaign promises made by ${politicianName} (${party}), who serves as ${position}.
 
@@ -77,6 +80,7 @@ Do not use Wikipedia as a source. Prefer: official campaign websites, speech tra
     sourceUrl: String(item.sourceUrl || ""),
     severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),
     expectedMonths: Math.max(1, Number(item.expectedMonths) || 12),
+    billRelated: item.billRelated === true || item.billRelated === "true",
   }));
 }
 
@@ -315,9 +319,9 @@ export async function matchPromisesToBills(
   });
   if (!politician) throw new Error("Politician not found");
 
-  // Fetch promises
+  // Fetch only bill-related promises (billRelated = true)
   const promises = await prisma.promise.findMany({
-    where: { politicianId },
+    where: { politicianId, billRelated: true },
     select: { id: true, title: true, description: true, category: true },
   });
   if (promises.length === 0) return [];

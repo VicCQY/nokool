@@ -242,8 +242,8 @@ export default function MatchPage() {
       {status === "matching" && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6">
           <p className="text-sm text-blue-800">
-            Analyzing promises against {selectedPol?.branch === "executive" ? "executive actions" : "bills"}...
-            This may take 30-90 seconds depending on data volume.
+            Analyzing bill-related promises against {selectedPol?.branch === "executive" ? "executive actions" : "bills"}...
+            Only promises marked as &quot;Bill-Related&quot; are included. This may take 30-90 seconds.
           </p>
         </div>
       )}
@@ -361,8 +361,9 @@ export default function MatchPage() {
       {status === "done" && matches.length === 0 && (
         <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 mb-6">
           <p className="text-sm text-gray-500">
-            No matches found. This could mean the politician has no promises, no bills/actions,
-            or none of them are clearly related.
+            No matches found. This could mean the politician has no bill-related promises,
+            no bills/actions, or none of them are clearly related. Make sure promises are
+            marked as &quot;Bill-Related&quot; on the research page.
           </p>
         </div>
       )}

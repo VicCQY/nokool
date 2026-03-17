@@ -26,6 +26,7 @@ interface ResearchedPromise {
   sourceUrl: string;
   severity: number;
   expectedMonths: number;
+  billRelated: boolean;
   selected: boolean;
 }
 
@@ -250,6 +251,7 @@ export default function ResearchPage() {
             status: p.status || "NOT_STARTED",
             weight: p.severity,
             expectedMonths: p.expectedMonths,
+            billRelated: p.billRelated,
             dateMade: p.dateMade,
             sourceUrl: p.sourceUrl,
           })),
@@ -294,6 +296,7 @@ export default function ResearchPage() {
         sourceUrl: "",
         severity: 3,
         expectedMonths: 12,
+        billRelated: false,
         selected: true,
       },
     ]);
@@ -661,13 +664,25 @@ export default function ResearchPage() {
                     className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                   />
                   <div className="flex-1 min-w-0 space-y-3">
+                    <div className="flex items-center gap-2">
                     <input
                       type="text"
                       value={p.title}
                       onChange={(e) => updatePromise(i, "title", e.target.value)}
                       placeholder="Promise title"
-                      className="w-full text-sm font-semibold text-gray-900 border-b border-transparent hover:border-gray-200 focus:border-gray-900 focus:outline-none pb-0.5"
+                      className="flex-1 text-sm font-semibold text-gray-900 border-b border-transparent hover:border-gray-200 focus:border-gray-900 focus:outline-none pb-0.5"
                     />
+                      <button
+                        onClick={() => updatePromise(i, "billRelated", !p.billRelated)}
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                          p.billRelated
+                            ? "bg-green-100 text-green-700 hover:bg-green-200"
+                            : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                        }`}
+                      >
+                        {p.billRelated ? "Bill-Related" : "No Bill"}
+                      </button>
+                    </div>
                     <textarea
                       value={p.description}
                       onChange={(e) => updatePromise(i, "description", e.target.value)}

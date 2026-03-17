@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
           status: status as PromiseStatus,
           weight,
           expectedMonths,
+          billRelated: p.billRelated === true,
           dateMade: new Date(p.dateMade || Date.now()),
           sourceUrl: p.sourceUrl || null,
         },
