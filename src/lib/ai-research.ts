@@ -71,6 +71,8 @@ Format as JSON array:
   }]
 }]
 
+IMPORTANT: If a promise has executive actions or legislation in its timeline, its status CANNOT be NOT_STARTED. You MUST include a status_change event in the timeline reflecting the progress. For example, if an executive order was signed related to a promise, add a status_change event on that same date moving the status to at least IN_PROGRESS.
+
 Return ONLY the JSON array, no other text.`;
 
   const userPrompt = `Research ${politicianName} (${party}, ${position}). Find their 15-20 most significant campaign promises from their entire career. For each one, trace what has actually happened — every bill, vote, executive order, and development with real dates. Be thorough and current through ${today}. Do not use Wikipedia or YouTube as sources.`;
@@ -86,6 +88,9 @@ Return ONLY the JSON array, no other text.`;
 
   // Post-processing: detect and warn about lazy AI output
   validateResearchQuality(results);
+
+  // Infer status from timeline when AI forgot to add status_change events
+  inferStatusFromTimeline(results);
 
   return results;
 }
@@ -121,6 +126,27 @@ function validateResearchQuality(results: ResearchedPromise[]): void {
   for (const [url, count] of Object.entries(srcCounts)) {
     if (count > 2) {
       console.warn(`[Research Quality] Lazy sources detected: ${count} promises share sourceUrl=${url}`);
+    }
+  }
+}
+
+function inferStatusFromTimeline(results: ResearchedPromise[]): void {
+  for (const p of results) {
+    if (p.status === "FULFILLED" || p.status === "BROKEN") continue;
+
+    const hasExecAction = p.timeline.some((e) => e.type === "executive_action");
+    const hasLegislation = p.timeline.some((e) => e.type === "legislation");
+    const hasNews = p.timeline.some((e) => e.type === "news");
+
+    if (p.status === "NOT_STARTED" && (hasExecAction || hasLegislation)) {
+      const oldStatus = p.status;
+      // Executive actions + news showing progress → PARTIAL; otherwise IN_PROGRESS
+      if (hasExecAction && hasNews && p.timeline.length >= 3) {
+        p.status = "PARTIAL";
+      } else {
+        p.status = "IN_PROGRESS";
+      }
+      console.log(`[Status Inference] "${p.title}": ${oldStatus} → ${p.status} (has ${hasExecAction ? "executive_action" : ""}${hasExecAction && hasLegislation ? "+" : ""}${hasLegislation ? "legislation" : ""} events)`);
     }
   }
 }
