@@ -59,10 +59,10 @@ export function calculateWeightedGrade(
 
   // Fixed grade thresholds
   let letter: string;
-  if (clampedPercent >= 75) letter = "A";
-  else if (clampedPercent >= 60) letter = "B";
-  else if (clampedPercent >= 45) letter = "C";
-  else if (clampedPercent >= 30) letter = "D";
+  if (clampedPercent >= 80) letter = "A";
+  else if (clampedPercent >= 70) letter = "B";
+  else if (clampedPercent >= 60) letter = "C";
+  else if (clampedPercent >= 50) letter = "D";
   else letter = "F";
 
   return {
