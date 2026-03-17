@@ -25,7 +25,6 @@ export function NewsTab({
   const [error, setError] = useState("");
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [apiConfigured, setApiConfigured] = useState(true);
 
   useEffect(() => {
     loadCachedArticles();
@@ -40,13 +39,9 @@ export function NewsTab({
       const data = await res.json();
       setArticles(data.articles || []);
       setLastFetched(data.lastFetchedAt);
-      if (data.aiConfigured === false) {
-        setApiConfigured(false);
-        return;
-      }
 
-      // If no cached articles, and user is admin, auto-refresh
-      if (data.articles?.length === 0 && isAdmin) {
+      // Only admins can trigger a refresh when no cached articles exist
+      if (data.articles?.length === 0 && isAdmin && data.aiConfigured !== false) {
         await refreshArticles();
       }
     } catch {
@@ -64,11 +59,6 @@ export function NewsTab({
         method: "POST",
       });
       const data = await res.json();
-
-      if (res.status === 503) {
-        setApiConfigured(false);
-        return;
-      }
 
       if (!res.ok) {
         setError(data.error || "Refresh failed");
@@ -97,14 +87,6 @@ export function NewsTab({
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
     return `${days}d ago`;
-  }
-
-  if (!apiConfigured) {
-    return (
-      <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-        <p className="text-slate">News unavailable — API not configured</p>
-      </div>
-    );
   }
 
   if (loading) {
@@ -182,16 +164,9 @@ export function NewsTab({
             className="rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md"
           >
             <div className="p-5">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                <a
-                  href={article.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-base font-semibold text-brand-charcoal hover:text-brand-red transition-colors"
-                >
-                  {article.title}
-                </a>
-              </div>
+              <h3 className="text-base font-semibold text-brand-charcoal mb-2">
+                {article.title}
+              </h3>
               <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
                 <span className="font-mono font-medium text-gray-500">{article.sourceName}</span>
                 <span className="text-gray-300">&middot;</span>
@@ -206,9 +181,22 @@ export function NewsTab({
                   {article.category}
                 </span>
               </div>
-              <p className="text-sm text-slate leading-relaxed">
+              <p className="text-sm text-slate leading-relaxed mb-3">
                 {article.summary}
               </p>
+              {article.sourceUrl && (
+                <a
+                  href={article.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-red hover:underline"
+                >
+                  Read Article
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </a>
+              )}
             </div>
           </div>
         ))}
@@ -222,7 +210,7 @@ export function NewsTab({
         {articles.length === 0 && !error && (
           <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
             <p className="text-slate">
-              News will be available when the AI research feature is activated.
+              No recent news available.
             </p>
           </div>
         )}
