@@ -3,10 +3,18 @@
 
 export {
   researchPromises,
+  researchTimelines,
   researchNews,
   matchPromisesToBills,
 } from "./ai-research";
 
-export type { ResearchedPromise, ResearchedArticle, SuggestedMatch, TimelineEvent } from "./ai-research";
+export type {
+  ResearchedPromiseBase,
+  ResearchedPromise,
+  TimelineResult,
+  ResearchedArticle,
+  SuggestedMatch,
+  TimelineEvent,
+} from "./ai-research";
 
 export { isPerplexityConfigured as isAiConfigured } from "./perplexity-api";

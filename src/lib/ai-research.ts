@@ -7,7 +7,7 @@ const MODEL_RESEARCH = "sonar-pro";
 const MODEL_MATCHING = "sonar-pro";
 
 // ══════════════════════════════════════════════
-// STEP 1: RESEARCH (Full Timeline Per Promise)
+// TYPES
 // ══════════════════════════════════════════════
 
 export interface TimelineEvent {
@@ -19,77 +19,160 @@ export interface TimelineEvent {
   newStatus: string | null;
 }
 
-export interface ResearchedPromise {
+/** Call 1 result: promise without timeline/status */
+export interface ResearchedPromiseBase {
   title: string;
   description: string;
   category: string;
-  status: string;
   dateMade: string;
   sourceUrl: string;
   severity: number;
   expectedMonths: number;
   billRelated: boolean;
+}
+
+/** Full promise with timeline (after Call 2 merges in) */
+export interface ResearchedPromise extends ResearchedPromiseBase {
+  status: string;
   timeline: TimelineEvent[];
 }
+
+/** Call 2 result: timeline for a specific promise */
+export interface TimelineResult {
+  title: string;
+  currentStatus: string;
+  timeline: TimelineEvent[];
+}
+
+// ══════════════════════════════════════════════
+// CALL 1: FIND PROMISES (no timelines, no statuses)
+// ══════════════════════════════════════════════
 
 export async function researchPromises(
   politicianName: string,
   party: string,
   position: string,
   todayDate?: string,
-): Promise<ResearchedPromise[]> {
+): Promise<ResearchedPromiseBase[]> {
   const today = todayDate || new Date().toISOString().split("T")[0];
 
-  const systemPrompt = `=== QUALITY REQUIREMENTS — READ CAREFULLY ===
+  const systemPrompt = `You are an expert political researcher. Your job is to find campaign promises — NOT to trace their history (that comes later).
 
-YOU ARE BEING PAID FOR PREMIUM QUALITY. Do NOT take shortcuts.
+=== QUALITY REQUIREMENTS ===
 
-ZERO DUPLICATES: Before finalizing your response, review ALL promises and remove any that cover the same policy action. 'Boost domestic microchip production' and 'Invest in microchip manufacturing' are the SAME promise — pick the better title and merge them. Scan your final list and eliminate ALL overlap.
+ZERO DUPLICATES: Before finalizing, review ALL promises and remove any that cover the same policy action. 'Boost domestic microchip production' and 'Invest in microchip manufacturing' are the SAME promise — pick the better title and merge them.
 
-UNIQUE DATES FOR dateMade: Each promise was made at a DIFFERENT time during the campaign. Do NOT set all promises to the same date (like election day). Find the ACTUAL date each promise was first made:
+UNIQUE DATES FOR dateMade: Each promise was made at a DIFFERENT time. Do NOT set all promises to the same date. Find the ACTUAL date each promise was first made:
 - Campaign announcement speeches have different dates
 - Policy platform releases have dates
 - Debate statements have dates
 - Rally speeches have dates
 - Press conferences have dates
 - Op-eds and published plans have dates
-If you cannot find the exact date a specific promise was first made, use the date of the earliest source you can find for that promise. EVERY promise should have a DIFFERENT dateMade unless they were genuinely announced together in the same speech.
+If you cannot find the exact date, use the date of the earliest source you can find. EVERY promise should have a DIFFERENT dateMade unless genuinely announced together in the same speech.
 
-UNIQUE SOURCES: Each promise should link to a DIFFERENT source URL where possible. Do not use the same article for 10 promises. Find the original speech, platform page, or news article specific to each promise.
+UNIQUE SOURCES: Each promise should link to a DIFFERENT source URL. Do not use the same article for 10 promises.
 
-TIMELINE EVENTS MUST BE REAL: Every timeline event must reference a SPECIFIC, NAMED action:
-- Name the specific executive order number (e.g., 'EO 14159')
-- Name the specific bill (e.g., 'HR-3684 Infrastructure Investment and Jobs Act')
-- Name the specific vote or signing date
-- 'Sworn in amid COVID surge' is NOT an action on COVID — DELETE events like this
-- 'Administrative action taken' is too vague — WHAT action? Name it specifically or don't include it
-
-DO NOT FABRICATE: If you cannot find a specific real event with a real date and real source, do NOT create a vague placeholder. An empty timeline with NOT_STARTED status is better than a fake timeline.
-
-VERIFY YOUR OWN WORK: Before returning your response, check:
-□ Are there any duplicate promises? REMOVE THEM.
-□ Does every promise have a unique dateMade? FIX lazy same-day dates.
-□ Does every timeline event name a specific action? REMOVE vague ones.
-□ Is every sourceUrl a real, working URL (not Wikipedia or YouTube)? FIX OR REMOVE bad sources.
-□ Are statuses justified by concrete evidence? DOWNGRADE to NOT_STARTED if evidence is weak.
-
-You are an expert political researcher with access to current information. Your job is to find campaign promises and trace their COMPLETE HISTORY from when they were made to today.
-
-=== STRICT FORMATTING TEMPLATES ===
+=== STRICT FORMATTING ===
 
 Promise title format: "[Action verb] [specific subject]"
 GOOD: "Impose 10% universal tariff on all imports"
 GOOD: "Pardon January 6 defendants"
-GOOD: "Withdraw from the Paris Climate Agreement"
 BAD: "Tariffs" (no action, no specifics)
-BAD: "Deal with immigration" (vague action, vague subject)
-BAD: "Make America energy independent" (slogan, not measurable)
+BAD: "Deal with immigration" (vague)
 
 Promise description format: "On [date], [politician] promised to [specific action]. This would [concrete impact]."
-GOOD: "On June 16, 2024, Trump promised to impose a 10% baseline tariff on all imported goods. This would affect approximately $3 trillion in annual imports."
-BAD: "Trump wants tariffs on imports." (no date, no specifics, no impact)
 
-=== WHAT COUNTS AS A TIMELINE EVENT ===
+=== WHAT COUNTS AS A PROMISE ===
+A promise MUST have ALL of these:
+1. A clear FIELD (policy area: education, immigration, economy, healthcare, etc.)
+2. A clear SUBJECT (specific thing: school lunches, TikTok, the border wall, Medicare)
+3. A clear DIRECTION (specific action: make free, ban, build, pardon, impose X% tariff)
+4. A TIMEFRAME if one was stated (optional: 'within 24 hours', 'by 2028', 'day one')
+
+GOOD: 'Impose 10% universal tariff on all imports'
+BAD: 'Strengthen National Defense' (no specific subject or action)
+BAD: 'Fight for working families' (slogan)
+
+=== NO OVERLAP ===
+ONE promise per distinct policy action. Do NOT create multiple promises for the same thing.
+
+=== OUTPUT FORMAT ===
+For each promise, return ONLY these fields:
+1. title: Clear promise name
+2. description: 2-3 sentences explaining what was promised
+3. category: Economy, Healthcare, Environment, Immigration, Education, Infrastructure, Foreign Policy, Justice, Housing, Technology, Other
+4. dateMade: YYYY-MM-DD when the promise was FIRST made
+5. sourceUrl: where the promise was made. NEVER use wikipedia.org or youtube.com.
+6. severity: 1-5 (5=cornerstone campaign promise, 4=major, 3=standard, 2=minor, 1=trivial)
+7. expectedMonths: reasonable months to fulfill
+8. billRelated: true/false — tied to specific legislation or executive action?
+
+DO NOT include: status, timeline, or any history. Just the promises themselves.
+
+CRITICAL — FIND ORIGINAL PROMISE DATES: Do NOT use compilation dates. Find when each promise was FIRST made:
+- 'No tax on tips' was first announced at a rally in June 2024, not when a compilation was posted later
+- 'Build the wall' was first promised in 2015, not during a 2024 speech
+Each promise has a unique origin — find it.
+
+LAZY OUTPUT WILL BE REJECTED:
+- If more than 2 promises share the same dateMade, the ENTIRE response will be rejected.
+- If more than 2 promises share the same sourceUrl, the ENTIRE response will be rejected.
+- If any source is YouTube or Wikipedia, the ENTIRE response will be rejected.
+
+VERIFY YOUR OWN WORK:
+□ Are there any duplicate promises? REMOVE THEM.
+□ Does every promise have a unique dateMade? FIX lazy same-day dates.
+□ Is every sourceUrl a real, working URL (not Wikipedia or YouTube)? FIX bad sources.
+
+Be thorough — find at least 15 promises, cover ALL major policy areas they campaigned on.
+Prioritize: cornerstone promises first, then major, then minor.
+
+Return ONLY a JSON array. No markdown, no explanation.`;
+
+  const userPrompt = `Find ALL major campaign promises made by ${politicianName} (${party}), who serves as ${position}. Today is ${today}.
+
+For each promise, return: title, description, category, dateMade, sourceUrl, severity, expectedMonths, billRelated.
+
+DO NOT include timelines or statuses — just the promises themselves.
+
+NEVER use Wikipedia or YouTube as a source.`;
+
+  const text = await callPerplexity(systemPrompt, userPrompt, MODEL_RESEARCH);
+  const parsed = parseJsonFromResponse(text);
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("Expected JSON array from research response");
+  }
+
+  const results = parsed.map((item: Record<string, unknown>) => processPromiseItem(item));
+
+  // Post-processing quality checks
+  validatePromiseQuality(results);
+
+  return results;
+}
+
+// ══════════════════════════════════════════════
+// CALL 2: BUILD TIMELINES (for approved promises)
+// ══════════════════════════════════════════════
+
+export async function researchTimelines(
+  politicianName: string,
+  party: string,
+  position: string,
+  promises: ResearchedPromiseBase[],
+  todayDate?: string,
+): Promise<TimelineResult[]> {
+  const today = todayDate || new Date().toISOString().split("T")[0];
+
+  const promiseList = promises
+    .map((p, i) => `${i + 1}. "${p.title}" (made ${p.dateMade}): ${p.description.slice(0, 120)}`)
+    .join("\n");
+
+  const systemPrompt = `You are an expert political fact-checker. You will be given a list of campaign promises that have already been identified. Your ONLY job is to build a complete timeline of actions taken on each promise, and determine its current status.
+
+=== TIMELINE EVENT RULES ===
 Timeline events must be CONCRETE actions with REAL dates and PROOF:
 
 GOOD timeline events:
@@ -101,114 +184,74 @@ BAD timeline events (DO NOT INCLUDE):
 - "2024-11-05: Trump wins election" (not an action on the promise)
 - "2025-01-20: Trump takes office" (not an action on the promise)
 - "Experts debate tariff impact" (opinion, not action)
-- "Promise was made during campaign" (that's the dateMade field, not a timeline event)
+- "Promise was made during campaign" (that's dateMade, not a timeline event)
+
+Every timeline event MUST:
+- Name a specific executive order number (e.g., 'EO 14159')
+- Name a specific bill (e.g., 'HR-3684 Infrastructure Investment and Jobs Act')
+- Name a specific vote or signing date
+- Reference a REAL, NAMED action — NOT vague words like 'initiated', 'launched', 'established', 'advocated', 'prioritized'
+
+If you cannot find a specific real event with a real date and real source, do NOT create a vague placeholder. An empty timeline with NOT_STARTED status is better than a fake timeline.
 
 === STATUS CHANGE RULES ===
 A status_change event REQUIRES concrete proof:
 - NOT_STARTED → IN_PROGRESS: A bill was introduced, an executive order was drafted, formal process began
-- IN_PROGRESS → PARTIAL: Some measurable part of the promise was delivered but not all of it
+- IN_PROGRESS → PARTIAL: Some measurable part of the promise was delivered but not all
 - IN_PROGRESS → FULFILLED: The complete promise was delivered as stated
 - Any → BROKEN: The politician explicitly abandoned the promise or took opposite action
 - Any → REVERSED: A previously fulfilled promise was undone
 
-If a promise has NO concrete action taken, the timeline should be EMPTY and status should be NOT_STARTED. Do NOT fabricate progress.
+If NO concrete action has been taken, timeline should be EMPTY and currentStatus should be NOT_STARTED.
 
-=== WHAT COUNTS AS A PROMISE ===
-A promise MUST have ALL of these elements:
-1. A clear FIELD (policy area: education, immigration, economy, healthcare, etc.)
-2. A clear SUBJECT (specific thing: school lunches, TikTok, the border wall, Medicare, Jan 6 defendants)
-3. A clear DIRECTION (specific action: make free, ban, build, pardon, eliminate, increase by X%, impose X% tariff)
-4. A TIMEFRAME if one was stated (optional: 'within 24 hours', 'by 2028', 'day one')
+=== UNDERSTAND WHAT LEGISLATORS CAN DO ===
+Senators and Representatives cannot unilaterally fulfill promises — they work through legislation. For legislators, IN_PROGRESS actions include:
+- Introduced or co-sponsored a bill
+- Voted YES on a related bill
+- Held or participated in committee hearings
+- Secured committee passage of a related bill
+- Attached related amendments to other bills
+NOT_STARTED means they have done literally NOTHING — no bills, no votes, no hearings.
 
-GOOD promises (specific, verifiable, clear yes/no outcome):
-- 'Make school lunches free' (field: education, subject: school lunches, direction: make free)
-- 'Pardon January 6 defendants' (field: justice, subject: J6 defendants, direction: pardon)
-- 'Impose 10% universal tariff on all imports' (field: economy, subject: imports, direction: 10% tariff)
-- 'End the war in Ukraine within 24 hours' (field: foreign policy, subject: Ukraine war, direction: end, timeframe: 24 hours)
-- 'Eliminate the Department of Education' (field: education, subject: Dept of Education, direction: eliminate)
-
-BAD — these are slogans or themes, NOT promises (reject these):
-- 'Strengthen National Defense' (no specific subject or action)
-- 'Fight for working families' (slogan, not actionable)
-- 'Support Ukraine' (support how? no specific action)
-- 'Cut federal spending' (cut what specifically? no subject)
-- 'Make America Great Again' (slogan)
-- 'Protect pre-existing conditions' (protect how? with what?)
-
-If a topic is too vague, break it into the SPECIFIC commitments the politician actually made.
-
-=== NO OVERLAP ===
-ONE promise per distinct policy action. Do NOT create multiple promises for the same thing:
-- 'Repeal ACA' and 'Replace ACA with Graham-Cassidy' = ONE promise: 'Repeal and Replace the Affordable Care Act'
-- 'Build the wall' and 'Secure the border' = ONE promise if they refer to the same action
-- 'Ban assault weapons' and 'Universal background checks' = TWO promises (different actions, different bills)
-
-For each promise, provide:
-1. title: Clear, concise promise name following the rules above
-2. description: 2-3 sentences explaining what was promised
-3. category: Economy, Healthcare, Environment, Immigration, Education, Infrastructure, Foreign Policy, Justice, Housing, Technology, Other
-4. severity: 1-5 (5=cornerstone campaign promise, 4=major, 3=standard, 2=minor, 1=trivial)
-5. expectedMonths: reasonable months to fulfill
-6. billRelated: true/false — is this directly tied to specific legislation or executive action?
-7. sourceUrl: where the promise was made. NEVER use wikipedia.org or youtube.com.
-8. dateMade: YYYY-MM-DD when the promise was made
-
-9. timeline: An array of events tracing the promise from when it was made to today. Each event:
-   {
-     date: 'YYYY-MM-DD',
-     type: 'status_change' | 'executive_action' | 'legislation' | 'news',
-     title: 'Short description of what happened',
-     description: '1-2 sentences with details',
-     sourceUrl: 'URL proving this happened',
-     newStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'PARTIAL' | 'FULFILLED' | 'BROKEN' | 'REVERSED' (only for status_change events, null for others)
-   }
+=== OUTPUT FORMAT ===
+For each promise, return:
+{
+  "title": "exact promise title from input",
+  "currentStatus": "NOT_STARTED" | "IN_PROGRESS" | "PARTIAL" | "FULFILLED" | "BROKEN" | "REVERSED",
+  "timeline": [
+    {
+      "date": "YYYY-MM-DD",
+      "type": "status_change" | "executive_action" | "legislation" | "news",
+      "title": "what happened",
+      "description": "1-2 sentences with details",
+      "sourceUrl": "URL proving this happened",
+      "newStatus": "STATUS" (only for status_change type, null for others)
+    }
+  ]
+}
 
 The timeline MUST:
-- Start with the first action taken on the promise (skip if still NOT_STARTED)
-- Include EVERY major development with its REAL DATE — executive orders, bills introduced, votes, statements, policy changes
-- Each status_change event must have a REAL DATE when the status actually changed, NOT today's date
+- Start with the first action taken (skip if NOT_STARTED)
+- Include EVERY major development with REAL dates
 - Events must be chronologically ordered
-- The LAST status_change event determines the promise's current status
-- If no action has been taken, timeline can be empty (status remains NOT_STARTED)
+- The LAST status_change determines currentStatus
 
-IMPORTANT:
-- Do NOT create multiple promises for the same topic. One promise per distinct policy goal.
-- NEVER use wikipedia.org, youtube.com, or youtu.be as a source URL. Use: official campaign sites, .gov, C-SPAN, AP, Reuters, NYT, WaPo, Politico, The Hill, CNN, Fox News, NPR.
-- LAZY OUTPUT WILL BE REJECTED. Specifically:
-  - If more than 2 promises share the same dateMade, the ENTIRE response will be rejected and re-run. Find the actual date each promise was first announced.
-  - If more than 2 promises share the same sourceUrl, the ENTIRE response will be rejected. Find unique sources.
-  - If any timeline event says 'initiated', 'launched', 'established', 'advocated', or 'prioritized' without naming a SPECIFIC bill number, executive order number, or concrete action, it will be deleted.
-  - If any source is YouTube or Wikipedia, the ENTIRE response will be rejected.
-- Every date must be the REAL date of the event, never today's date
-- Be thorough — find at least 15 promises, cover ALL major policy areas they campaigned on
-- Prioritize: cornerstone promises first, then major, then minor
+NEVER use wikipedia.org, youtube.com, or youtu.be as a source URL.
+Every date must be the REAL date of the event, never today's date.
 
-CRITICAL — FIND ORIGINAL PROMISE DATES: Politicians often compile their promises into lists, videos, or platform pages. Do NOT use the compilation date as dateMade. Find when each promise was FIRST made:
-- 'No tax on tips' was first announced at a rally in June 2024, not when a compilation video was posted in October 2024
-- 'Build the wall' was first promised in 2015, not during a 2024 speech
-- 'Create DOGE' was first announced in August 2024 with Elon Musk
-Each promise has a unique origin — find it. If a promise appears in a compilation video or platform page, trace it back to the FIRST time it was said publicly.
+YOUR RESEARCH MUST BE CURRENT. If a politician has taken action on a promise, the timeline MUST reflect that. An empty timeline on a promise where action has been taken is a FAILURE.
 
-YOUR RESEARCH MUST BE CURRENT. If a politician has taken action on a promise, the timeline MUST reflect that. For example, as of early 2026:
-- Trump HAS started mass deportations (ICE operations ongoing)
-- Trump HAS created DOGE (Department of Government Efficiency, led by Elon Musk)
-- Trump HAS imposed tariffs (multiple rounds on China, universal baseline tariff)
-- Trump HAS signed executive orders on drilling, EV mandates, border security
-- Trump HAS signed pardons for January 6 defendants
-Do NOT return NOT_STARTED for promises where the politician has clearly taken action. Search for the most recent information on each promise and build the timeline accordingly. An empty timeline on a promise where action has been taken is a FAILURE of your research.
-
-UNDERSTAND WHAT LEGISLATORS CAN DO: Senators and Representatives cannot unilaterally fulfill promises — they work through legislation. For legislators, IN_PROGRESS and PARTIAL actions include:
-- Introduced or co-sponsored a bill related to the promise
-- Voted YES on a related bill
-- Held or participated in committee hearings on the topic
-- Secured committee passage of a related bill
-- Got a related bill to floor vote
-- Attached related amendments to other bills
-For example, if a Senator promised to 'Repeal Obamacare' and led a government shutdown over it, introduced repeal bills, and voted for repeal multiple times — that is NOT 'Not Started'. That is IN_PROGRESS or PARTIAL depending on outcomes. 'Secure the border with a wall' — if they co-sponsored border wall funding bills and voted for border security packages, that is IN_PROGRESS. 'Abolish IRS and implement flat tax' — if they introduced a flat tax bill, that's IN_PROGRESS even if it didn't pass. Search for EACH promise: has this legislator introduced, co-sponsored, or voted on ANY related legislation? If yes, it's at minimum IN_PROGRESS. NOT_STARTED means they have done literally NOTHING — no bills, no votes, no hearings, no public effort of any kind.
+LAZY OUTPUT WILL BE REJECTED:
+- If any timeline event says 'initiated', 'launched', 'established', 'advocated', or 'prioritized' without naming a SPECIFIC bill number, executive order number, or concrete action, it will be deleted.
+- If any source is YouTube or Wikipedia, the ENTIRE response will be rejected.
 
 Return ONLY a JSON array. No markdown, no explanation.`;
 
-  const userPrompt = `Research ALL major campaign promises made by ${politicianName} (${party}), who serves as ${position}. Trace each promise's complete history from when it was made through today (${today}). Include every major development, executive action, legislative action, and status change with real dates and sources.
+  const userPrompt = `Build complete timelines for these campaign promises by ${politicianName} (${party}, ${position}). Today is ${today}.
+
+${promiseList}
+
+For each promise, trace its COMPLETE history from when it was made through today. Include every executive action, legislative action, and status change with real dates and sources. Return currentStatus and timeline array for each.
 
 NEVER use Wikipedia or YouTube as a source.`;
 
@@ -216,85 +259,55 @@ NEVER use Wikipedia or YouTube as a source.`;
   const parsed = parseJsonFromResponse(text);
 
   if (!Array.isArray(parsed)) {
-    throw new Error("Expected JSON array from research response");
+    throw new Error("Expected JSON array from timeline response");
   }
 
-  const results = parsed.map((item: Record<string, unknown>) => processResearchItem(item));
+  const results = parsed.map((item: Record<string, unknown>) =>
+    processTimelineItem(item),
+  );
 
-  // Post-processing: detect and warn about lazy AI output
-  validateResearchQuality(results);
+  // Post-processing: scrub vague events
+  validateTimelineQuality(results);
 
   return results;
 }
 
-// ── Vague action words that indicate lazy AI output when no bill/EO number is nearby ──
-const VAGUE_WORDS = /\b(initiated|launched|established|advocated|prioritized)\b/i;
-const HAS_SPECIFIC_REF = /\b(H\.?R\.?\s*\d|S\.?\s*\d|EO\s*\d|Executive Order\s*\d|P\.?L\.?\s*\d|Public Law\s*\d)/i;
-
-function validateResearchQuality(results: ResearchedPromise[]): void {
-  // Check for lazy same-day dateMade
-  const dateCounts: Record<string, number> = {};
-  for (const p of results) {
-    dateCounts[p.dateMade] = (dateCounts[p.dateMade] || 0) + 1;
-  }
-  for (const [date, count] of Object.entries(dateCounts)) {
-    if (count > 2) {
-      console.warn(`[Research Quality] Lazy dates detected: ${count} promises share dateMade=${date}`);
-    }
-  }
-
-  // Check for lazy same sourceUrl
-  const srcCounts: Record<string, number> = {};
-  for (const p of results) {
-    if (p.sourceUrl) {
-      srcCounts[p.sourceUrl] = (srcCounts[p.sourceUrl] || 0) + 1;
-    }
-  }
-  for (const [url, count] of Object.entries(srcCounts)) {
-    if (count > 2) {
-      console.warn(`[Research Quality] Lazy sources detected: ${count} promises share sourceUrl=${url}`);
-    }
-  }
-
-  // Scrub vague timeline events that lack specific bill/EO references
-  for (const p of results) {
-    const before = p.timeline.length;
-    p.timeline = p.timeline.filter((evt) => {
-      const text = `${evt.title} ${evt.description}`;
-      if (VAGUE_WORDS.test(text) && !HAS_SPECIFIC_REF.test(text)) {
-        console.warn(`[Research Quality] Removed vague event from "${p.title}": "${evt.title}"`);
-        return false;
-      }
-      return true;
-    });
-
-    // If we removed events, re-derive status from remaining timeline
-    if (p.timeline.length < before) {
-      const lastStatus = [...p.timeline].reverse().find((e) => e.type === "status_change" && e.newStatus);
-      if (lastStatus?.newStatus) {
-        p.status = lastStatus.newStatus;
-      } else if (p.timeline.length === 0) {
-        p.status = "NOT_STARTED";
-      }
-    }
-  }
-}
+// ══════════════════════════════════════════════
+// Processing helpers
+// ══════════════════════════════════════════════
 
 // Strip Perplexity citation markers like [1], [2], [3] from text
 function stripCitations(text: string): string {
   return text.replace(/\[\d+\]/g, "").replace(/\s{2,}/g, " ").trim();
 }
 
-function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
-  const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
-
-  // Source validation
+/** Process a Call 1 result item (promise without timeline) */
+function processPromiseItem(item: Record<string, unknown>): ResearchedPromiseBase {
   const rawSourceUrl = String(item.sourceUrl || "");
   const sourceUrl = sanitizeSourceUrl(rawSourceUrl, String(item.title || ""));
-
   const dateMade = String(item.dateMade || new Date().toISOString().split("T")[0]);
 
-  // Process timeline
+  return {
+    title: stripCitations(String(item.title || "")),
+    description: stripCitations(String(item.description || "")),
+    category: String(item.category || "Other"),
+    dateMade,
+    sourceUrl,
+    severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),
+    expectedMonths: Math.max(1, Number(item.expectedMonths) || 12),
+    billRelated: item.billRelated === true || item.billRelated === "true",
+  };
+}
+
+/** Process a Call 2 result item (timeline for a promise) */
+function processTimelineItem(
+  item: Record<string, unknown>,
+): TimelineResult {
+  const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
+
+  const title = stripCitations(String(item.title || ""));
+
+  // Process timeline events
   const rawTimeline = Array.isArray(item.timeline) ? item.timeline : [];
   const now = new Date();
   const timeline: TimelineEvent[] = [];
@@ -332,24 +345,72 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
   // Sort chronologically
   timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Determine current status from last status_change event
+  // Determine current status from last status_change event, or from AI's currentStatus field
   const lastStatusEvent = [...timeline].reverse().find((e) => e.type === "status_change" && e.newStatus);
-  const status = lastStatusEvent?.newStatus && VALID_STATUSES.includes(lastStatusEvent.newStatus)
-    ? lastStatusEvent.newStatus
-    : (VALID_STATUSES.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED");
+  let currentStatus: string;
+  if (lastStatusEvent?.newStatus && VALID_STATUSES.includes(lastStatusEvent.newStatus)) {
+    currentStatus = lastStatusEvent.newStatus;
+  } else if (VALID_STATUSES.includes(String(item.currentStatus || ""))) {
+    currentStatus = String(item.currentStatus);
+  } else {
+    currentStatus = "NOT_STARTED";
+  }
 
-  return {
-    title: stripCitations(String(item.title || "")),
-    description: stripCitations(String(item.description || "")),
-    category: String(item.category || "Other"),
-    status,
-    dateMade,
-    sourceUrl,
-    severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),
-    expectedMonths: Math.max(1, Number(item.expectedMonths) || 12),
-    billRelated: item.billRelated === true || item.billRelated === "true",
-    timeline,
-  };
+  return { title, currentStatus, timeline };
+}
+
+// ── Vague action words that indicate lazy AI output ──
+const VAGUE_WORDS = /\b(initiated|launched|established|advocated|prioritized)\b/i;
+const HAS_SPECIFIC_REF = /\b(H\.?R\.?\s*\d|S\.?\s*\d|EO\s*\d|Executive Order\s*\d|P\.?L\.?\s*\d|Public Law\s*\d)/i;
+
+function validatePromiseQuality(results: ResearchedPromiseBase[]): void {
+  // Check for lazy same-day dateMade
+  const dateCounts: Record<string, number> = {};
+  for (const p of results) {
+    dateCounts[p.dateMade] = (dateCounts[p.dateMade] || 0) + 1;
+  }
+  for (const [date, count] of Object.entries(dateCounts)) {
+    if (count > 2) {
+      console.warn(`[Research Quality] Lazy dates detected: ${count} promises share dateMade=${date}`);
+    }
+  }
+
+  // Check for lazy same sourceUrl
+  const srcCounts: Record<string, number> = {};
+  for (const p of results) {
+    if (p.sourceUrl) {
+      srcCounts[p.sourceUrl] = (srcCounts[p.sourceUrl] || 0) + 1;
+    }
+  }
+  for (const [url, count] of Object.entries(srcCounts)) {
+    if (count > 2) {
+      console.warn(`[Research Quality] Lazy sources detected: ${count} promises share sourceUrl=${url}`);
+    }
+  }
+}
+
+function validateTimelineQuality(results: TimelineResult[]): void {
+  for (const r of results) {
+    const before = r.timeline.length;
+    r.timeline = r.timeline.filter((evt) => {
+      const text = `${evt.title} ${evt.description}`;
+      if (VAGUE_WORDS.test(text) && !HAS_SPECIFIC_REF.test(text)) {
+        console.warn(`[Research Quality] Removed vague event from "${r.title}": "${evt.title}"`);
+        return false;
+      }
+      return true;
+    });
+
+    // If we removed events, re-derive status from remaining timeline
+    if (r.timeline.length < before) {
+      const lastStatus = [...r.timeline].reverse().find((e) => e.type === "status_change" && e.newStatus);
+      if (lastStatus?.newStatus) {
+        r.currentStatus = lastStatus.newStatus;
+      } else if (r.timeline.length === 0) {
+        r.currentStatus = "NOT_STARTED";
+      }
+    }
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -388,7 +449,7 @@ export async function researchNews(
 }
 
 // ══════════════════════════════════════════════
-// STEP 2: BILL MATCHING
+// BILL MATCHING (unchanged)
 // ══════════════════════════════════════════════
 
 export interface SuggestedMatch {
@@ -454,9 +515,6 @@ function scoreItemRelevance(promiseKeywords: string[], itemTitle: string): numbe
   return score;
 }
 
-// Detect final-passage bill votes (e.g., "H.R. 3684, As Amended", "S. 1260, As Amended")
-// These are substantive legislation votes that the AI needs to see, even if keyword matching fails
-// because Senate bill titles often lack policy keywords.
 const PROCEDURAL_PATTERN = /^(Motion to|Confirmation:|On the Cloture|Shall the Objection)/i;
 const BILL_PASSAGE_PATTERN = /^(H\.R\.|S\.|H\.J\.|S\.J\.|H\.Con\.|S\.Con\.)\s*\w/i;
 
@@ -474,15 +532,12 @@ function preFilterItems(
 ): ItemSummary[] {
   const selectedIds = new Set<string>();
 
-  // Always include substantive final-passage bill votes — the AI can recognize
-  // "H.R. 3684" as the Infrastructure Act even though the title doesn't say so
   for (const item of items) {
     if (isSubstantiveBill(item.title)) {
       selectedIds.add(item.id);
     }
   }
 
-  // Also add keyword-matched items (only if they're substantive, not confirmations)
   for (const promise of promises) {
     const keywords = extractKeywords(promise.title + " " + promise.description);
     if (keywords.length === 0) continue;
@@ -502,7 +557,6 @@ function preFilterItems(
     good.forEach((s) => selectedIds.add(s.item.id));
   }
 
-  // Also include all executive actions (they're always substantive)
   for (const item of items) {
     if (item.type === "action") selectedIds.add(item.id);
   }

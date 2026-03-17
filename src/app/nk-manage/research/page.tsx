@@ -122,7 +122,7 @@ export default function ResearchPage() {
   const [customParty, setCustomParty] = useState("");
   const [promises, setPromises] = useState<ResearchedPromise[]>([]);
   const [existingPromises, setExistingPromises] = useState<ExistingPromise[]>([]);
-  const [status, setStatus] = useState<"idle" | "researching" | "done" | "importing" | "imported" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "researching" | "reviewed" | "building_timelines" | "done" | "importing" | "imported" | "error">("idle");
   const [error, setError] = useState("");
   const [importResult, setImportResult] = useState("");
   const [apiConfigured, setApiConfigured] = useState(true);
@@ -189,6 +189,7 @@ export default function ResearchPage() {
     })();
   }, []);
 
+  // ── CALL 1: Research Promises (no timelines) ──
   async function handleResearch() {
     setStatus("researching");
     setError("");
@@ -222,13 +223,90 @@ export default function ResearchPage() {
         return;
       }
 
+      // Call 1 returns promises without timeline/status
       setPromises(
-        (data.promises || []).map((p: ResearchedPromise) => ({ ...p, selected: true })),
+        (data.promises || []).map((p: Record<string, unknown>) => ({
+          ...p,
+          status: "NOT_STARTED",
+          timeline: [],
+          selected: true,
+        })),
+      );
+      setStatus("reviewed");
+    } catch {
+      setStatus("error");
+      setError("Network error — could not reach the server");
+    }
+  }
+
+  // ── CALL 2: Build Timelines (for selected promises) ──
+  async function handleBuildTimelines() {
+    const selected = promises.filter((p) => p.selected);
+    if (selected.length === 0) {
+      setError("No promises selected for timeline research");
+      return;
+    }
+    if (!selectedPolId) {
+      setError("Select a politician from the dropdown to build timelines");
+      return;
+    }
+
+    setStatus("building_timelines");
+    setError("");
+
+    try {
+      const res = await fetch("/api/nk-manage/research/timelines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          politicianId: selectedPolId,
+          promises: selected.map((p) => ({
+            title: p.title,
+            description: p.description,
+            category: p.category,
+            dateMade: p.dateMade,
+            sourceUrl: p.sourceUrl,
+            severity: p.severity,
+            expectedMonths: p.expectedMonths,
+            billRelated: p.billRelated,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setStatus("error");
+        setError(data.error || "Timeline research failed");
+        return;
+      }
+
+      // Merge timelines back into promises
+      const timelines: { title: string; currentStatus: string; timeline: TimelineEvent[] }[] = data.timelines || [];
+
+      setPromises((prev) =>
+        prev.map((p) => {
+          if (!p.selected) return p;
+
+          // Find matching timeline by title (fuzzy match)
+          const match = timelines.find((t) =>
+            t.title === p.title || wordOverlapRatio(t.title, p.title) > 0.7,
+          );
+
+          if (match) {
+            return {
+              ...p,
+              status: match.currentStatus || "NOT_STARTED",
+              timeline: match.timeline || [],
+            };
+          }
+          return p;
+        }),
       );
       setStatus("done");
     } catch {
       setStatus("error");
-      setError("Network error — could not reach the server");
+      setError("Network error during timeline research");
     }
   }
 
@@ -403,6 +481,7 @@ export default function ResearchPage() {
 
   const selectedCount = promises.filter((p) => p.selected).length;
   const researchTarget = selectedPolName || customName;
+  const hasTimelines = promises.some((p) => p.timeline.length > 0);
 
   return (
     <div className="max-w-5xl">
@@ -584,11 +663,20 @@ export default function ResearchPage() {
         </div>
       )}
 
-      {/* Loading */}
+      {/* Loading states */}
       {status === "researching" && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6">
           <p className="text-sm text-blue-800">
-            Researching promises for <strong>{researchTarget}</strong> with full timeline history...
+            Researching promises for <strong>{researchTarget}</strong>...
+            This may take 30-60 seconds.
+          </p>
+        </div>
+      )}
+
+      {status === "building_timelines" && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6">
+          <p className="text-sm text-blue-800">
+            Building timelines for <strong>{selectedCount} selected promises</strong>...
             This may take 30-90 seconds.
           </p>
         </div>
@@ -606,12 +694,13 @@ export default function ResearchPage() {
         </div>
       )}
 
-      {/* Step 2: Review Results with Timeline */}
+      {/* Step 2: Review Promise Cards (after Call 1, before timelines) */}
       {promises.length > 0 && status !== "imported" && (
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h2 className="text-base font-bold text-gray-900">
-              Step 2: Review Results ({promises.length} promises found)
+              Step 2: Review Promises ({promises.length} found)
+              {hasTimelines && <span className="text-sm font-normal text-green-600 ml-2">+ timelines loaded</span>}
             </h2>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => toggleAll(true)} className="text-xs text-blue-600 hover:underline">Select All</button>
@@ -654,9 +743,11 @@ export default function ResearchPage() {
                             onChange={(e) => updatePromise(i, "title", e.target.value)}
                             className="flex-1 text-sm font-semibold text-gray-900 border-b border-transparent hover:border-gray-200 focus:border-gray-900 focus:outline-none min-w-[200px]"
                           />
-                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[p.status] || "bg-gray-100 text-gray-600"}`}>
-                            {statusInfo?.label || p.status}
-                          </span>
+                          {hasTimelines && (
+                            <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[p.status] || "bg-gray-100 text-gray-600"}`}>
+                              {statusInfo?.label || p.status}
+                            </span>
+                          )}
                           <button
                             onClick={() => updatePromise(i, "billRelated", !p.billRelated)}
                             className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
@@ -686,7 +777,7 @@ export default function ResearchPage() {
                           onClick={() => toggleExpanded(i)}
                           className="text-xs text-blue-600 hover:underline"
                         >
-                          {isExpanded ? "Collapse" : "Expand details & timeline"}
+                          {isExpanded ? "Collapse" : `Expand details${p.timeline.length > 0 ? " & timeline" : ""}`}
                         </button>
                       </div>
                       <button
@@ -722,16 +813,18 @@ export default function ResearchPage() {
                               {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                             </select>
                           </div>
-                          <div>
-                            <label className="block text-xs text-gray-400 mb-0.5">Status</label>
-                            <select
-                              value={p.status}
-                              onChange={(e) => updatePromise(i, "status", e.target.value)}
-                              className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
-                            >
-                              {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                            </select>
-                          </div>
+                          {hasTimelines && (
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-0.5">Status</label>
+                              <select
+                                value={p.status}
+                                onChange={(e) => updatePromise(i, "status", e.target.value)}
+                                className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
+                              >
+                                {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                              </select>
+                            </div>
+                          )}
                           <div>
                             <label className="block text-xs text-gray-400 mb-0.5">Date Made</label>
                             <input
@@ -769,7 +862,7 @@ export default function ResearchPage() {
                           </div>
                         </div>
 
-                        {/* Timeline preview */}
+                        {/* Timeline preview (only shown after Call 2) */}
                         {p.timeline.length > 0 && (
                           <div>
                             <h4 className="text-xs font-semibold text-gray-700 mb-2">Timeline ({p.timeline.length} events)</h4>
@@ -815,7 +908,7 @@ export default function ResearchPage() {
                             </div>
                           </div>
                         )}
-                        {p.timeline.length === 0 && (
+                        {hasTimelines && p.timeline.length === 0 && (
                           <p className="text-xs text-gray-400 italic">No timeline events — status is {p.status}</p>
                         )}
                       </div>
@@ -826,29 +919,53 @@ export default function ResearchPage() {
             })}
           </div>
 
-          {/* Import */}
+          {/* Action buttons between steps */}
           <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p className="text-sm text-gray-500">
               {selectedCount} of {promises.length} promises selected
               {!selectedPolId && (
-                <span className="text-amber-600 ml-2">(select a politician from dropdown to import)</span>
+                <span className="text-amber-600 ml-2">(select a politician from dropdown to continue)</span>
               )}
             </p>
-            <button
-              onClick={handleImport}
-              disabled={selectedCount === 0 || !selectedPolId || status === "importing"}
-              className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {status === "importing" ? (
-                <span className="flex items-center gap-2">
-                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Importing...
-                </span>
-              ) : `Import ${selectedCount} Selected Promises`}
-            </button>
+            <div className="flex gap-3">
+              {/* Build Timelines button (Step 3 — only after Call 1, before Call 2) */}
+              {!hasTimelines && (
+                <button
+                  onClick={handleBuildTimelines}
+                  disabled={selectedCount === 0 || !selectedPolId || status === "building_timelines"}
+                  className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {status === "building_timelines" ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Building Timelines...
+                    </span>
+                  ) : `Build Timelines for ${selectedCount} Promises`}
+                </button>
+              )}
+
+              {/* Import button (Step 4 — after timelines are loaded) */}
+              {hasTimelines && (
+                <button
+                  onClick={handleImport}
+                  disabled={selectedCount === 0 || !selectedPolId || status === "importing"}
+                  className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {status === "importing" ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Importing...
+                    </span>
+                  ) : `Import ${selectedCount} Selected Promises`}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
