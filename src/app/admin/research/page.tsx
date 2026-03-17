@@ -9,28 +9,35 @@ interface Politician {
   party: string;
 }
 
+interface ExistingPromise {
+  id: string;
+  title: string;
+  category: string;
+  status: string;
+}
+
 interface ResearchedPromise {
   title: string;
   description: string;
   category: string;
-  status: string;
   dateMade: string;
   sourceUrl: string;
-  weight: number;
+  severity: number;
+  expectedMonths: number;
   selected: boolean;
+}
+
+interface NewsArticle {
+  title: string;
+  summary: string;
+  source: string;
+  url: string;
+  publishedDate: string;
 }
 
 const CATEGORIES = [
   "Economy", "Healthcare", "Environment", "Immigration", "Education",
   "Infrastructure", "Foreign Policy", "Justice", "Housing", "Technology", "Other",
-];
-
-const STATUSES = [
-  { value: "NOT_STARTED", label: "Not Started" },
-  { value: "IN_PROGRESS", label: "In Progress" },
-  { value: "FULFILLED", label: "Fulfilled" },
-  { value: "PARTIAL", label: "Partial" },
-  { value: "BROKEN", label: "Broken" },
 ];
 
 export default function ResearchPage() {
@@ -42,10 +49,15 @@ export default function ResearchPage() {
   const [customName, setCustomName] = useState("");
   const [customParty, setCustomParty] = useState("");
   const [promises, setPromises] = useState<ResearchedPromise[]>([]);
+  const [existingPromises, setExistingPromises] = useState<ExistingPromise[]>([]);
   const [status, setStatus] = useState<"idle" | "researching" | "done" | "importing" | "imported" | "error">("idle");
   const [error, setError] = useState("");
   const [importResult, setImportResult] = useState("");
   const [apiConfigured, setApiConfigured] = useState(true);
+  // News state
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+  const [newsStatus, setNewsStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [newsError, setNewsError] = useState("");
 
   // Debounced search for politicians
   useEffect(() => {
@@ -65,6 +77,25 @@ export default function ResearchPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Load existing promises when politician is selected
+  useEffect(() => {
+    if (!selectedPolId) {
+      setExistingPromises([]);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`/api/politicians/${selectedPolId}/promises`);
+        if (res.ok) {
+          const data = await res.json();
+          setExistingPromises(Array.isArray(data) ? data : data.promises || []);
+        }
+      } catch {
+        // Non-critical
+      }
+    })();
+  }, [selectedPolId]);
 
   async function handleResearch() {
     setStatus("researching");
@@ -108,6 +139,34 @@ export default function ResearchPage() {
     }
   }
 
+  async function handleNewsResearch() {
+    if (!selectedPolId) return;
+    setNewsStatus("loading");
+    setNewsError("");
+    setNewsArticles([]);
+
+    try {
+      const res = await fetch("/api/admin/research/news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politicianId: selectedPolId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setNewsStatus("error");
+        setNewsError(data.error || "News research failed");
+        return;
+      }
+
+      setNewsArticles(data.articles || []);
+      setNewsStatus("done");
+    } catch {
+      setNewsStatus("error");
+      setNewsError("Network error during news research");
+    }
+  }
+
   async function handleImport() {
     const polId = selectedPolId;
     if (!polId) {
@@ -134,8 +193,9 @@ export default function ResearchPage() {
             title: p.title,
             description: p.description,
             category: p.category,
-            status: p.status,
-            weight: p.weight,
+            status: "NOT_STARTED",
+            weight: p.severity,
+            expectedMonths: p.expectedMonths,
             dateMade: p.dateMade,
             sourceUrl: p.sourceUrl,
           })),
@@ -175,10 +235,10 @@ export default function ResearchPage() {
         title: "",
         description: "",
         category: "Other",
-        status: "NOT_STARTED",
         dateMade: new Date().toISOString().split("T")[0],
         sourceUrl: "",
-        weight: 3,
+        severity: 3,
+        expectedMonths: 12,
         selected: true,
       },
     ]);
@@ -195,14 +255,14 @@ export default function ResearchPage() {
     <div className="max-w-5xl">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">AI Promise Research</h1>
       <p className="text-sm text-gray-500 mb-8">
-        Use AI to research a politician&apos;s campaign promises. Review the results, edit
-        as needed, then import directly to the database.
+        Use Perplexity AI to research a politician&apos;s campaign promises. Review the results,
+        edit as needed, then import directly to the database.
       </p>
 
       {!apiConfigured && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <p className="text-sm font-medium text-amber-800">
-            AI provider not configured. Set ANTHROPIC_API_KEY in your .env file.
+            AI provider not configured. Set PERPLEXITY_API_KEY in your .env file.
           </p>
         </div>
       )}
@@ -226,6 +286,7 @@ export default function ResearchPage() {
                     setSelectedPolId("");
                     setSelectedPolName("");
                     setSearchQuery("");
+                    setExistingPromises([]);
                   }}
                   className="rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
                 >
@@ -309,32 +370,76 @@ export default function ResearchPage() {
             </div>
           </div>
 
-          <button
-            onClick={handleResearch}
-            disabled={(!selectedPolId && !customName) || status === "researching" || !apiConfigured}
-            className="rounded-lg bg-[#0D0D0D] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {status === "researching" ? (
-              <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Researching...
-              </span>
-            ) : (
-              "Research Promises"
+          <div className="flex gap-3">
+            <button
+              onClick={handleResearch}
+              disabled={(!selectedPolId && !customName) || status === "researching" || !apiConfigured}
+              className="rounded-lg bg-[#0D0D0D] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {status === "researching" ? (
+                <span className="flex items-center gap-2">
+                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Researching Promises...
+                </span>
+              ) : (
+                "Research Promises"
+              )}
+            </button>
+            {selectedPolId && (
+              <button
+                onClick={handleNewsResearch}
+                disabled={newsStatus === "loading" || !apiConfigured}
+                className="rounded-lg border border-gray-200 px-6 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {newsStatus === "loading" ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Researching News...
+                  </span>
+                ) : (
+                  "Research News"
+                )}
+              </button>
             )}
-          </button>
+          </div>
         </div>
       </div>
+
+      {/* Existing Promises */}
+      {existingPromises.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 mb-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">
+            Existing Promises ({existingPromises.length})
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {existingPromises.map((p) => (
+              <span key={p.id} className="inline-flex items-center gap-1 rounded-full bg-white border border-gray-200 px-3 py-1 text-xs text-gray-600">
+                <span className={`inline-block w-2 h-2 rounded-full ${
+                  p.status === "FULFILLED" ? "bg-green-500" :
+                  p.status === "IN_PROGRESS" ? "bg-blue-500" :
+                  p.status === "BROKEN" ? "bg-red-500" :
+                  p.status === "PARTIAL" ? "bg-amber-500" :
+                  "bg-gray-300"
+                }`} />
+                {p.title}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Loading */}
       {status === "researching" && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6">
           <p className="text-sm text-blue-800">
             Researching promises for <strong>{researchTarget}</strong>... This may take
-            30-60 seconds while AI searches the web.
+            30-60 seconds while Perplexity searches the web.
           </p>
         </div>
       )}
@@ -406,7 +511,7 @@ export default function ResearchPage() {
                       placeholder="Description..."
                       className="w-full text-sm text-gray-600 border border-gray-100 rounded-md px-2 py-1.5 hover:border-gray-200 focus:border-gray-900 focus:outline-none resize-none"
                     />
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                       <div>
                         <label className="block text-xs text-gray-400 mb-0.5">Category</label>
                         <select
@@ -420,18 +525,6 @@ export default function ResearchPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-0.5">Status</label>
-                        <select
-                          value={p.status}
-                          onChange={(e) => updatePromise(i, "status", e.target.value)}
-                          className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
-                        >
-                          {STATUSES.map((s) => (
-                            <option key={s.value} value={s.value}>{s.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
                         <label className="block text-xs text-gray-400 mb-0.5">Date Made</label>
                         <input
                           type="date"
@@ -441,14 +534,14 @@ export default function ResearchPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-0.5">Weight (1-5)</label>
+                        <label className="block text-xs text-gray-400 mb-0.5">Severity (1-5)</label>
                         <div className="flex gap-1">
                           {[1, 2, 3, 4, 5].map((w) => (
                             <button
                               key={w}
-                              onClick={() => updatePromise(i, "weight", w)}
+                              onClick={() => updatePromise(i, "severity", w)}
                               className={`flex-1 rounded py-1 text-xs font-medium transition-colors ${
-                                p.weight === w
+                                p.severity === w
                                   ? "bg-gray-900 text-white"
                                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                               }`}
@@ -458,14 +551,28 @@ export default function ResearchPage() {
                           ))}
                         </div>
                       </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-0.5">Expected Months</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={120}
+                          value={p.expectedMonths}
+                          onChange={(e) => updatePromise(i, "expectedMonths", Number(e.target.value) || 1)}
+                          className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-0.5">Source</label>
+                        <input
+                          type="url"
+                          value={p.sourceUrl}
+                          onChange={(e) => updatePromise(i, "sourceUrl", e.target.value)}
+                          placeholder="URL"
+                          className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
+                        />
+                      </div>
                     </div>
-                    <input
-                      type="url"
-                      value={p.sourceUrl}
-                      onChange={(e) => updatePromise(i, "sourceUrl", e.target.value)}
-                      placeholder="Source URL"
-                      className="w-full text-xs text-gray-500 border border-gray-100 rounded-md px-2 py-1.5 hover:border-gray-200 focus:border-gray-900 focus:outline-none"
-                    />
                   </div>
                   <button
                     onClick={() => removePromise(i)}
@@ -508,6 +615,48 @@ export default function ResearchPage() {
                 `Import ${selectedCount} Selected Promises`
               )}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* News Results */}
+      {newsStatus === "loading" && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6">
+          <p className="text-sm text-blue-800">Researching recent news... This may take 15-30 seconds.</p>
+        </div>
+      )}
+      {newsStatus === "error" && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 mb-6">
+          <p className="text-sm text-red-800">{newsError}</p>
+        </div>
+      )}
+      {newsArticles.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-base font-bold text-gray-900 mb-4">
+            Recent News ({newsArticles.length} articles)
+          </h2>
+          <div className="space-y-3">
+            {newsArticles.map((a, i) => (
+              <div key={i} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-gray-900">{a.title}</h3>
+                    <p className="text-xs text-gray-500 mt-1">{a.source} &middot; {a.publishedDate}</p>
+                    <p className="text-sm text-gray-600 mt-2">{a.summary}</p>
+                  </div>
+                  {a.url && (
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      View
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

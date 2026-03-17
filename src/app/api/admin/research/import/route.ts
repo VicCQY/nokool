@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
     let created = 0;
     for (const p of promises) {
       const status = VALID_STATUSES.has(p.status) ? p.status : "NOT_STARTED";
-      const weight = Math.max(1, Math.min(5, Number(p.weight) || 3));
+      const weight = Math.max(1, Math.min(5, Number(p.weight || p.severity) || 3));
+      const expectedMonths = p.expectedMonths ? Math.max(1, Number(p.expectedMonths)) : null;
 
       const promise = await prisma.promise.create({
         data: {
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
           category: String(p.category || "Other"),
           status: status as PromiseStatus,
           weight,
+          expectedMonths,
           dateMade: new Date(p.dateMade || Date.now()),
           sourceUrl: p.sourceUrl || null,
         },

@@ -3,6 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { PromiseStatus } from "@prisma/client";
 // import { matchBillsToPromise } from "@/lib/promise-bill-matcher";
 
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const promises = await prisma.promise.findMany({
+    where: { politicianId: params.id },
+    select: { id: true, title: true, category: true, status: true },
+    orderBy: { dateMade: "desc" },
+  });
+  return NextResponse.json(promises);
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },

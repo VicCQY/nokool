@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fetchNews, isAiConfigured } from "@/lib/ai-provider";
+import { researchNews, isAiConfigured } from "@/lib/ai-provider";
 
 export const maxDuration = 300;
 
@@ -25,7 +25,7 @@ export async function POST(
   }
 
   try {
-    const articles = await fetchNews(politician.name);
+    const articles = await researchNews(politician.name);
 
     // Delete old articles for this politician
     await prisma.newsArticle.deleteMany({
@@ -37,11 +37,11 @@ export async function POST(
       data: articles.map((a) => ({
         politicianId: politician.id,
         title: a.title,
-        sourceName: a.sourceName,
+        sourceName: a.source,
         sourceUrl: a.url,
-        publishedAt: new Date(a.publishedAt),
+        publishedAt: new Date(a.publishedDate),
         summary: a.summary,
-        category: a.category,
+        category: "Other",
       })),
     });
 

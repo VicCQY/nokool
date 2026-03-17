@@ -1,11 +1,11 @@
 // AI Provider abstraction layer.
-// To switch to Perplexity, replace the implementation in anthropic-client.ts
-// with a Perplexity API client — no other files need to change.
+// Currently uses Perplexity (sonar-pro with built-in web search).
 
 export {
   researchPromises,
-  fetchNews,
-  isAnthropicConfigured as isAiConfigured,
-} from "./anthropic-client";
+  researchNews,
+} from "./ai-research";
 
-export type { ResearchedPromise, FetchedArticle } from "./anthropic-client";
+export type { ResearchedPromise, ResearchedArticle } from "./ai-research";
+
+export { isPerplexityConfigured as isAiConfigured } from "./perplexity-api";
