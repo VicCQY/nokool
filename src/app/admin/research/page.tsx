@@ -40,6 +40,36 @@ const CATEGORIES = [
   "Infrastructure", "Foreign Policy", "Justice", "Housing", "Technology", "Other",
 ];
 
+const STOP_WORDS = new Set(["the", "a", "an", "to", "of", "and", "in", "on", "for", "with", "is", "it", "by", "as", "at", "or", "from", "that", "this", "be", "will", "all", "their", "his", "her"]);
+
+function getSignificantWords(text: string): Set<string> {
+  return new Set(
+    text.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter((w) => w.length > 1 && !STOP_WORDS.has(w)),
+  );
+}
+
+function wordOverlapRatio(a: string, b: string): number {
+  const wordsA = getSignificantWords(a);
+  const wordsB = getSignificantWords(b);
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  let overlap = 0;
+  const arrA = Array.from(wordsA);
+  for (let j = 0; j < arrA.length; j++) {
+    if (wordsB.has(arrA[j])) overlap++;
+  }
+  const smaller = Math.min(wordsA.size, wordsB.size);
+  return overlap / smaller;
+}
+
+function findDuplicateMatch(title: string, existing: ExistingPromise[]): string | null {
+  for (const ep of existing) {
+    if (wordOverlapRatio(title, ep.title) > 0.5) {
+      return ep.title;
+    }
+  }
+  return null;
+}
+
 export default function ResearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Politician[]>([]);
@@ -482,13 +512,20 @@ export default function ResearchPage() {
           </div>
 
           <div className="space-y-4">
-            {promises.map((p, i) => (
+            {promises.map((p, i) => {
+              const dupMatch = findDuplicateMatch(p.title, existingPromises);
+              return (
               <div
                 key={i}
                 className={`rounded-xl border bg-white p-4 shadow-sm transition-colors ${
-                  p.selected ? "border-gray-200" : "border-gray-100 opacity-60"
+                  dupMatch ? "border-amber-300" : p.selected ? "border-gray-200" : "border-gray-100 opacity-60"
                 }`}
               >
+                {dupMatch && (
+                  <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                    Possible duplicate of: <strong>{dupMatch}</strong>
+                  </div>
+                )}
                 <div className="flex items-start gap-3">
                   <input
                     type="checkbox"
@@ -585,7 +622,8 @@ export default function ResearchPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Step 3: Import */}
