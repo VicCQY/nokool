@@ -248,6 +248,24 @@ export default async function PoliticianPage({
       changedAt: sc.changedAt.toISOString(),
       note: sc.note,
     })),
+    billLinks: (p.billLinks || []).map((link) => ({
+      id: link.id,
+      alignment: link.alignment,
+      bill: {
+        title: link.bill.title,
+        billNumber: link.bill.billNumber,
+        dateVoted: link.bill.dateVoted.toISOString(),
+      },
+    })),
+    actionLinks: (p.actionLinks || []).map((link) => ({
+      id: link.id,
+      alignment: link.alignment,
+      action: {
+        title: link.action.title,
+        type: link.action.type,
+        dateIssued: link.action.dateIssued.toISOString(),
+      },
+    })),
   }));
 
   // Filter votes by chamber
@@ -662,12 +680,21 @@ export default async function PoliticianPage({
 
           return (
             <SaysVsDoes
-              promises={politician.promises.filter((p) => p.billRelated).map((p) => ({
+              promises={politician.promises.map((p) => ({
                 id: p.id,
                 title: p.title,
                 category: p.category,
                 status: p.status,
                 weight: p.weight,
+                dateMade: p.dateMade.toISOString(),
+                sourceUrl: p.sourceUrl || "",
+                statusChanges: p.statusChanges.map((sc) => ({
+                  id: sc.id,
+                  oldStatus: sc.oldStatus,
+                  newStatus: sc.newStatus,
+                  changedAt: sc.changedAt.toISOString(),
+                  note: sc.note,
+                })),
                 billLinks: (p.billLinks || []).map((link) => ({
                   id: link.id,
                   alignment: link.alignment,

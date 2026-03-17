@@ -11,6 +11,26 @@ interface StatusChange {
   note: string | null;
 }
 
+interface TimelineBillLink {
+  id: string;
+  alignment: string;
+  bill: {
+    title: string;
+    billNumber: string;
+    dateVoted: string;
+  };
+}
+
+interface TimelineActionLink {
+  id: string;
+  alignment: string;
+  action: {
+    title: string;
+    type: string;
+    dateIssued: string;
+  };
+}
+
 interface TimelinePromise {
   id: string;
   title: string;
@@ -18,6 +38,8 @@ interface TimelinePromise {
   dateMade: string;
   status: PromiseStatus;
   statusChanges: StatusChange[];
+  billLinks?: TimelineBillLink[];
+  actionLinks?: TimelineActionLink[];
 }
 
 interface PromiseTimelineProps {
@@ -36,6 +58,15 @@ const STATUS_COLORS: Record<
   NOT_STARTED: { fill: "#9ca3af", stroke: "#6b7280", label: "Not Started" },
   BROKEN: { fill: "#ef4444", stroke: "#dc2626", label: "Broken" },
   REVERSED: { fill: "#f97316", stroke: "#ea580c", label: "Reversed" },
+};
+
+const ACTION_TYPE_LABELS: Record<string, string> = {
+  EXECUTIVE_ORDER: "Executive Order",
+  PRESIDENTIAL_MEMORANDUM: "Memorandum",
+  PROCLAMATION: "Proclamation",
+  BILL_SIGNED: "Bill Signed",
+  BILL_VETOED: "Bill Vetoed",
+  POLICY_DIRECTIVE: "Policy Directive",
 };
 
 type TimeRange = "All" | "5Y" | "1Y" | "6M" | "3M";
@@ -238,6 +269,12 @@ export function PromiseTimeline({
       for (const sc of p.statusChanges) {
         dates.push(new Date(sc.changedAt));
       }
+      for (const bl of p.billLinks || []) {
+        dates.push(new Date(bl.bill.dateVoted));
+      }
+      for (const al of p.actionLinks || []) {
+        dates.push(new Date(al.action.dateIssued));
+      }
     }
     return dates.sort((a, b) => a.getTime() - b.getTime());
   }, [promises]);
@@ -385,6 +422,14 @@ export function PromiseTimeline({
               {val.label}
             </span>
           ))}
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm bg-blue-500" />
+            Bill
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm bg-purple-500" />
+            Action
+          </span>
         </div>
       </div>
 
@@ -474,10 +519,26 @@ export function PromiseTimeline({
                         return d >= rangeStart && d <= rangeEnd;
                       });
 
+                      // Bill and action links in range
+                      const visibleBillLinks = (p.billLinks || []).filter((bl) => {
+                        const d = new Date(bl.bill.dateVoted);
+                        return d >= rangeStart && d <= rangeEnd;
+                      });
+                      const visibleActionLinks = (p.actionLinks || []).filter((al) => {
+                        const d = new Date(al.action.dateIssued);
+                        return d >= rangeStart && d <= rangeEnd;
+                      });
+
                       const allVisibleEvents = [
                         ...(madeInRange ? [{ pct: madePct }] : []),
                         ...visibleChanges.map((c) => ({
                           pct: pct(c.changedAt),
+                        })),
+                        ...visibleBillLinks.map((bl) => ({
+                          pct: pct(bl.bill.dateVoted),
+                        })),
+                        ...visibleActionLinks.map((al) => ({
+                          pct: pct(al.action.dateIssued),
                         })),
                       ];
 
@@ -619,6 +680,62 @@ export function PromiseTimeline({
                               />
                             );
                           })}
+
+                          {/* Bill link markers (square) */}
+                          {visibleBillLinks.map((bl) => {
+                            const cx = pct(bl.bill.dateVoted);
+                            return (
+                              <rect
+                                key={`bl-${bl.id}`}
+                                x={`${cx - 0.4}%`}
+                                y={y - 5}
+                                width={10}
+                                height={10}
+                                rx={2}
+                                fill="#3b82f6"
+                                stroke="#2563eb"
+                                strokeWidth={1.5}
+                                className="cursor-pointer"
+                                onClick={(e) =>
+                                  handleMarkerClick(e, {
+                                    title: p.title,
+                                    status: `Bill: ${bl.bill.title} (${bl.bill.billNumber})`,
+                                    date: bl.bill.dateVoted,
+                                    note: bl.alignment === "aligns" ? "Aligns with promise" : "Contradicts promise",
+                                    type: "change",
+                                  })
+                                }
+                              />
+                            );
+                          })}
+
+                          {/* Action link markers (diamond-like square) */}
+                          {visibleActionLinks.map((al) => {
+                            const cx = pct(al.action.dateIssued);
+                            return (
+                              <rect
+                                key={`al-${al.id}`}
+                                x={`${cx - 0.4}%`}
+                                y={y - 5}
+                                width={10}
+                                height={10}
+                                rx={2}
+                                fill="#a855f7"
+                                stroke="#9333ea"
+                                strokeWidth={1.5}
+                                className="cursor-pointer"
+                                onClick={(e) =>
+                                  handleMarkerClick(e, {
+                                    title: p.title,
+                                    status: `Action: ${al.action.title}`,
+                                    date: al.action.dateIssued,
+                                    note: al.alignment === "supports" ? "Supports promise" : "Contradicts promise",
+                                    type: "change",
+                                  })
+                                }
+                              />
+                            );
+                          })}
                         </g>
                       );
                     })}
@@ -631,21 +748,34 @@ export function PromiseTimeline({
           {/* Mobile: vertical timeline */}
           <div className="md:hidden space-y-6">
             {filteredPromises.map((p) => {
-              const changes = [...p.statusChanges]
-                .filter((c) => c.oldStatus !== null)
-                .filter((c) => {
-                  if (activeRange === "All") return true;
-                  const d = new Date(c.changedAt);
-                  return d >= rangeStart && d <= rangeEnd;
-                })
-                .sort(
-                  (a, b) =>
-                    new Date(a.changedAt).getTime() -
-                    new Date(b.changedAt).getTime(),
-                );
+              // Build sorted events: status changes + bill links + action links
+              type MobileEvent = { sortDate: number } & (
+                | { kind: "status"; sc: (typeof p.statusChanges)[0] }
+                | { kind: "bill"; bl: NonNullable<typeof p.billLinks>[0] }
+                | { kind: "action"; al: NonNullable<typeof p.actionLinks>[0] }
+              );
+              const mobileEvents: MobileEvent[] = [];
+
+              for (const sc of p.statusChanges) {
+                if (sc.oldStatus === null) continue;
+                const d = new Date(sc.changedAt);
+                if (activeRange !== "All" && (d < rangeStart || d > rangeEnd)) continue;
+                mobileEvents.push({ kind: "status", sc, sortDate: d.getTime() });
+              }
+              for (const bl of p.billLinks || []) {
+                const d = new Date(bl.bill.dateVoted);
+                if (activeRange !== "All" && (d < rangeStart || d > rangeEnd)) continue;
+                mobileEvents.push({ kind: "bill", bl, sortDate: d.getTime() });
+              }
+              for (const al of p.actionLinks || []) {
+                const d = new Date(al.action.dateIssued);
+                if (activeRange !== "All" && (d < rangeStart || d > rangeEnd)) continue;
+                mobileEvents.push({ kind: "action", al, sortDate: d.getTime() });
+              }
+              mobileEvents.sort((a, b) => a.sortDate - b.sortDate);
 
               const madeInRange = new Date(p.dateMade) >= rangeStart;
-              const hasAction = changes.length > 0;
+              const hasAction = mobileEvents.length > 0;
 
               return (
                 <div
@@ -689,31 +819,63 @@ export function PromiseTimeline({
                     </div>
                   )}
 
-                  {/* Status changes */}
-                  {changes.map((sc) => {
-                    const color = STATUS_COLORS[sc.newStatus];
-                    return (
-                      <div key={sc.id} className="relative mb-3">
-                        <div
-                          className="absolute -left-[25px] top-1 h-3 w-3 rounded-full"
-                          style={{ backgroundColor: color.fill }}
-                        />
-                        <p className="text-xs text-gray-500">
-                          <span
-                            className="font-medium"
-                            style={{ color: color.stroke }}
-                          >
-                            {color.label}
-                          </span>{" "}
-                          — {formatDate(sc.changedAt)}
-                        </p>
-                        {sc.note && (
-                          <p className="text-xs text-gray-400 italic mt-0.5">
-                            {sc.note}
+                  {/* Chronological events */}
+                  {mobileEvents.map((evt) => {
+                    if (evt.kind === "status") {
+                      const color = STATUS_COLORS[evt.sc.newStatus];
+                      return (
+                        <div key={`sc-${evt.sc.id}`} className="relative mb-3">
+                          <div
+                            className="absolute -left-[25px] top-1 h-3 w-3 rounded-full"
+                            style={{ backgroundColor: color.fill }}
+                          />
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium" style={{ color: color.stroke }}>
+                              {color.label}
+                            </span>{" "}
+                            — {formatDate(evt.sc.changedAt)}
                           </p>
-                        )}
-                      </div>
-                    );
+                          {evt.sc.note && (
+                            <p className="text-xs text-gray-400 italic mt-0.5">{evt.sc.note}</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    if (evt.kind === "bill") {
+                      return (
+                        <div key={`bl-${evt.bl.id}`} className="relative mb-3">
+                          <div className="absolute -left-[25px] top-1 h-3 w-3 rounded-sm bg-blue-500 border border-blue-600" />
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium text-blue-700">Bill Vote</span>{" "}
+                            — {formatDate(evt.bl.bill.dateVoted)}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-0.5">
+                            {evt.bl.bill.title} <span className="font-mono text-gray-400">{evt.bl.bill.billNumber}</span>
+                          </p>
+                          <p className="text-xs text-gray-400 italic mt-0.5">
+                            {evt.bl.alignment === "aligns" ? "Aligns with promise" : "Contradicts promise"}
+                          </p>
+                        </div>
+                      );
+                    }
+                    if (evt.kind === "action") {
+                      return (
+                        <div key={`al-${evt.al.id}`} className="relative mb-3">
+                          <div className="absolute -left-[25px] top-1 h-3 w-3 rounded-sm bg-purple-500 border border-purple-600" />
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium text-purple-700">
+                              {ACTION_TYPE_LABELS[evt.al.action.type] || evt.al.action.type}
+                            </span>{" "}
+                            — {formatDate(evt.al.action.dateIssued)}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-0.5">{evt.al.action.title}</p>
+                          <p className="text-xs text-gray-400 italic mt-0.5">
+                            {evt.al.alignment === "supports" ? "Supports promise" : "Contradicts promise"}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
                   })}
 
                   {/* Inaction indicator */}

@@ -32,9 +32,11 @@ export async function researchPromises(
 2. A brief description (2-3 sentences explaining the promise)
 3. The category (one of: Economy, Healthcare, Environment, Immigration, Education, Infrastructure, Foreign Policy, Justice, Housing, Technology, Other)
 4. When it was made (approximate date, YYYY-MM-DD format)
-5. Source URL (link to where they said it — campaign website, speech transcript, news article, official statement. NEVER use Wikipedia)
+5. Source URL (link to where they said it — campaign website, speech transcript, news article, official statement)
 6. A suggested severity rating (1-5, where 5=cornerstone campaign promise, 1=minor/specific)
 7. A suggested expectedMonths (how many months this should reasonably take to fulfill)
+
+NEVER use Wikipedia (wikipedia.org) as a source URL. If your only source is Wikipedia, find the original source that Wikipedia cites instead. Preferred sources: official campaign websites, government records (.gov), C-SPAN, AP, Reuters, NYT, Washington Post, Politico, The Hill, CNN, Fox News, NPR, local newspapers, official press releases.
 
 Assign severity 5 to cornerstone promises that defined their campaign, 4 to major policy items, 3 to standard promises, 2 to minor ones, 1 to trivial/specific ones. Be generous with severity 4-5 — most campaign promises worth tracking are at least a 3.
 
@@ -72,17 +74,24 @@ Do not use Wikipedia as a source. Prefer: official campaign websites, speech tra
   }
 
   const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
-  return parsed.map((item: Record<string, unknown>) => ({
-    title: String(item.title || ""),
-    description: String(item.description || ""),
-    category: String(item.category || "Other"),
-    status: VALID_STATUSES.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED",
-    dateMade: String(item.dateMade || new Date().toISOString().split("T")[0]),
-    sourceUrl: String(item.sourceUrl || ""),
-    severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),
-    expectedMonths: Math.max(1, Number(item.expectedMonths) || 12),
-    billRelated: item.billRelated === true || item.billRelated === "true",
-  }));
+  return parsed.map((item: Record<string, unknown>) => {
+    let sourceUrl = String(item.sourceUrl || "");
+    if (sourceUrl.includes("wikipedia.org")) {
+      console.warn(`[Research] Wikipedia source detected and removed for promise: "${item.title}"`);
+      sourceUrl = "";
+    }
+    return {
+      title: String(item.title || ""),
+      description: String(item.description || ""),
+      category: String(item.category || "Other"),
+      status: VALID_STATUSES.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED",
+      dateMade: String(item.dateMade || new Date().toISOString().split("T")[0]),
+      sourceUrl,
+      severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),
+      expectedMonths: Math.max(1, Number(item.expectedMonths) || 12),
+      billRelated: item.billRelated === true || item.billRelated === "true",
+    };
+  });
 }
 
 // ── News Research ──
@@ -143,7 +152,9 @@ export async function checkPromiseStatuses(
 - BROKEN: Actively contradicted the promise or explicitly abandoned it.
 - REVERSED: The promise was initially fulfilled or partially fulfilled, but the action was later undone, rolled back, paused, or reversed. Use this when there was real progress that was then walked back.
 
-Err on the side of IN_PROGRESS over NOT_STARTED. If there is ANY evidence of effort, even small steps, it should be at least IN_PROGRESS.`;
+Err on the side of IN_PROGRESS over NOT_STARTED. If there is ANY evidence of effort, even small steps, it should be at least IN_PROGRESS.
+
+NEVER use Wikipedia (wikipedia.org) as a source URL. If your only source is Wikipedia, find the original source that Wikipedia cites instead. Preferred sources: official campaign websites, government records (.gov), C-SPAN, AP, Reuters, NYT, Washington Post, Politico, The Hill, CNN, Fox News, NPR, local newspapers, official press releases.`;
 
   // Truncate descriptions to 100 chars to save tokens
   const promiseList = promises
