@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isInternalEvent } from "@/lib/event-filters";
 
 export async function GET(
   _request: NextRequest,
@@ -20,8 +21,11 @@ export async function GET(
       take: 200,
     });
 
+    // Filter out internal correction events from public view
+    const publicEvents = events.filter((e) => !isInternalEvent(e.title, e.description));
+
     return NextResponse.json({
-      events: events.map((e) => ({
+      events: publicEvents.map((e) => ({
         id: e.id,
         promiseId: e.promiseId,
         promiseTitle: e.promise.title,
