@@ -134,7 +134,14 @@ export async function checkPromiseStatuses(
 ): Promise<StatusSuggestion[]> {
   if (promises.length === 0) return [];
 
-  const systemPrompt = `You are a political fact-checker. For each campaign promise, determine its current status based on the latest available information. Be accurate and cite your reasoning.`;
+  const systemPrompt = `You are a political fact-checker. For each promise, determine its current status. Be fair and recognize partial efforts:
+- FULFILLED: Fully delivered, clear evidence it's done
+- PARTIAL: Meaningful progress made but not fully delivered. Use this if they've taken concrete steps but the promise isn't complete yet.
+- IN_PROGRESS: They have started working on it — executive orders signed, bills introduced, public statements of intent with follow-through. Even early-stage action counts as IN_PROGRESS.
+- NOT_STARTED: Genuinely NO action taken at all. No executive orders, no bills introduced, no public effort. Only use this if they have truly done nothing.
+- BROKEN: Actively contradicted the promise or explicitly abandoned it.
+
+Err on the side of IN_PROGRESS over NOT_STARTED. If there is ANY evidence of effort, even small steps, it should be at least IN_PROGRESS.`;
 
   // Truncate descriptions to 100 chars to save tokens
   const promiseList = promises
