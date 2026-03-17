@@ -662,7 +662,7 @@ export default async function PoliticianPage({
 
           return (
             <SaysVsDoes
-              promises={politician.promises.map((p) => ({
+              promises={politician.promises.filter((p) => p.billRelated).map((p) => ({
                 id: p.id,
                 title: p.title,
                 category: p.category,
