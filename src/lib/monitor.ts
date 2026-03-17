@@ -83,7 +83,7 @@ For each promise with new developments, return:
 For promises with no new developments:
 { "title": "exact promise title", "changed": false }
 
-NEVER use wikipedia.org as a source URL. Every date must be the REAL date of the event, never today's date.
+NEVER use wikipedia.org, youtube.com, or youtu.be as a source URL. Every date must be the REAL date of the event, never today's date.
 Status options: FULFILLED, PARTIAL, IN_PROGRESS, NOT_STARTED, BROKEN, REVERSED
 
 Return ONLY a JSON array.`;

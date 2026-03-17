@@ -2,6 +2,8 @@ const BLOCKED_DOMAINS = [
   "wikipedia.org",
   "wiki.",
   "fandom.com",
+  "youtube.com",
+  "youtu.be",
 ];
 
 const TRUSTED_DOMAINS = [
@@ -43,7 +45,7 @@ export function validateSource(url: string | null | undefined): SourceValidation
 
   for (const blocked of BLOCKED_DOMAINS) {
     if (lower.includes(blocked)) {
-      return { valid: false, reason: "Wikipedia/blocked source" };
+      return { valid: false, reason: "Blocked source (Wikipedia/YouTube/fandom)" };
     }
   }
 

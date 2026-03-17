@@ -70,7 +70,7 @@ VERIFY YOUR OWN WORK: Before returning your response, check:
 □ Are there any duplicate promises? REMOVE THEM.
 □ Does every promise have a unique dateMade? FIX lazy same-day dates.
 □ Does every timeline event name a specific action? REMOVE vague ones.
-□ Is every sourceUrl a real, working URL (not Wikipedia)? FIX OR REMOVE bad sources.
+□ Is every sourceUrl a real, working URL (not Wikipedia or YouTube)? FIX OR REMOVE bad sources.
 □ Are statuses justified by concrete evidence? DOWNGRADE to NOT_STARTED if evidence is weak.
 
 You are an expert political researcher with access to current information. Your job is to find campaign promises and trace their COMPLETE HISTORY from when they were made to today.
@@ -150,7 +150,7 @@ For each promise, provide:
 4. severity: 1-5 (5=cornerstone campaign promise, 4=major, 3=standard, 2=minor, 1=trivial)
 5. expectedMonths: reasonable months to fulfill
 6. billRelated: true/false — is this directly tied to specific legislation or executive action?
-7. sourceUrl: where the promise was made. NEVER use wikipedia.org.
+7. sourceUrl: where the promise was made. NEVER use wikipedia.org or youtube.com.
 8. dateMade: YYYY-MM-DD when the promise was made
 
 9. timeline: An array of events tracing the promise from when it was made to today. Each event:
@@ -173,7 +173,7 @@ The timeline MUST:
 
 IMPORTANT:
 - Do NOT create multiple promises for the same topic. One promise per distinct policy goal.
-- NEVER use wikipedia.org as a source URL. Use: official campaign sites, .gov, C-SPAN, AP, Reuters, NYT, WaPo, Politico, The Hill, CNN, Fox News, NPR.
+- NEVER use wikipedia.org, youtube.com, or youtu.be as a source URL. Use: official campaign sites, .gov, C-SPAN, AP, Reuters, NYT, WaPo, Politico, The Hill, CNN, Fox News, NPR.
 - Every date must be the REAL date of the event, never today's date
 - Be thorough — find at least 15 promises, cover ALL major policy areas they campaigned on
 - Prioritize: cornerstone promises first, then major, then minor
@@ -182,7 +182,7 @@ Return ONLY a JSON array. No markdown, no explanation.`;
 
   const userPrompt = `Research ALL major campaign promises made by ${politicianName} (${party}), who serves as ${position}. Trace each promise's complete history from when it was made through today (${today}). Include every major development, executive action, legislative action, and status change with real dates and sources.
 
-NEVER use Wikipedia as a source.`;
+NEVER use Wikipedia or YouTube as a source.`;
 
   const text = await callPerplexity(systemPrompt, userPrompt, MODEL_RESEARCH);
   const parsed = parseJsonFromResponse(text);
