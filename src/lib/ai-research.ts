@@ -197,10 +197,24 @@ interface ItemSummary {
 // ── Local keyword pre-filter ──
 
 const MATCH_STOP_WORDS = new Set([
+  // Common English
   "the", "a", "an", "to", "of", "and", "in", "on", "for", "with", "is", "it",
   "by", "as", "at", "or", "from", "that", "this", "be", "will", "all", "their",
-  "his", "her", "act", "bill", "resolution", "no", "not", "has", "have", "been",
-  "was", "were", "are", "do", "does", "did", "would", "could", "should", "may",
+  "his", "her", "no", "not", "has", "have", "been", "was", "were", "are",
+  "do", "does", "did", "would", "could", "should", "may", "can", "shall",
+  "its", "also", "such", "than", "other", "which", "who", "whom", "more",
+  "under", "over", "about", "into", "through", "during", "before", "after",
+  // Congressional procedural terms (appear in nearly all bill titles)
+  "act", "bill", "resolution", "motion", "agreeing", "passage", "ordering",
+  "previous", "question", "providing", "consideration", "suspend", "rules",
+  "pass", "agree", "amended", "amend", "amendment", "table", "recommit",
+  "certain", "member", "members", "relating", "respect", "purposes",
+  "congressional", "disapproval", "rule", "submitted", "chapter",
+  "pursuant", "section", "title", "making", "appropriations", "fiscal",
+  "year", "ending", "september", "government", "united", "states",
+  "representative", "removing", "expressing", "support", "condemning",
+  "censuring", "regarding", "concerning", "authorize", "authorizing",
+  "direct", "require", "extend", "establishing", "designating",
 ]);
 
 function extractKeywords(text: string): string[] {
@@ -220,7 +234,9 @@ function scoreItemRelevance(promiseKeywords: string[], itemTitle: string): numbe
   return score;
 }
 
-/** Pre-filter: for each promise, find the top N most keyword-relevant items */
+/** Pre-filter: for each promise, find the top N most keyword-relevant items.
+ *  Requires score >= 2 to avoid noise from single-word matches.
+ *  Falls back to most recent items if keyword matching finds nothing. */
 function preFilterItems(
   promises: PromiseSummary[],
   items: ItemSummary[],
@@ -238,12 +254,26 @@ function preFilterItems(
       score: scoreItemRelevance(keywords, item.title),
     }));
 
-    // Take top N with score > 0
-    scored
-      .filter((s) => s.score > 0)
+    // Take top N with score >= 2 (require at least 2 keyword matches)
+    const good = scored
+      .filter((s) => s.score >= 2)
       .sort((a, b) => b.score - a.score)
-      .slice(0, topN)
-      .forEach((s) => selectedIds.add(s.item.id));
+      .slice(0, topN);
+
+    good.forEach((s) => selectedIds.add(s.item.id));
+  }
+
+  // Fallback: if keyword matching found very few items, add the most recent bills
+  // (items at end of array tend to be more recent since they're fetched in order)
+  if (selectedIds.size < 20 && items.length > 0) {
+    const fallbackCount = Math.min(20, items.length);
+    const fallbackItems = items.slice(-fallbackCount);
+    for (const item of fallbackItems) {
+      selectedIds.add(item.id);
+    }
+    console.log(
+      `[Match] Keyword filter found only ${selectedIds.size - fallbackCount} items, added ${fallbackCount} recent items as fallback`,
+    );
   }
 
   return items.filter((item) => selectedIds.has(item.id));
