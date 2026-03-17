@@ -8,7 +8,9 @@ import {
 import type { PromiseStatus } from "@prisma/client";
 
 interface Props {
-  promises: { category: string; status: PromiseStatus }[];
+  promises: { category: string; status: PromiseStatus; weight?: number; dateMade?: string; expectedMonths?: number | null }[];
+  termInfo?: { termStart: string; termEnd: string | null; branch: string; chamber: string | null };
+  issueWeights?: Record<string, number>;
 }
 
 function polarToXY(
@@ -23,8 +25,14 @@ function polarToXY(
   ];
 }
 
-export function CategoryRadarChart({ promises }: Props) {
-  const breakdown = calculateCategoryBreakdown(promises);
+export function CategoryRadarChart({ promises, termInfo, issueWeights }: Props) {
+  const parsedTermInfo = termInfo ? {
+    termStart: new Date(termInfo.termStart),
+    termEnd: termInfo.termEnd ? new Date(termInfo.termEnd) : null,
+    branch: termInfo.branch,
+    chamber: termInfo.chamber,
+  } : undefined;
+  const breakdown = calculateCategoryBreakdown(promises, parsedTermInfo, issueWeights);
   const [animProgress, setAnimProgress] = useState(0);
   const [tooltip, setTooltip] = useState<{
     x: number;
@@ -220,7 +228,7 @@ export function CategoryRadarChart({ promises }: Props) {
           <p className="text-xs text-[#4A4A4A] mt-1">
             {tooltip.data.total} promise{tooltip.data.total !== 1 ? "s" : ""} &mdash;{" "}
             <span className="font-semibold">{tooltip.data.fulfillmentPercent}%</span>{" "}
-            fulfilled
+            score
           </p>
           <div className="flex gap-2 mt-1 text-[10px] text-gray-400">
             <span className="text-green-600">{tooltip.data.fulfilled} done</span>

@@ -508,7 +508,17 @@ export default async function PoliticianPage({
             promises={politician.promises.map((p) => ({
               category: p.category,
               status: p.status,
+              weight: p.weight,
+              dateMade: p.dateMade.toISOString(),
+              expectedMonths: p.expectedMonths,
             }))}
+            termInfo={{
+              termStart: politician.termStart.toISOString(),
+              termEnd: politician.termEnd?.toISOString() ?? null,
+              branch: politician.branch,
+              chamber: politician.chamber,
+            }}
+            issueWeights={issueWeights}
           />
         </section>
       )}

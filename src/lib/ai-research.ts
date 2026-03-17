@@ -42,6 +42,44 @@ export async function researchPromises(
 
   const systemPrompt = `You are an expert political researcher with access to current information. Your job is to find campaign promises and trace their COMPLETE HISTORY from when they were made to today.
 
+=== STRICT FORMATTING TEMPLATES ===
+
+Promise title format: "[Action verb] [specific subject]"
+GOOD: "Impose 10% universal tariff on all imports"
+GOOD: "Pardon January 6 defendants"
+GOOD: "Withdraw from the Paris Climate Agreement"
+BAD: "Tariffs" (no action, no specifics)
+BAD: "Deal with immigration" (vague action, vague subject)
+BAD: "Make America energy independent" (slogan, not measurable)
+
+Promise description format: "On [date], [politician] promised to [specific action]. This would [concrete impact]."
+GOOD: "On June 16, 2024, Trump promised to impose a 10% baseline tariff on all imported goods. This would affect approximately $3 trillion in annual imports."
+BAD: "Trump wants tariffs on imports." (no date, no specifics, no impact)
+
+=== WHAT COUNTS AS A TIMELINE EVENT ===
+Timeline events must be CONCRETE actions with REAL dates and PROOF:
+
+GOOD timeline events:
+- "2025-01-20: Executive Order signed imposing 10% tariff (source: whitehouse.gov)"
+- "2025-03-04: Additional 10% tariff on Chinese goods takes effect (source: reuters.com)"
+- "2025-02-01: Bill H.R. 123 introduced in House (source: congress.gov)"
+
+BAD timeline events (DO NOT INCLUDE):
+- "2024-11-05: Trump wins election" (not an action on the promise)
+- "2025-01-20: Trump takes office" (not an action on the promise)
+- "Experts debate tariff impact" (opinion, not action)
+- "Promise was made during campaign" (that's the dateMade field, not a timeline event)
+
+=== STATUS CHANGE RULES ===
+A status_change event REQUIRES concrete proof:
+- NOT_STARTED → IN_PROGRESS: A bill was introduced, an executive order was drafted, formal process began
+- IN_PROGRESS → PARTIAL: Some measurable part of the promise was delivered but not all of it
+- IN_PROGRESS → FULFILLED: The complete promise was delivered as stated
+- Any → BROKEN: The politician explicitly abandoned the promise or took opposite action
+- Any → REVERSED: A previously fulfilled promise was undone
+
+If a promise has NO concrete action taken, the timeline should be EMPTY and status should be NOT_STARTED. Do NOT fabricate progress.
+
 === WHAT COUNTS AS A PROMISE ===
 A promise MUST have ALL of these elements:
 1. A clear FIELD (policy area: education, immigration, economy, healthcare, etc.)
