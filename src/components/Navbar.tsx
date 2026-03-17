@@ -37,7 +37,7 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  if (pathname.startsWith("/admin")) return null;
+  if (pathname.startsWith("/nk-manage")) return null;
 
   return (
     <>

@@ -3,27 +3,55 @@ import { cookies } from "next/headers";
 const COOKIE_NAME = "nokool-admin-session";
 const MAX_AGE = 60 * 60 * 24; // 24 hours
 
-function generateToken(): string {
-  const secret = process.env.ADMIN_SECRET ?? "fallback-secret";
-  const timestamp = Date.now().toString(36);
-  // Simple HMAC-like hash using Web Crypto isn't available synchronously,
-  // so we use a basic hash that's good enough for single-admin auth
-  let hash = 0;
-  const input = `${secret}:${timestamp}`;
+function getSecret(): string {
+  return process.env.ADMIN_SECRET ?? "fallback-secret-change-me";
+}
+
+/**
+ * Synchronous signature for session tokens.
+ * Uses FNV-1a inspired hash with the server secret — edge-runtime compatible.
+ */
+function signPayload(data: string): string {
+  const secret = getSecret();
+  const input = `${secret}:${data}`;
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
   for (let i = 0; i < input.length; i++) {
-    const chr = input.charCodeAt(i);
-    hash = (hash << 5) - hash + chr;
-    hash |= 0;
+    const c = input.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193);
+    h2 = Math.imul(h2 ^ c, 0x811c9dc5);
   }
-  return `${timestamp}.${Math.abs(hash).toString(36)}`;
+  return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
+}
+
+function generateToken(): string {
+  const id = typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const timestamp = Date.now().toString(36);
+  const payload = `${id}.${timestamp}`;
+  const signature = signPayload(payload);
+  return `${payload}.${signature}`;
 }
 
 function isValidToken(token: string): boolean {
-  if (!token || !token.includes(".")) return false;
-  const [timestamp] = token.split(".");
+  if (!token) return false;
+  const lastDot = token.lastIndexOf(".");
+  if (lastDot <= 0) return false;
+
+  const payload = token.slice(0, lastDot);
+  const signature = token.slice(lastDot + 1);
+
+  // Verify signature
+  const expected = signPayload(payload);
+  if (signature !== expected) return false;
+
+  // Extract timestamp (last segment of payload before signature)
+  const payloadParts = payload.split(".");
+  if (payloadParts.length < 2) return false;
+  const timestamp = payloadParts[payloadParts.length - 1];
   const created = parseInt(timestamp, 36);
   const now = Date.now();
-  // Check if token is less than 24 hours old
   return now - created < MAX_AGE * 1000;
 }
 
