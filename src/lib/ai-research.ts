@@ -1,6 +1,13 @@
 import { callPerplexity, parseJsonFromResponse } from "./perplexity-api";
 import { prisma } from "./prisma";
 
+// ── Model Configuration ──
+// sonar = cheaper, good for research/discovery tasks with web search
+// sonar-pro = more accurate, use for fact-checking where precision matters
+const MODEL_RESEARCH = "sonar";
+const MODEL_FACTCHECK = "sonar-pro";
+const MODEL_MATCHING = "sonar-pro";
+
 // ── Promise Research ──
 
 export interface ResearchedPromise {
@@ -53,7 +60,7 @@ Find at least 15 specific, verifiable promises with real source URLs. Cover ALL 
 
 Do not use Wikipedia as a source. Prefer: official campaign websites, speech transcripts, debate transcripts, policy platforms, reputable news coverage of campaign events.`;
 
-  const text = await callPerplexity(systemPrompt, userPrompt);
+  const text = await callPerplexity(systemPrompt, userPrompt, MODEL_RESEARCH);
   const parsed = parseJsonFromResponse(text);
 
   if (!Array.isArray(parsed)) {
@@ -90,7 +97,7 @@ export async function researchNews(
 
   const userPrompt = `Find the 10 most recent and significant news articles about ${politicianName} from the past 30 days. Return as a JSON array with objects having these exact keys: title, summary, source, url, publishedDate.`;
 
-  const text = await callPerplexity(systemPrompt, userPrompt);
+  const text = await callPerplexity(systemPrompt, userPrompt, MODEL_RESEARCH);
   const parsed = parseJsonFromResponse(text);
 
   if (!Array.isArray(parsed)) {
@@ -125,8 +132,9 @@ export async function checkPromiseStatuses(
 
   const systemPrompt = `You are a political fact-checker. For each campaign promise, determine its current status based on the latest available information. Be accurate and cite your reasoning.`;
 
+  // Truncate descriptions to 100 chars to save tokens
   const promiseList = promises
-    .map((p, i) => `${i + 1}. "${p.title}": ${p.description.slice(0, 200)}`)
+    .map((p, i) => `${i + 1}. "${p.title}": ${p.description.slice(0, 100)}`)
     .join("\n");
 
   const userPrompt = `Here are campaign promises made by ${politicianName} (${party}). For each one, determine the current status and provide a brief reason (1-2 sentences) explaining why.
@@ -135,7 +143,7 @@ ${promiseList}
 
 Return ONLY a JSON array: [{ "title": "string", "status": "FULFILLED" | "PARTIAL" | "IN_PROGRESS" | "NOT_STARTED" | "BROKEN", "reason": "string" }]`;
 
-  const text = await callPerplexity(systemPrompt, userPrompt);
+  const text = await callPerplexity(systemPrompt, userPrompt, MODEL_FACTCHECK);
   const parsed = parseJsonFromResponse(text);
 
   if (!Array.isArray(parsed)) {
@@ -182,8 +190,63 @@ interface PromiseSummary {
 interface ItemSummary {
   id: string;
   title: string;
-  summary: string;
   type: "bill" | "action";
+  billNumber?: string;
+}
+
+// ── Local keyword pre-filter ──
+
+const MATCH_STOP_WORDS = new Set([
+  "the", "a", "an", "to", "of", "and", "in", "on", "for", "with", "is", "it",
+  "by", "as", "at", "or", "from", "that", "this", "be", "will", "all", "their",
+  "his", "her", "act", "bill", "resolution", "no", "not", "has", "have", "been",
+  "was", "were", "are", "do", "does", "did", "would", "could", "should", "may",
+]);
+
+function extractKeywords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !MATCH_STOP_WORDS.has(w));
+}
+
+function scoreItemRelevance(promiseKeywords: string[], itemTitle: string): number {
+  const itemWords = new Set(extractKeywords(itemTitle));
+  let score = 0;
+  for (const kw of promiseKeywords) {
+    if (itemWords.has(kw)) score++;
+  }
+  return score;
+}
+
+/** Pre-filter: for each promise, find the top N most keyword-relevant items */
+function preFilterItems(
+  promises: PromiseSummary[],
+  items: ItemSummary[],
+  topN: number = 20,
+): ItemSummary[] {
+  const selectedIds = new Set<string>();
+
+  for (const promise of promises) {
+    const keywords = extractKeywords(promise.title + " " + promise.description);
+    if (keywords.length === 0) continue;
+
+    // Score all items against this promise's keywords
+    const scored = items.map((item) => ({
+      item,
+      score: scoreItemRelevance(keywords, item.title),
+    }));
+
+    // Take top N with score > 0
+    scored
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topN)
+      .forEach((s) => selectedIds.add(s.item.id));
+  }
+
+  return items.filter((item) => selectedIds.has(item.id));
 }
 
 const MATCH_SYSTEM_PROMPT = `You are a political analyst matching campaign promises to legislative bills and executive actions. For each promise, find bills or actions that are directly relevant. Only match when the connection is clear and obvious. For each match, determine if the bill/action ALIGNS with the promise (supports its goal) or CONTRADICTS the promise (works against its goal). Return ONLY a JSON array of matches.`;
@@ -194,11 +257,11 @@ function buildMatchUserPrompt(
   items: ItemSummary[],
 ): string {
   const promiseList = promises
-    .map((p) => `- [${p.id}] "${p.title}" (${p.category}): ${p.description.slice(0, 150)}`)
+    .map((p) => `- [${p.id}] "${p.title}" (${p.category})`)
     .join("\n");
 
   const itemList = items
-    .map((b) => `- [${b.id}] (${b.type}) "${b.title}": ${(b.summary || "").slice(0, 150)}`)
+    .map((b) => `- [${b.id}] (${b.type}) "${b.title}"${b.billNumber ? ` (${b.billNumber})` : ""}`)
     .join("\n");
 
   return `Here are the campaign promises for ${politicianName}:
@@ -212,44 +275,6 @@ For each promise, find the most relevant bills/actions (maximum 5 per promise). 
 
 Only include matches where the connection is clear. If no bills match a promise, skip it. Prefer high-confidence matches.`;
 }
-
-async function callMatchingForChunk(
-  politicianName: string,
-  promises: PromiseSummary[],
-  items: ItemSummary[],
-): Promise<SuggestedMatch[]> {
-  if (items.length === 0 || promises.length === 0) return [];
-
-  const text = await callPerplexity(
-    MATCH_SYSTEM_PROMPT,
-    buildMatchUserPrompt(politicianName, promises, items),
-  );
-  const parsed = parseJsonFromResponse(text);
-
-  if (!Array.isArray(parsed)) return [];
-
-  // Build lookup maps for titles
-  const promiseMap = new Map(promises.map((p) => [p.id, p.title]));
-  const itemMap = new Map(items.map((b) => [b.id, { title: b.title, type: b.type }]));
-
-  return parsed
-    .filter((m: Record<string, unknown>) => m.promiseId && m.itemId && promiseMap.has(String(m.promiseId)) && itemMap.has(String(m.itemId)))
-    .map((m: Record<string, unknown>) => {
-      const item = itemMap.get(String(m.itemId))!;
-      return {
-        promiseId: String(m.promiseId),
-        promiseTitle: promiseMap.get(String(m.promiseId)) || "",
-        itemId: String(m.itemId),
-        itemTitle: item.title,
-        itemType: item.type,
-        alignment: m.alignment === "contradicts" ? "contradicts" as const : "aligns" as const,
-        confidence: m.confidence === "medium" ? "medium" as const : "high" as const,
-        reason: String(m.reason || ""),
-      };
-    });
-}
-
-const CHUNK_SIZE = 100;
 
 export async function matchPromisesToBills(
   politicianId: string,
@@ -274,7 +299,7 @@ export async function matchPromisesToBills(
     category: p.category,
   }));
 
-  // Collect all items (bills + actions)
+  // Collect all items (bills + actions) — only fetch titles, not summaries
   const items: ItemSummary[] = [];
 
   // For legislative: fetch bills they voted on
@@ -282,47 +307,41 @@ export async function matchPromisesToBills(
     const votes = await prisma.vote.findMany({
       where: { politicianId },
       select: {
-        bill: { select: { id: true, title: true, summary: true } },
+        bill: { select: { id: true, title: true, billNumber: true } },
       },
     });
     for (const v of votes) {
       items.push({
         id: v.bill.id,
         title: v.bill.title,
-        summary: v.bill.summary || "",
         type: "bill",
+        billNumber: v.bill.billNumber,
       });
     }
   }
 
-  // For executive: fetch executive actions
+  // For executive: fetch executive actions + any votes
   if (politician.branch === "executive") {
     const actions = await prisma.executiveAction.findMany({
       where: { politicianId },
-      select: { id: true, title: true, summary: true },
+      select: { id: true, title: true },
     });
     for (const a of actions) {
-      items.push({
-        id: a.id,
-        title: a.title,
-        summary: a.summary || "",
-        type: "action",
-      });
+      items.push({ id: a.id, title: a.title, type: "action" });
     }
 
-    // Also fetch bills they signed/vetoed (via votes if any, e.g. Vance)
     const votes = await prisma.vote.findMany({
       where: { politicianId },
       select: {
-        bill: { select: { id: true, title: true, summary: true } },
+        bill: { select: { id: true, title: true, billNumber: true } },
       },
     });
     for (const v of votes) {
       items.push({
         id: v.bill.id,
         title: v.bill.title,
-        summary: v.bill.summary || "",
         type: "bill",
+        billNumber: v.bill.billNumber,
       });
     }
   }
@@ -337,20 +356,50 @@ export async function matchPromisesToBills(
 
   if (uniqueItems.length === 0) return [];
 
-  // Chunk items if too many
-  const allMatches: SuggestedMatch[] = [];
-  for (let i = 0; i < uniqueItems.length; i += CHUNK_SIZE) {
-    const chunk = uniqueItems.slice(i, i + CHUNK_SIZE);
-    const matches = await callMatchingForChunk(politician.name, promiseSummaries, chunk);
-    allMatches.push(...matches);
-  }
+  // Local keyword pre-filter: only send relevant bills to AI
+  const filteredItems = preFilterItems(promiseSummaries, uniqueItems, 20);
 
-  // Deduplicate matches (same promiseId + itemId)
+  console.log(
+    `[Match] ${uniqueItems.length} total items → ${filteredItems.length} after keyword pre-filter for ${promises.length} promises`,
+  );
+
+  if (filteredItems.length === 0) return [];
+
+  // Single AI call with pre-filtered candidates
+  const text = await callPerplexity(
+    MATCH_SYSTEM_PROMPT,
+    buildMatchUserPrompt(politician.name, promiseSummaries, filteredItems),
+    MODEL_MATCHING,
+  );
+  const parsed = parseJsonFromResponse(text);
+
+  if (!Array.isArray(parsed)) return [];
+
+  // Build lookup maps for titles
+  const promiseMap = new Map(promiseSummaries.map((p) => [p.id, p.title]));
+  const itemMap = new Map(filteredItems.map((b) => [b.id, { title: b.title, type: b.type }]));
+
+  // Deduplicate matches
   const matchSeen = new Set<string>();
-  return allMatches.filter((m) => {
-    const key = `${m.promiseId}:${m.itemId}`;
-    if (matchSeen.has(key)) return false;
-    matchSeen.add(key);
-    return true;
-  });
+  return parsed
+    .filter((m: Record<string, unknown>) => m.promiseId && m.itemId && promiseMap.has(String(m.promiseId)) && itemMap.has(String(m.itemId)))
+    .map((m: Record<string, unknown>) => {
+      const item = itemMap.get(String(m.itemId))!;
+      return {
+        promiseId: String(m.promiseId),
+        promiseTitle: promiseMap.get(String(m.promiseId)) || "",
+        itemId: String(m.itemId),
+        itemTitle: item.title,
+        itemType: item.type,
+        alignment: m.alignment === "contradicts" ? "contradicts" as const : "aligns" as const,
+        confidence: m.confidence === "medium" ? "medium" as const : "high" as const,
+        reason: String(m.reason || ""),
+      };
+    })
+    .filter((m) => {
+      const key = `${m.promiseId}:${m.itemId}`;
+      if (matchSeen.has(key)) return false;
+      matchSeen.add(key);
+      return true;
+    });
 }

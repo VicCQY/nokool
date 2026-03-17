@@ -1,5 +1,4 @@
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
-const MODEL = "sonar-pro";
 
 function getApiKey(): string {
   const key = process.env.PERPLEXITY_API_KEY;
@@ -20,6 +19,7 @@ interface ChatMessage {
 export async function callPerplexity(
   systemPrompt: string,
   userPrompt: string,
+  model: string = "sonar-pro",
 ): Promise<string> {
   const messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
@@ -33,7 +33,7 @@ export async function callPerplexity(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       messages,
       temperature: 0.1,
     }),
@@ -45,6 +45,15 @@ export async function callPerplexity(
   }
 
   const data = await res.json();
+
+  // Log token usage for cost monitoring
+  const usage = data.usage;
+  if (usage) {
+    console.log(
+      `[Perplexity] model=${model} prompt_tokens=${usage.prompt_tokens || "?"} completion_tokens=${usage.completion_tokens || "?"} total=${usage.total_tokens || "?"}`,
+    );
+  }
+
   return data.choices?.[0]?.message?.content || "";
 }
 
