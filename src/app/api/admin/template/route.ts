@@ -19,7 +19,7 @@ export async function GET() {
     [""],
     ["Valid Countries: US, CA"],
     ["Valid Categories: Economy, Healthcare, Environment, Immigration, Education, Infrastructure, Foreign Policy, Justice, Housing, Technology, Other"],
-    ["Valid Statuses: NOT_STARTED, IN_PROGRESS, FULFILLED, PARTIAL, BROKEN"],
+    ["Valid Statuses: NOT_STARTED, IN_PROGRESS, FULFILLED, PARTIAL, BROKEN, REVERSED"],
     [""],
     ["Date format: YYYY-MM-DD (e.g. 2025-01-20)"],
     [""],
@@ -98,7 +98,7 @@ export async function GET() {
       "Short title of the promise",
       "Detailed description",
       "Category (see Instructions)",
-      "Status (NOT_STARTED, IN_PROGRESS, FULFILLED, PARTIAL, BROKEN)",
+      "Status (NOT_STARTED, IN_PROGRESS, FULFILLED, PARTIAL, BROKEN, REVERSED)",
       "Date promise was made (YYYY-MM-DD)",
       "Source URL (optional)",
       "Severity 1-5 (optional, default 3). 1=Trivial, 3=Standard, 5=Cornerstone",
@@ -125,7 +125,7 @@ export async function GET() {
     {
       sqref: "E3:E1000",
       type: "list",
-      formula1: '"NOT_STARTED,IN_PROGRESS,FULFILLED,PARTIAL,BROKEN"',
+      formula1: '"NOT_STARTED,IN_PROGRESS,FULFILLED,PARTIAL,BROKEN,REVERSED"',
     },
   ];
 
@@ -138,7 +138,7 @@ export async function GET() {
       "Must match a name in Politicians sheet",
       "Must match a promise title in Promises sheet",
       "Previous status (or leave empty for first change)",
-      "New status (NOT_STARTED, IN_PROGRESS, FULFILLED, PARTIAL, BROKEN)",
+      "New status (NOT_STARTED, IN_PROGRESS, FULFILLED, PARTIAL, BROKEN, REVERSED)",
       "Date of the change (YYYY-MM-DD)",
       "Optional note explaining the change",
     ],
@@ -173,12 +173,12 @@ export async function GET() {
     {
       sqref: "C3:C1000",
       type: "list",
-      formula1: '"NOT_STARTED,IN_PROGRESS,FULFILLED,PARTIAL,BROKEN"',
+      formula1: '"NOT_STARTED,IN_PROGRESS,FULFILLED,PARTIAL,BROKEN,REVERSED"',
     },
     {
       sqref: "D3:D1000",
       type: "list",
-      formula1: '"NOT_STARTED,IN_PROGRESS,FULFILLED,PARTIAL,BROKEN"',
+      formula1: '"NOT_STARTED,IN_PROGRESS,FULFILLED,PARTIAL,BROKEN,REVERSED"',
     },
   ];
 

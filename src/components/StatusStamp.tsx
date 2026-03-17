@@ -36,6 +36,12 @@ const STATUS_STAMP_CONFIG: Record<
     text: "text-red-700",
     bg: "bg-red-50",
   },
+  REVERSED: {
+    label: "Reversed",
+    border: "border-orange-500",
+    text: "text-orange-700",
+    bg: "bg-orange-50",
+  },
 };
 
 // Deterministic rotation based on string hash so it's stable across renders

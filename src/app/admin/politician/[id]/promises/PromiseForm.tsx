@@ -202,6 +202,7 @@ export function PromiseForm({
           <option value="FULFILLED">Fulfilled</option>
           <option value="PARTIAL">Partial</option>
           <option value="BROKEN">Broken</option>
+          <option value="REVERSED">Reversed</option>
         </select>
       </div>
       <div>

@@ -44,6 +44,7 @@ For each promise, also determine its current status based on your knowledge:
 - IN_PROGRESS: Active work is being done but not complete
 - NOT_STARTED: No meaningful action taken
 - BROKEN: The politician has clearly gone against the promise or abandoned it
+- REVERSED: The promise was initially fulfilled or partially fulfilled, but the action was later undone, rolled back, paused, or reversed. Use this when there was real progress that was then walked back.
 
 Be accurate and fair. If unsure, default to NOT_STARTED.
 
@@ -70,7 +71,7 @@ Do not use Wikipedia as a source. Prefer: official campaign websites, speech tra
     throw new Error("Expected JSON array from research response");
   }
 
-  const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN"];
+  const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
   return parsed.map((item: Record<string, unknown>) => ({
     title: String(item.title || ""),
     description: String(item.description || ""),
@@ -140,6 +141,7 @@ export async function checkPromiseStatuses(
 - IN_PROGRESS: They have started working on it — executive orders signed, bills introduced, public statements of intent with follow-through. Even early-stage action counts as IN_PROGRESS.
 - NOT_STARTED: Genuinely NO action taken at all. No executive orders, no bills introduced, no public effort. Only use this if they have truly done nothing.
 - BROKEN: Actively contradicted the promise or explicitly abandoned it.
+- REVERSED: The promise was initially fulfilled or partially fulfilled, but the action was later undone, rolled back, paused, or reversed. Use this when there was real progress that was then walked back.
 
 Err on the side of IN_PROGRESS over NOT_STARTED. If there is ANY evidence of effort, even small steps, it should be at least IN_PROGRESS.`;
 
@@ -152,7 +154,7 @@ Err on the side of IN_PROGRESS over NOT_STARTED. If there is ANY evidence of eff
 
 ${promiseList}
 
-Return ONLY a JSON array: [{ "title": "string", "status": "FULFILLED" | "PARTIAL" | "IN_PROGRESS" | "NOT_STARTED" | "BROKEN", "reason": "string" }]`;
+Return ONLY a JSON array: [{ "title": "string", "status": "FULFILLED" | "PARTIAL" | "IN_PROGRESS" | "NOT_STARTED" | "BROKEN" | "REVERSED", "reason": "string" }]`;
 
   const text = await callPerplexity(systemPrompt, userPrompt, MODEL_FACTCHECK);
   const parsed = parseJsonFromResponse(text);
@@ -161,7 +163,7 @@ Return ONLY a JSON array: [{ "title": "string", "status": "FULFILLED" | "PARTIAL
     throw new Error("Expected JSON array from status check response");
   }
 
-  const VALID = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN"];
+  const VALID = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
 
   // Match AI results back to promises by index/title
   return parsed.map((item: Record<string, unknown>, i: number) => {

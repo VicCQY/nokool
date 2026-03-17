@@ -25,6 +25,7 @@ const config: Config = {
           partial: "#D97706",
           "not-started": "#9CA3AF",
           broken: "#DC2626",
+          reversed: "#EA580C",
         },
         grade: {
           A: "#16A34A",

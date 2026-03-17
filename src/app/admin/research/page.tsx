@@ -58,6 +58,7 @@ const STATUSES = [
   { value: "FULFILLED", label: "Fulfilled", color: "bg-green-500" },
   { value: "PARTIAL", label: "Partial", color: "bg-amber-500" },
   { value: "BROKEN", label: "Broken", color: "bg-red-500" },
+  { value: "REVERSED", label: "Reversed", color: "bg-orange-500" },
 ];
 
 const STOP_WORDS = new Set(["the", "a", "an", "to", "of", "and", "in", "on", "for", "with", "is", "it", "by", "as", "at", "or", "from", "that", "this", "be", "will", "all", "their", "his", "her"]);

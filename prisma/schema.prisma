@@ -22,6 +22,7 @@ enum PromiseStatus {
   FULFILLED
   PARTIAL
   BROKEN
+  REVERSED
 }
 
 enum VotePosition {

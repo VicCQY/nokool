@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { PromiseStatus } from "@prisma/client";
 
 const VALID_STATUSES: Set<string> = new Set([
-  "NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN",
+  "NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED",
 ]);
 
 export async function POST(request: NextRequest) {

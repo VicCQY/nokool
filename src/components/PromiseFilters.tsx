@@ -9,6 +9,7 @@ const STATUSES = [
   { value: "BROKEN", label: "Broken" },
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "NOT_STARTED", label: "Not Started" },
+  { value: "REVERSED", label: "Reversed" },
 ];
 
 export function PromiseFilters() {

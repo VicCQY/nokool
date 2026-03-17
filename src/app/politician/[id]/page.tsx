@@ -128,6 +128,7 @@ const STATUS_STAT_CONFIG: {
   { key: "IN_PROGRESS", label: "In Progress", topBorder: "border-t-status-in-progress" },
   { key: "NOT_STARTED", label: "Not Started", topBorder: "border-t-status-not-started" },
   { key: "BROKEN", label: "Broken", topBorder: "border-t-status-broken" },
+  { key: "REVERSED", label: "Reversed", topBorder: "border-t-status-reversed" },
 ];
 
 export default async function PoliticianPage({

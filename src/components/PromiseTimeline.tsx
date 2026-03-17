@@ -35,6 +35,7 @@ const STATUS_COLORS: Record<
   IN_PROGRESS: { fill: "#3b82f6", stroke: "#2563eb", label: "In Progress" },
   NOT_STARTED: { fill: "#9ca3af", stroke: "#6b7280", label: "Not Started" },
   BROKEN: { fill: "#ef4444", stroke: "#dc2626", label: "Broken" },
+  REVERSED: { fill: "#f97316", stroke: "#ea580c", label: "Reversed" },
 };
 
 type TimeRange = "All" | "5Y" | "1Y" | "6M" | "3M";
@@ -297,7 +298,7 @@ export function PromiseTimeline({
 
       // Promise was active (not terminal) at range start
       const s = statusAtDate(p, rangeStart);
-      if (s && s !== "FULFILLED" && s !== "BROKEN") return true;
+      if (s && s !== "FULFILLED" && s !== "BROKEN" && s !== "REVERSED") return true;
 
       return false;
     });
@@ -490,7 +491,7 @@ export function PromiseTimeline({
                           : 0;
 
                       const isTerminal =
-                        p.status === "FULFILLED" || p.status === "BROKEN";
+                        p.status === "FULFILLED" || p.status === "BROKEN" || p.status === "REVERSED";
 
                       // If the promise was made before range, draw from left edge
                       const lineStart = madeInRange ? madePct : 0;
@@ -726,7 +727,8 @@ export function PromiseTimeline({
                   )}
                   {hasAction &&
                     p.status !== "FULFILLED" &&
-                    p.status !== "BROKEN" && (
+                    p.status !== "BROKEN" &&
+                    p.status !== "REVERSED" && (
                       <div className="relative">
                         <div className="absolute -left-[25px] top-1 h-3 w-3 rounded-full border-2 border-dashed border-gray-300 bg-white" />
                         <p className="text-xs text-gray-400 italic">

@@ -25,6 +25,7 @@ const STATUS_LABELS: Record<string, string> = {
   IN_PROGRESS: "In Progress",
   NOT_STARTED: "Not Started",
   BROKEN: "Broken",
+  REVERSED: "Reversed",
 };
 
 export function GradeBreakdown({

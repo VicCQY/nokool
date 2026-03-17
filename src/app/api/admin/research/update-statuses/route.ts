@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PromiseStatus } from "@prisma/client";
 
-const VALID_STATUSES = new Set(["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN"]);
+const VALID_STATUSES = new Set(["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"]);
 
 export async function POST(request: NextRequest) {
   try {

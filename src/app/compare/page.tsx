@@ -85,6 +85,7 @@ function buildComparison(
     inProgress: 0,
     notStarted: 0,
     broken: 0,
+    reversed: 0,
   };
 
   const categoryMap: Record<
@@ -98,6 +99,7 @@ function buildComparison(
     else if (p.status === "IN_PROGRESS") statusCounts.inProgress++;
     else if (p.status === "NOT_STARTED") statusCounts.notStarted++;
     else if (p.status === "BROKEN") statusCounts.broken++;
+    else if (p.status === "REVERSED") statusCounts.reversed++;
 
     if (!categoryMap[p.category]) {
       categoryMap[p.category] = { total: 0, fulfilled: 0, partial: 0 };

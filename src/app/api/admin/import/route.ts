@@ -22,6 +22,7 @@ const VALID_STATUSES = [
   "FULFILLED",
   "PARTIAL",
   "BROKEN",
+  "REVERSED",
 ];
 
 function parseDate(value: unknown): Date | null {

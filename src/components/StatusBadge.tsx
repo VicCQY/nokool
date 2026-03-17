@@ -11,6 +11,7 @@ const STATUS_CONFIG: Record<
   BROKEN: { label: "Broken", bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
   IN_PROGRESS: { label: "In Progress", bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
   NOT_STARTED: { label: "Not Started", bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
+  REVERSED: { label: "Reversed", bg: "bg-orange-50", text: "text-orange-700", dot: "bg-orange-500" },
 };
 
 export function StatusBadge({ status }: { status: PromiseStatus }) {

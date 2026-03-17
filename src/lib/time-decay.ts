@@ -74,6 +74,8 @@ export function getTimeAdjustedStatusValue(
       return 0.5;
     case "BROKEN":
       return -0.5;
+    case "REVERSED":
+      return -0.3;
     case "IN_PROGRESS":
       // 0.7 early → 0.35 late (slow linear decay — at least they're working on it)
       return 0.7 - 0.35 * termProgress;
