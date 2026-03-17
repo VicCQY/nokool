@@ -363,6 +363,19 @@ function scoreItemRelevance(promiseKeywords: string[], itemTitle: string): numbe
   return score;
 }
 
+// Detect final-passage bill votes (e.g., "H.R. 3684, As Amended", "S. 1260, As Amended")
+// These are substantive legislation votes that the AI needs to see, even if keyword matching fails
+// because Senate bill titles often lack policy keywords.
+const PROCEDURAL_PATTERN = /^(Motion to|Confirmation:|On the Cloture|Shall the Objection)/i;
+const BILL_PASSAGE_PATTERN = /^(H\.R\.|S\.|H\.J\.|S\.J\.|H\.Con\.|S\.Con\.)\s*\w/i;
+
+function isSubstantiveBill(title: string): boolean {
+  if (PROCEDURAL_PATTERN.test(title)) return false;
+  if (/Amdt[\.\s]|Amendment No/i.test(title)) return false;
+  if (BILL_PASSAGE_PATTERN.test(title)) return true;
+  return false;
+}
+
 function preFilterItems(
   promises: PromiseSummary[],
   items: ItemSummary[],
@@ -370,14 +383,25 @@ function preFilterItems(
 ): ItemSummary[] {
   const selectedIds = new Set<string>();
 
+  // Always include substantive final-passage bill votes — the AI can recognize
+  // "H.R. 3684" as the Infrastructure Act even though the title doesn't say so
+  for (const item of items) {
+    if (isSubstantiveBill(item.title)) {
+      selectedIds.add(item.id);
+    }
+  }
+
+  // Also add keyword-matched items (only if they're substantive, not confirmations)
   for (const promise of promises) {
     const keywords = extractKeywords(promise.title + " " + promise.description);
     if (keywords.length === 0) continue;
 
-    const scored = items.map((item) => ({
-      item,
-      score: scoreItemRelevance(keywords, item.title),
-    }));
+    const scored = items
+      .filter((item) => !PROCEDURAL_PATTERN.test(item.title))
+      .map((item) => ({
+        item,
+        score: scoreItemRelevance(keywords, item.title),
+      }));
 
     const good = scored
       .filter((s) => s.score >= 2)
@@ -387,12 +411,9 @@ function preFilterItems(
     good.forEach((s) => selectedIds.add(s.item.id));
   }
 
-  if (selectedIds.size < 20 && items.length > 0) {
-    const fallbackCount = Math.min(20, items.length);
-    const fallbackItems = items.slice(-fallbackCount);
-    for (const item of fallbackItems) {
-      selectedIds.add(item.id);
-    }
+  // Also include all executive actions (they're always substantive)
+  for (const item of items) {
+    if (item.type === "action") selectedIds.add(item.id);
   }
 
   return items.filter((item) => selectedIds.has(item.id));
@@ -426,6 +447,16 @@ For each match, provide:
 - confidence: 'high' or 'medium'
 - reason: ONE sentence explaining the DIRECT connection
 
+IMPORTANT: Many bill titles below are just bill NUMBERS (e.g., 'H.R. 3684, As Amended'). Use your knowledge to identify what these bills are:
+- H.R. 3684 = Infrastructure Investment and Jobs Act
+- H.R. 5376 = Inflation Reduction Act (climate, healthcare, taxes)
+- H.R. 4521 / S. 1260 = CHIPS and Science Act (semiconductor manufacturing)
+- H.R. 3967 = PACT Act (veterans healthcare)
+- H.R. 8404 = Respect for Marriage Act
+- H.R. 7776 = National Defense Authorization Act
+- H.R. 1319 = American Rescue Plan
+Look up any bill number you don't recognize. Match based on what the bill DOES, not just its title.
+
 Return ONLY a JSON array of matches. If no bills clearly match a promise, return an empty array for that promise.`;
 
 function buildMatchUserPrompt(
@@ -444,10 +475,12 @@ function buildMatchUserPrompt(
   return `Here are the campaign promises for ${politicianName}:
 ${promiseList}
 
-Here are the bills/executive actions they voted on or signed:
+Here are the bills/executive actions they voted on or signed. NOTE: Many titles are just bill numbers — use your knowledge to identify what these bills actually do:
 ${itemList}
 
-For each promise, find bills/actions that DIRECTLY address the promise's specific policy goal (maximum 5 per promise). Return JSON:
+For each promise, find bills/actions that DIRECTLY address the promise's specific policy goal (maximum 5 per promise). Many bills are listed by number only (e.g., "H.R. 3684, As Amended") — look up what these bills are and match based on their actual content/purpose.
+
+Return JSON:
 [{ "promiseId": "string", "itemId": "string", "alignment": "aligns" | "contradicts", "confidence": "high" | "medium", "reason": "string" }]
 
 STRICT: Only include matches where the bill/action substantively advances or contradicts the specific promise. Skip confirmation votes, procedural votes, and tangential connections. If no bills clearly match a promise, skip it entirely — no match is better than a weak match.`;
