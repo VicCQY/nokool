@@ -4,8 +4,9 @@
 export {
   researchPromises,
   researchNews,
+  matchPromisesToBills,
 } from "./ai-research";
 
-export type { ResearchedPromise, ResearchedArticle } from "./ai-research";
+export type { ResearchedPromise, ResearchedArticle, SuggestedMatch } from "./ai-research";
 
 export { isPerplexityConfigured as isAiConfigured } from "./perplexity-api";

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 interface Politician {
   id: string;
@@ -283,7 +284,15 @@ export default function ResearchPage() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">AI Promise Research</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-bold text-gray-900">AI Promise Research</h1>
+        <Link
+          href="/admin/research/match"
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          Promise Matching &rarr;
+        </Link>
+      </div>
       <p className="text-sm text-gray-500 mb-8">
         Use Perplexity AI to research a politician&apos;s campaign promises. Review the results,
         edit as needed, then import directly to the database.

@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
       name: true,
       country: true,
       party: true,
+      branch: true,
       photoUrl: true,
     },
     orderBy: { name: "asc" },
