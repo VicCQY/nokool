@@ -58,8 +58,11 @@ export async function callPerplexity(
 }
 
 export function parseJsonFromResponse(text: string): unknown {
-  // Strip ALL markdown code fences (```json, ```, etc.) globally
-  let cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+  // Strip BOM and invisible Unicode whitespace
+  let cleaned = text.replace(/^\uFEFF/, "").replace(/[\u200B-\u200D\uFEFF\u00A0]/g, "").trim();
+
+  // Strip markdown code fences (```json ... ``` or ``` ... ```)
+  cleaned = cleaned.replace(/```(?:json)?\s*/gi, "").trim();
 
   // Extract just the JSON array between first [ and last ]
   const arrayStart = cleaned.indexOf("[");
@@ -71,10 +74,9 @@ export function parseJsonFromResponse(text: string): unknown {
   try {
     return JSON.parse(cleaned);
   } catch (err) {
-    // Log raw response for debugging
-    console.error("Failed to parse Perplexity JSON response.");
-    console.error("Raw response (first 1000 chars):", text.slice(0, 1000));
-    console.error("Cleaned (first 1000 chars):", cleaned.slice(0, 1000));
+    console.error("[parseJsonFromResponse] Failed to parse JSON.");
+    console.error("Raw (first 500 chars):", text.slice(0, 500));
+    console.error("Cleaned (first 500 chars):", cleaned.slice(0, 500));
     throw new Error(
       `Failed to parse AI response as JSON: ${err instanceof Error ? err.message : String(err)}`,
     );
