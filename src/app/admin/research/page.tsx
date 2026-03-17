@@ -21,11 +21,21 @@ interface ResearchedPromise {
   title: string;
   description: string;
   category: string;
+  status: string;
   dateMade: string;
   sourceUrl: string;
   severity: number;
   expectedMonths: number;
   selected: boolean;
+}
+
+interface StatusSuggestion {
+  promiseId: string;
+  title: string;
+  currentStatus: string;
+  suggestedStatus: string;
+  reason: string;
+  accepted: boolean;
 }
 
 interface NewsArticle {
@@ -39,6 +49,14 @@ interface NewsArticle {
 const CATEGORIES = [
   "Economy", "Healthcare", "Environment", "Immigration", "Education",
   "Infrastructure", "Foreign Policy", "Justice", "Housing", "Technology", "Other",
+];
+
+const STATUSES = [
+  { value: "NOT_STARTED", label: "Not Started", color: "bg-gray-300" },
+  { value: "IN_PROGRESS", label: "In Progress", color: "bg-blue-500" },
+  { value: "FULFILLED", label: "Fulfilled", color: "bg-green-500" },
+  { value: "PARTIAL", label: "Partial", color: "bg-amber-500" },
+  { value: "BROKEN", label: "Broken", color: "bg-red-500" },
 ];
 
 const STOP_WORDS = new Set(["the", "a", "an", "to", "of", "and", "in", "on", "for", "with", "is", "it", "by", "as", "at", "or", "from", "that", "this", "be", "will", "all", "their", "his", "her"]);
@@ -89,6 +107,11 @@ export default function ResearchPage() {
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
   const [newsStatus, setNewsStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [newsError, setNewsError] = useState("");
+  // Status update state
+  const [statusSuggestions, setStatusSuggestions] = useState<StatusSuggestion[]>([]);
+  const [statusCheckStatus, setStatusCheckStatus] = useState<"idle" | "checking" | "done" | "applying" | "applied" | "error">("idle");
+  const [statusCheckError, setStatusCheckError] = useState("");
+  const [statusCheckResult, setStatusCheckResult] = useState("");
 
   // Debounced search for politicians
   useEffect(() => {
@@ -224,7 +247,7 @@ export default function ResearchPage() {
             title: p.title,
             description: p.description,
             category: p.category,
-            status: "NOT_STARTED",
+            status: p.status || "NOT_STARTED",
             weight: p.severity,
             expectedMonths: p.expectedMonths,
             dateMade: p.dateMade,
@@ -266,6 +289,7 @@ export default function ResearchPage() {
         title: "",
         description: "",
         category: "Other",
+        status: "NOT_STARTED",
         dateMade: new Date().toISOString().split("T")[0],
         sourceUrl: "",
         severity: 3,
@@ -279,8 +303,102 @@ export default function ResearchPage() {
     setPromises((prev) => prev.map((p) => ({ ...p, selected })));
   }
 
+  async function handleCheckStatuses() {
+    if (!selectedPolId) return;
+    setStatusCheckStatus("checking");
+    setStatusCheckError("");
+    setStatusSuggestions([]);
+    setStatusCheckResult("");
+
+    const selectedIds = existingPromises.map((p) => p.id);
+
+    try {
+      const res = await fetch("/api/admin/research/check-statuses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politicianId: selectedPolId, promiseIds: selectedIds }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setStatusCheckStatus("error");
+        setStatusCheckError(data.error || "Status check failed");
+        return;
+      }
+
+      setStatusSuggestions(
+        (data.suggestions || []).map((s: StatusSuggestion) => ({
+          ...s,
+          accepted: s.currentStatus !== s.suggestedStatus,
+        })),
+      );
+      setStatusCheckStatus("done");
+    } catch {
+      setStatusCheckStatus("error");
+      setStatusCheckError("Network error during status check");
+    }
+  }
+
+  async function handleApplyStatuses() {
+    const accepted = statusSuggestions.filter((s) => s.accepted && s.currentStatus !== s.suggestedStatus);
+    if (accepted.length === 0) {
+      setStatusCheckError("No status changes to apply");
+      return;
+    }
+
+    setStatusCheckStatus("applying");
+    setStatusCheckError("");
+
+    try {
+      const res = await fetch("/api/admin/research/update-statuses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          updates: accepted.map((s) => ({
+            promiseId: s.promiseId,
+            status: s.suggestedStatus,
+            reason: s.reason,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setStatusCheckStatus("error");
+        setStatusCheckError(data.error || "Update failed");
+        return;
+      }
+
+      setStatusCheckStatus("applied");
+      setStatusCheckResult(`Updated ${data.updated} promise statuses`);
+      // Refresh existing promises
+      const refreshRes = await fetch(`/api/politicians/${selectedPolId}/promises`);
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        setExistingPromises(Array.isArray(refreshData) ? refreshData : refreshData.promises || []);
+      }
+    } catch {
+      setStatusCheckStatus("error");
+      setStatusCheckError("Network error during status update");
+    }
+  }
+
+  function toggleStatusAccepted(index: number) {
+    setStatusSuggestions((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, accepted: !s.accepted } : s)),
+    );
+  }
+
+  function toggleAllStatuses(val: boolean) {
+    setStatusSuggestions((prev) =>
+      prev.map((s) => ({ ...s, accepted: s.currentStatus !== s.suggestedStatus ? val : false })),
+    );
+  }
+
   const selectedCount = promises.filter((p) => p.selected).length;
   const researchTarget = selectedPolName || customName;
+  const acceptedStatusCount = statusSuggestions.filter((s) => s.accepted && s.currentStatus !== s.suggestedStatus).length;
+  const changedStatusCount = statusSuggestions.filter((s) => s.currentStatus !== s.suggestedStatus).length;
 
   return (
     <div className="max-w-5xl">
@@ -557,7 +675,7 @@ export default function ResearchPage() {
                       placeholder="Description..."
                       className="w-full text-sm text-gray-600 border border-gray-100 rounded-md px-2 py-1.5 hover:border-gray-200 focus:border-gray-900 focus:outline-none resize-none"
                     />
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
                       <div>
                         <label className="block text-xs text-gray-400 mb-0.5">Category</label>
                         <select
@@ -567,6 +685,18 @@ export default function ResearchPage() {
                         >
                           {CATEGORIES.map((c) => (
                             <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-0.5">Status</label>
+                        <select
+                          value={p.status}
+                          onChange={(e) => updatePromise(i, "status", e.target.value)}
+                          className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
+                        >
+                          {STATUSES.map((s) => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
                           ))}
                         </select>
                       </div>
@@ -705,6 +835,155 @@ export default function ResearchPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+      {/* ═══ STEP 2: UPDATE EXISTING PROMISE STATUSES ═══ */}
+      {selectedPolId && existingPromises.length > 0 && (
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Step 2 — Update Promise Statuses</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Use AI to check the current status of existing promises for {selectedPolName}.
+          </p>
+
+          <div className="flex items-center gap-3 mb-6">
+            <button
+              onClick={handleCheckStatuses}
+              disabled={statusCheckStatus === "checking" || !apiConfigured}
+              className="rounded-lg bg-[#0D0D0D] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {statusCheckStatus === "checking" ? (
+                <span className="flex items-center gap-2">
+                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Checking Statuses...
+                </span>
+              ) : (
+                `Check All ${existingPromises.length} Promises`
+              )}
+            </button>
+          </div>
+
+          {statusCheckStatus === "checking" && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 mb-6">
+              <p className="text-sm text-blue-800">
+                Fact-checking {existingPromises.length} promises... This may take 30-60 seconds.
+              </p>
+            </div>
+          )}
+
+          {statusCheckStatus === "error" && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-5 mb-6">
+              <p className="text-sm text-red-800">{statusCheckError}</p>
+            </div>
+          )}
+
+          {statusCheckStatus === "applied" && (
+            <div className="rounded-xl border border-green-200 bg-green-50 p-5 mb-6">
+              <p className="text-sm font-semibold text-green-800">{statusCheckResult}</p>
+            </div>
+          )}
+
+          {statusSuggestions.length > 0 && statusCheckStatus !== "applied" && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-gray-500">
+                  {changedStatusCount} of {statusSuggestions.length} promises have status changes suggested
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => toggleAllStatuses(true)}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Accept All Changes
+                  </button>
+                  <button
+                    onClick={() => toggleAllStatuses(false)}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Reject All
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 w-8"></th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Promise</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 w-28">Current</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 w-28">Suggested</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {statusSuggestions.map((s, i) => {
+                      const changed = s.currentStatus !== s.suggestedStatus;
+                      const currentInfo = STATUSES.find((st) => st.value === s.currentStatus);
+                      const suggestedInfo = STATUSES.find((st) => st.value === s.suggestedStatus);
+                      return (
+                        <tr key={s.promiseId} className={changed ? "" : "opacity-50"}>
+                          <td className="px-4 py-3">
+                            {changed && (
+                              <input
+                                type="checkbox"
+                                checked={s.accepted}
+                                onChange={() => toggleStatusAccepted(i)}
+                                className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                              />
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-gray-900 font-medium">{s.title}</td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1.5 text-xs">
+                              <span className={`inline-block w-2 h-2 rounded-full ${currentInfo?.color || "bg-gray-300"}`} />
+                              {currentInfo?.label || s.currentStatus}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {changed ? (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                                <span className={`inline-block w-2 h-2 rounded-full ${suggestedInfo?.color || "bg-gray-300"}`} />
+                                {suggestedInfo?.label || s.suggestedStatus}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">No change</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-gray-500">{s.reason}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-gray-500">
+                  {acceptedStatusCount} status change{acceptedStatusCount !== 1 ? "s" : ""} selected
+                </p>
+                <button
+                  onClick={handleApplyStatuses}
+                  disabled={acceptedStatusCount === 0 || statusCheckStatus === "applying"}
+                  className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {statusCheckStatus === "applying" ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Applying...
+                    </span>
+                  ) : (
+                    `Apply ${acceptedStatusCount} Status Changes`
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

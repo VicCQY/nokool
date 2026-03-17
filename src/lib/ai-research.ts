@@ -7,6 +7,7 @@ export interface ResearchedPromise {
   title: string;
   description: string;
   category: string;
+  status: string;
   dateMade: string;
   sourceUrl: string;
   severity: number;
@@ -29,7 +30,16 @@ export async function researchPromises(
 
 Assign severity 5 to cornerstone promises that defined their campaign, 4 to major policy items, 3 to standard promises, 2 to minor ones, 1 to trivial/specific ones. Be generous with severity 4-5 — most campaign promises worth tracking are at least a 3.
 
-Return ONLY a JSON array of promises. No markdown, no explanation. Each object should have: title, description, category, dateMade, sourceUrl, severity, expectedMonths`;
+For each promise, also determine its current status based on your knowledge:
+- FULFILLED: The promise has been fully delivered with clear evidence
+- PARTIAL: Some progress but not fully delivered
+- IN_PROGRESS: Active work is being done but not complete
+- NOT_STARTED: No meaningful action taken
+- BROKEN: The politician has clearly gone against the promise or abandoned it
+
+Be accurate and fair. If unsure, default to NOT_STARTED.
+
+Return ONLY a JSON array of promises. No markdown, no explanation. Each object should have: title, description, category, status, dateMade, sourceUrl, severity, expectedMonths`;
 
   const userPrompt = `Find ALL major campaign promises made by ${politicianName} (${party}), who serves as ${position}.
 
@@ -50,10 +60,12 @@ Do not use Wikipedia as a source. Prefer: official campaign websites, speech tra
     throw new Error("Expected JSON array from research response");
   }
 
+  const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN"];
   return parsed.map((item: Record<string, unknown>) => ({
     title: String(item.title || ""),
     description: String(item.description || ""),
     category: String(item.category || "Other"),
+    status: VALID_STATUSES.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED",
     dateMade: String(item.dateMade || new Date().toISOString().split("T")[0]),
     sourceUrl: String(item.sourceUrl || ""),
     severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),
@@ -92,6 +104,59 @@ export async function researchNews(
     url: String(item.url || ""),
     publishedDate: String(item.publishedDate || new Date().toISOString().split("T")[0]),
   }));
+}
+
+// ── Promise Status Updates ──
+
+export interface StatusSuggestion {
+  promiseId: string;
+  title: string;
+  currentStatus: string;
+  suggestedStatus: string;
+  reason: string;
+}
+
+export async function checkPromiseStatuses(
+  politicianName: string,
+  party: string,
+  promises: { id: string; title: string; description: string; status: string }[],
+): Promise<StatusSuggestion[]> {
+  if (promises.length === 0) return [];
+
+  const systemPrompt = `You are a political fact-checker. For each campaign promise, determine its current status based on the latest available information. Be accurate and cite your reasoning.`;
+
+  const promiseList = promises
+    .map((p, i) => `${i + 1}. "${p.title}": ${p.description.slice(0, 200)}`)
+    .join("\n");
+
+  const userPrompt = `Here are campaign promises made by ${politicianName} (${party}). For each one, determine the current status and provide a brief reason (1-2 sentences) explaining why.
+
+${promiseList}
+
+Return ONLY a JSON array: [{ "title": "string", "status": "FULFILLED" | "PARTIAL" | "IN_PROGRESS" | "NOT_STARTED" | "BROKEN", "reason": "string" }]`;
+
+  const text = await callPerplexity(systemPrompt, userPrompt);
+  const parsed = parseJsonFromResponse(text);
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("Expected JSON array from status check response");
+  }
+
+  const VALID = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN"];
+
+  // Match AI results back to promises by index/title
+  return parsed.map((item: Record<string, unknown>, i: number) => {
+    const promise = promises[i] || promises.find((p) => p.title === String(item.title));
+    if (!promise) return null;
+    const suggestedStatus = VALID.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED";
+    return {
+      promiseId: promise.id,
+      title: promise.title,
+      currentStatus: promise.status,
+      suggestedStatus,
+      reason: String(item.reason || ""),
+    };
+  }).filter((x): x is StatusSuggestion => x !== null);
 }
 
 // ── Promise-to-Bill/Action Matching ──

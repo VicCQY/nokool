@@ -51,7 +51,9 @@ export async function POST(request: NextRequest) {
           promiseId: promise.id,
           oldStatus: null,
           newStatus: status as PromiseStatus,
-          note: "Initial status from AI research import",
+          note: status !== "NOT_STARTED"
+            ? "Initial status set via AI research"
+            : "Initial status from AI research import",
         },
       });
 
