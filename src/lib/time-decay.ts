@@ -73,13 +73,13 @@ export function getTimeAdjustedStatusValue(
     case "PARTIAL":
       return 0.5;
     case "BROKEN":
-      return -1.0;
+      return -0.5;
     case "IN_PROGRESS":
-      // Day 1: 0.5, Midterm: ~0.35, Year 3/4: ~0.15, Final months: ~0.05
-      return 0.5 * (1 - Math.pow(termProgress, 1.5));
+      // 0.7 early → 0.35 late (slow linear decay — at least they're working on it)
+      return 0.7 - 0.35 * termProgress;
     case "NOT_STARTED":
-      // Day 1: 0.1, Midterm: ~-0.1, Year 3/4: ~-0.4, Final months: ~-0.75
-      return 0.1 - 0.85 * Math.pow(termProgress, 1.2);
+      // 0.1 early → -0.2 late (nearly neutral at start, mild penalty late)
+      return 0.1 - 0.3 * termProgress;
     default:
       return 0;
   }

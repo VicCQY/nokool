@@ -47,29 +47,22 @@ export function calculateWeightedGrade(
     totalMaxWeight += combinedWeight;
   }
 
-  // percent = rawScore / maxScore * 100
-  // All FULFILLED = 100%, All NOT_STARTED day 1 ~10%, All BROKEN = -100% clamped to 0%
-  const rawPercent = totalMaxWeight > 0
-    ? (totalWeightedScore / totalMaxWeight) * 100
+  // Normalize raw score from [-0.5, 1.0] range to [0, 100]
+  // rawScore/maxScore gives the weighted average status value
+  // Min possible = -0.5 (all BROKEN), Max possible = 1.0 (all FULFILLED)
+  const rawAvg = totalMaxWeight > 0
+    ? totalWeightedScore / totalMaxWeight
     : 0;
 
-  const clampedPercent = Math.max(0, Math.min(100, rawPercent));
+  const normalizedPercent = ((rawAvg + 0.5) / 1.5) * 100;
+  const clampedPercent = Math.max(0, Math.min(100, normalizedPercent));
 
-  // Dynamic thresholds: lenient early in term, strict at end
-  // Linear interpolation between early and late thresholds
-  const t = termProgress; // 0 = start, 1 = end
-  const thresholds = {
-    A: 40 + t * 40,   // 40% → 80%
-    B: 30 + t * 35,   // 30% → 65%
-    C: 20 + t * 30,   // 20% → 50%
-    D: 10 + t * 25,   // 10% → 35%
-  };
-
+  // Fixed grade thresholds
   let letter: string;
-  if (clampedPercent >= thresholds.A) letter = "A";
-  else if (clampedPercent >= thresholds.B) letter = "B";
-  else if (clampedPercent >= thresholds.C) letter = "C";
-  else if (clampedPercent >= thresholds.D) letter = "D";
+  if (clampedPercent >= 75) letter = "A";
+  else if (clampedPercent >= 60) letter = "B";
+  else if (clampedPercent >= 45) letter = "C";
+  else if (clampedPercent >= 30) letter = "D";
   else letter = "F";
 
   return {
