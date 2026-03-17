@@ -1,5 +1,6 @@
 import { callPerplexity, parseJsonFromResponse } from "./perplexity-api";
 import { prisma } from "./prisma";
+import { sanitizeSourceUrl } from "./source-validator";
 
 // ── Model Configuration ──
 // sonar = cheaper, good for research/discovery tasks with web search
@@ -75,11 +76,8 @@ Do not use Wikipedia as a source. Prefer: official campaign websites, speech tra
 
   const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
   return parsed.map((item: Record<string, unknown>) => {
-    let sourceUrl = String(item.sourceUrl || "");
-    if (sourceUrl.includes("wikipedia.org")) {
-      console.warn(`[Research] Wikipedia source detected and removed for promise: "${item.title}"`);
-      sourceUrl = "";
-    }
+    const rawUrl = String(item.sourceUrl || "");
+    const sourceUrl = sanitizeSourceUrl(rawUrl, String(item.title || ""));
     return {
       title: String(item.title || ""),
       description: String(item.description || ""),

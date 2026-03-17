@@ -100,23 +100,27 @@ model FecSummary {
 }
 
 model Promise {
-  id             String                @id @default(cuid())
-  title          String
-  description    String
-  category       String
-  dateMade       DateTime
-  sourceUrl      String?
-  status         PromiseStatus         @default(NOT_STARTED)
-  weight         Int                   @default(3)
-  expectedMonths Int?
-  billRelated    Boolean               @default(false)
-  politicianId   String
-  politician     Politician            @relation(fields: [politicianId], references: [id], onDelete: Cascade)
-  statusChanges  PromiseStatusChange[]
-  billLinks      PromiseBillLink[]
-  actionLinks    PromiseActionLink[]
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  id              String                @id @default(cuid())
+  title           String
+  description     String
+  category        String
+  dateMade        DateTime
+  sourceUrl       String?
+  status          PromiseStatus         @default(NOT_STARTED)
+  weight          Int                   @default(3)
+  expectedMonths  Int?
+  billRelated     Boolean               @default(false)
+  lastMonitoredAt DateTime?
+  reviewedAt      DateTime?
+  autoUpdatable   Boolean               @default(true)
+  politicianId    String
+  politician      Politician            @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  statusChanges   PromiseStatusChange[]
+  billLinks       PromiseBillLink[]
+  actionLinks     PromiseActionLink[]
+  events          PromiseEvent[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
 
   @@index([politicianId])
   @@index([status])
@@ -277,4 +281,30 @@ model PromiseActionLink {
   @@unique([promiseId, actionId])
   @@index([promiseId])
   @@index([actionId])
+}
+
+model PromiseEvent {
+  id          String   @id @default(cuid())
+  promiseId   String
+  promise     Promise  @relation(fields: [promiseId], references: [id], onDelete: Cascade)
+
+  eventType   String   // "status_change" | "bill_vote" | "executive_action" | "news" | "promise_made" | "research_note"
+  eventDate   DateTime // when it actually happened (NOT when the AI ran)
+
+  oldStatus   String?  // previous status (null for initial)
+  newStatus   String?  // new status (null if not a status change)
+
+  title       String   // short description of the event
+  description String?  // longer explanation
+  sourceUrl   String?  // link to evidence
+
+  createdBy   String   // "human" | "ai_auto" | "ai_flagged"
+  confidence  String?  // "high" | "medium" | "low" (null for human entries)
+
+  reviewed    Boolean  @default(false)
+  approved    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+
+  @@index([promiseId])
 }
