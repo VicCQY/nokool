@@ -407,6 +407,83 @@ export default function ResearchPage() {
     );
   }
 
+  // Monitor state
+  const [monitorStatus, setMonitorStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [monitorResults, setMonitorResults] = useState<{ name: string; checked: number; changed: number; autoApplied: number; flagged: number }[]>([]);
+  const [monitorError, setMonitorError] = useState("");
+  const [monitorProgress, setMonitorProgress] = useState("");
+  const [allPoliticians, setAllPoliticians] = useState<Politician[]>([]);
+
+  // Load all politicians for monitor
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/politicians/search?q=");
+        const data = await res.json();
+        setAllPoliticians(data || []);
+      } catch {
+        // Non-critical
+      }
+    })();
+  }, []);
+
+  async function handleMonitorOne(polId: string, polName: string) {
+    setMonitorStatus("running");
+    setMonitorError("");
+    setMonitorProgress(`Monitoring ${polName}...`);
+
+    try {
+      const res = await fetch("/api/nk-manage/monitor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politicianId: polId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMonitorStatus("error");
+        setMonitorError(data.error || "Monitor failed");
+        return;
+      }
+      setMonitorResults((prev) => [...prev, { name: polName, ...data }]);
+      setMonitorStatus("done");
+      setMonitorProgress("");
+    } catch {
+      setMonitorStatus("error");
+      setMonitorError("Network error during monitoring");
+    }
+  }
+
+  async function handleMonitorAll() {
+    setMonitorStatus("running");
+    setMonitorError("");
+    setMonitorResults([]);
+
+    const pols = allPoliticians.length > 0 ? allPoliticians : [];
+    for (let i = 0; i < pols.length; i++) {
+      const pol = pols[i];
+      setMonitorProgress(`Monitoring ${pol.name} (${i + 1}/${pols.length})...`);
+      try {
+        const res = await fetch("/api/nk-manage/monitor", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ politicianId: pol.id }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setMonitorResults((prev) => [...prev, { name: pol.name, ...data }]);
+        }
+      } catch {
+        // Continue with next
+      }
+      // 2-second delay between politicians
+      if (i < pols.length - 1) {
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+    setMonitorStatus("done");
+    setMonitorProgress("");
+  }
+
   const selectedCount = promises.filter((p) => p.selected).length;
   const researchTarget = selectedPolName || customName;
   const acceptedStatusCount = statusSuggestions.filter((s) => s.accepted && s.currentStatus !== s.suggestedStatus).length;
@@ -1010,6 +1087,92 @@ export default function ResearchPage() {
           )}
         </div>
       )}
+
+      {/* ═══ MONITOR SECTION ═══ */}
+      <div className="mt-12 pt-8 border-t border-gray-200">
+        <h2 className="text-xl font-bold text-gray-900 mb-1">AI Promise Monitor</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Automatically check active promises for recent developments using AI. High-confidence changes are auto-applied; others go to the Review Queue.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <button
+            onClick={handleMonitorAll}
+            disabled={monitorStatus === "running" || allPoliticians.length === 0 || !apiConfigured}
+            className="rounded-lg bg-[#0D0D0D] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {monitorStatus === "running" ? (
+              <span className="flex items-center gap-2">
+                <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Monitoring...
+              </span>
+            ) : (
+              `Monitor All Politicians (${allPoliticians.length})`
+            )}
+          </button>
+        </div>
+
+        {monitorProgress && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 mb-4">
+            <p className="text-sm text-blue-800">{monitorProgress}</p>
+          </div>
+        )}
+
+        {monitorStatus === "error" && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 mb-4">
+            <p className="text-sm text-red-800">{monitorError}</p>
+          </div>
+        )}
+
+        {monitorResults.length > 0 && (
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden mb-6">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Politician</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">Checked</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">Changed</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">Auto-Applied</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">Flagged</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {monitorResults.map((r, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3 text-gray-900 font-medium">{r.name}</td>
+                    <td className="px-4 py-3 text-center text-gray-600">{r.checked}</td>
+                    <td className="px-4 py-3 text-center text-gray-600">{r.changed}</td>
+                    <td className="px-4 py-3 text-center text-green-600 font-medium">{r.autoApplied}</td>
+                    <td className="px-4 py-3 text-center text-amber-600 font-medium">{r.flagged}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Per-politician monitor buttons */}
+        {allPoliticians.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-700">Monitor Individual</h3>
+            <div className="flex flex-wrap gap-2">
+              {allPoliticians.map((pol) => (
+                <button
+                  key={pol.id}
+                  onClick={() => handleMonitorOne(pol.id, pol.name)}
+                  disabled={monitorStatus === "running" || !apiConfigured}
+                  className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                >
+                  Monitor {pol.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
