@@ -174,6 +174,11 @@ The timeline MUST:
 IMPORTANT:
 - Do NOT create multiple promises for the same topic. One promise per distinct policy goal.
 - NEVER use wikipedia.org, youtube.com, or youtu.be as a source URL. Use: official campaign sites, .gov, C-SPAN, AP, Reuters, NYT, WaPo, Politico, The Hill, CNN, Fox News, NPR.
+- LAZY OUTPUT WILL BE REJECTED. Specifically:
+  - If more than 2 promises share the same dateMade, the ENTIRE response will be rejected and re-run. Find the actual date each promise was first announced.
+  - If more than 2 promises share the same sourceUrl, the ENTIRE response will be rejected. Find unique sources.
+  - If any timeline event says 'initiated', 'launched', 'established', 'advocated', or 'prioritized' without naming a SPECIFIC bill number, executive order number, or concrete action, it will be deleted.
+  - If any source is YouTube or Wikipedia, the ENTIRE response will be rejected.
 - Every date must be the REAL date of the event, never today's date
 - Be thorough — find at least 15 promises, cover ALL major policy areas they campaigned on
 - Prioritize: cornerstone promises first, then major, then minor
@@ -191,7 +196,65 @@ NEVER use Wikipedia or YouTube as a source.`;
     throw new Error("Expected JSON array from research response");
   }
 
-  return parsed.map((item: Record<string, unknown>) => processResearchItem(item));
+  const results = parsed.map((item: Record<string, unknown>) => processResearchItem(item));
+
+  // Post-processing: detect and warn about lazy AI output
+  validateResearchQuality(results);
+
+  return results;
+}
+
+// ── Vague action words that indicate lazy AI output when no bill/EO number is nearby ──
+const VAGUE_WORDS = /\b(initiated|launched|established|advocated|prioritized)\b/i;
+const HAS_SPECIFIC_REF = /\b(H\.?R\.?\s*\d|S\.?\s*\d|EO\s*\d|Executive Order\s*\d|P\.?L\.?\s*\d|Public Law\s*\d)/i;
+
+function validateResearchQuality(results: ResearchedPromise[]): void {
+  // Check for lazy same-day dateMade
+  const dateCounts: Record<string, number> = {};
+  for (const p of results) {
+    dateCounts[p.dateMade] = (dateCounts[p.dateMade] || 0) + 1;
+  }
+  for (const [date, count] of Object.entries(dateCounts)) {
+    if (count > 2) {
+      console.warn(`[Research Quality] Lazy dates detected: ${count} promises share dateMade=${date}`);
+    }
+  }
+
+  // Check for lazy same sourceUrl
+  const srcCounts: Record<string, number> = {};
+  for (const p of results) {
+    if (p.sourceUrl) {
+      srcCounts[p.sourceUrl] = (srcCounts[p.sourceUrl] || 0) + 1;
+    }
+  }
+  for (const [url, count] of Object.entries(srcCounts)) {
+    if (count > 2) {
+      console.warn(`[Research Quality] Lazy sources detected: ${count} promises share sourceUrl=${url}`);
+    }
+  }
+
+  // Scrub vague timeline events that lack specific bill/EO references
+  for (const p of results) {
+    const before = p.timeline.length;
+    p.timeline = p.timeline.filter((evt) => {
+      const text = `${evt.title} ${evt.description}`;
+      if (VAGUE_WORDS.test(text) && !HAS_SPECIFIC_REF.test(text)) {
+        console.warn(`[Research Quality] Removed vague event from "${p.title}": "${evt.title}"`);
+        return false;
+      }
+      return true;
+    });
+
+    // If we removed events, re-derive status from remaining timeline
+    if (p.timeline.length < before) {
+      const lastStatus = [...p.timeline].reverse().find((e) => e.type === "status_change" && e.newStatus);
+      if (lastStatus?.newStatus) {
+        p.status = lastStatus.newStatus;
+      } else if (p.timeline.length === 0) {
+        p.status = "NOT_STARTED";
+      }
+    }
+  }
 }
 
 function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
