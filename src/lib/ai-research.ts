@@ -44,7 +44,7 @@ export async function researchPromises(
 9. status: Current status (FULFILLED/PARTIAL/IN_PROGRESS/NOT_STARTED/BROKEN/REVERSED)
 10. statusConfidence: high/medium/low — how confident are you in this status?
 11. statusReason: 1-2 sentences explaining WHY this is the current status
-12. statusDate: YYYY-MM-DD — when did this status become true? (e.g., when was the EO signed, when did the bill pass, when was the promise broken). This is NOT today's date — it's when the actual event happened.
+12. statusDate: YYYY-MM-DD — CRITICAL: this must be the date the status actually changed, such as when a bill was signed, an executive order was issued, or the promise was publicly abandoned. NEVER use today's date. If you are unsure of the exact date, use the closest known date of the real event.
 13. statusSource: URL proving the current status (different from the promise source). NEVER use wikipedia.org.
 
 NEVER use Wikipedia (wikipedia.org) as a source URL. If your only source is Wikipedia, find the original source that Wikipedia cites instead. Preferred sources: official campaign websites, government records (.gov), C-SPAN, AP, Reuters, NYT, Washington Post, Politico, The Hill, CNN, Fox News, NPR, local newspapers, official press releases.
@@ -60,6 +60,8 @@ For status:
 - REVERSED: Was fulfilled/partial then undone or rolled back
 
 If unsure about status, default to NOT_STARTED with statusConfidence: "low".
+
+IMPORTANT: Do NOT create multiple promises that cover the same topic. Combine related commitments into ONE promise. For example, "Reopen Schools During COVID-19" and "Move On from COVID-19 Shutdowns" should be ONE promise about COVID response. "Repeal ACA", "Replace ACA with Graham-Cassidy", and "Repeal Employer Mandate" should be ONE promise about healthcare reform. Each promise should be a distinct policy goal, not variations of the same theme.
 
 Return ONLY a JSON array. No markdown, no explanation. Each object should have: title, description, category, status, statusConfidence, statusReason, statusDate, statusSource, dateMade, sourceUrl, severity, expectedMonths, billRelated`;
 
@@ -204,7 +206,7 @@ For each promise, return:
 2. currentStatus: What the status currently is in our database (provided to you)
 3. suggestedStatus: What you think the status should be now
 4. confidence: high/medium/low
-5. eventDate: YYYY-MM-DD — when did the change happen? NOT today's date. The actual date of the event that caused the status change.
+5. eventDate: YYYY-MM-DD — CRITICAL: the date the status actually changed (when the bill was signed, the EO was issued, the promise was broken). NEVER use today's date. Use the closest known date of the real event.
 6. reason: 1-2 sentences explaining what happened
 7. sourceUrl: URL proving the change. NEVER use wikipedia.org.
 8. changed: true/false — did the status actually change from currentStatus?
@@ -408,7 +410,16 @@ function preFilterItems(
   return items.filter((item) => selectedIds.has(item.id));
 }
 
-const MATCH_SYSTEM_PROMPT = `You are a political analyst matching campaign promises to legislative bills and executive actions. For each promise, find bills or actions that are directly relevant. Only match when the connection is clear and obvious. For each match, determine if the bill/action ALIGNS with the promise (supports its goal) or CONTRADICTS the promise (works against its goal). Return ONLY a JSON array of matches.`;
+const MATCH_SYSTEM_PROMPT = `You are a political analyst matching campaign promises to legislative bills and executive actions. For each promise, find bills or actions that are directly relevant.
+
+STRICT MATCHING RULES:
+- Only match bills that are DIRECTLY about the promise's specific policy goal.
+- Confirmation votes for nominees are NOT matches for broad policy promises. A "Strengthen National Defense" promise should match defense spending bills or military policy bills, NOT personnel confirmation votes.
+- Procedural votes, naming resolutions, and ceremonial bills are NOT matches.
+- A weak or tangential match is WORSE than no match — only include clear, obvious connections.
+- The bill/action must substantively advance or contradict the specific promise.
+
+For each match, determine if the bill/action ALIGNS with the promise (supports its goal) or CONTRADICTS the promise (works against its goal). Return ONLY a JSON array of matches.`;
 
 function buildMatchUserPrompt(
   politicianName: string,
@@ -429,10 +440,10 @@ ${promiseList}
 Here are the bills/executive actions they voted on or signed:
 ${itemList}
 
-For each promise, find the most relevant bills/actions (maximum 5 per promise). Return JSON:
+For each promise, find bills/actions that DIRECTLY address the promise's specific policy goal (maximum 5 per promise). Return JSON:
 [{ "promiseId": "string", "itemId": "string", "alignment": "aligns" | "contradicts", "confidence": "high" | "medium", "reason": "string" }]
 
-Only include matches where the connection is clear. If no bills match a promise, skip it. Prefer high-confidence matches.`;
+STRICT: Only include matches where the bill/action substantively advances or contradicts the specific promise. Skip confirmation votes, procedural votes, and tangential connections. If no bills clearly match a promise, skip it entirely — no match is better than a weak match.`;
 }
 
 export async function matchPromisesToBills(

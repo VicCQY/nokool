@@ -75,15 +75,19 @@ export async function POST(request: NextRequest) {
 
       // If AI provided a non-NOT_STARTED status, apply it through the rules engine
       if (status !== "NOT_STARTED") {
-        const eventDate = p.statusDate
-          ? new Date(p.statusDate)
-          : new Date();
+        // Use AI's statusDate, fall back to dateMade (never today's date)
+        let eventDate: Date;
+        if (p.statusDate && !isNaN(new Date(p.statusDate).getTime())) {
+          eventDate = new Date(p.statusDate);
+        } else {
+          eventDate = new Date(p.dateMade || Date.now());
+        }
 
         await applyStatusChange({
           promiseId: promise.id,
           newStatus: status as PromiseStatus,
           eventDate,
-          title: p.statusReason || `Initial status set to ${status} via AI research`,
+          title: p.statusReason || `Status changed to ${status}`,
           description: p.statusReason || undefined,
           sourceUrl: p.statusSource || undefined,
           createdBy: confidence === "high" ? "ai_auto" : "ai_flagged",

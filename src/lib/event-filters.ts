@@ -2,7 +2,10 @@
  * Words that indicate an internal correction/admin event
  * that should never appear on public timelines.
  */
-const INTERNAL_KEYWORDS = ["revert", "regression", "correction", "fix"];
+const INTERNAL_KEYWORDS = [
+  "revert", "regression", "correction", "fix",
+  "via AI research", "Initial status set", "AI research",
+];
 
 const INTERNAL_PATTERN = new RegExp(INTERNAL_KEYWORDS.join("|"), "i");
 
