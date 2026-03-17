@@ -183,6 +183,29 @@ IMPORTANT:
 - Be thorough — find at least 15 promises, cover ALL major policy areas they campaigned on
 - Prioritize: cornerstone promises first, then major, then minor
 
+CRITICAL — FIND ORIGINAL PROMISE DATES: Politicians often compile their promises into lists, videos, or platform pages. Do NOT use the compilation date as dateMade. Find when each promise was FIRST made:
+- 'No tax on tips' was first announced at a rally in June 2024, not when a compilation video was posted in October 2024
+- 'Build the wall' was first promised in 2015, not during a 2024 speech
+- 'Create DOGE' was first announced in August 2024 with Elon Musk
+Each promise has a unique origin — find it. If a promise appears in a compilation video or platform page, trace it back to the FIRST time it was said publicly.
+
+YOUR RESEARCH MUST BE CURRENT. If a politician has taken action on a promise, the timeline MUST reflect that. For example, as of early 2026:
+- Trump HAS started mass deportations (ICE operations ongoing)
+- Trump HAS created DOGE (Department of Government Efficiency, led by Elon Musk)
+- Trump HAS imposed tariffs (multiple rounds on China, universal baseline tariff)
+- Trump HAS signed executive orders on drilling, EV mandates, border security
+- Trump HAS signed pardons for January 6 defendants
+Do NOT return NOT_STARTED for promises where the politician has clearly taken action. Search for the most recent information on each promise and build the timeline accordingly. An empty timeline on a promise where action has been taken is a FAILURE of your research.
+
+UNDERSTAND WHAT LEGISLATORS CAN DO: Senators and Representatives cannot unilaterally fulfill promises — they work through legislation. For legislators, IN_PROGRESS and PARTIAL actions include:
+- Introduced or co-sponsored a bill related to the promise
+- Voted YES on a related bill
+- Held or participated in committee hearings on the topic
+- Secured committee passage of a related bill
+- Got a related bill to floor vote
+- Attached related amendments to other bills
+For example, if a Senator promised to 'Repeal Obamacare' and led a government shutdown over it, introduced repeal bills, and voted for repeal multiple times — that is NOT 'Not Started'. That is IN_PROGRESS or PARTIAL depending on outcomes. 'Secure the border with a wall' — if they co-sponsored border wall funding bills and voted for border security packages, that is IN_PROGRESS. 'Abolish IRS and implement flat tax' — if they introduced a flat tax bill, that's IN_PROGRESS even if it didn't pass. Search for EACH promise: has this legislator introduced, co-sponsored, or voted on ANY related legislation? If yes, it's at minimum IN_PROGRESS. NOT_STARTED means they have done literally NOTHING — no bills, no votes, no hearings, no public effort of any kind.
+
 Return ONLY a JSON array. No markdown, no explanation.`;
 
   const userPrompt = `Research ALL major campaign promises made by ${politicianName} (${party}), who serves as ${position}. Trace each promise's complete history from when it was made through today (${today}). Include every major development, executive action, legislative action, and status change with real dates and sources.
@@ -257,6 +280,11 @@ function validateResearchQuality(results: ResearchedPromise[]): void {
   }
 }
 
+// Strip Perplexity citation markers like [1], [2], [3] from text
+function stripCitations(text: string): string {
+  return text.replace(/\[\d+\]/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
 function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
   const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
 
@@ -294,8 +322,8 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
     timeline.push({
       date: evtDate,
       type: type as TimelineEvent["type"],
-      title: String(evtObj.title || ""),
-      description: String(evtObj.description || ""),
+      title: stripCitations(String(evtObj.title || "")),
+      description: stripCitations(String(evtObj.description || "")),
       sourceUrl: evtSourceUrl,
       newStatus,
     });
@@ -311,8 +339,8 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
     : (VALID_STATUSES.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED");
 
   return {
-    title: String(item.title || ""),
-    description: String(item.description || ""),
+    title: stripCitations(String(item.title || "")),
+    description: stripCitations(String(item.description || "")),
     category: String(item.category || "Other"),
     status,
     dateMade,
