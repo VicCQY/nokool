@@ -1,6 +1,6 @@
 import { callPerplexity, parseJsonFromResponse } from "./perplexity-api";
 import { prisma } from "./prisma";
-import { sanitizeSourceUrl } from "./source-validator";
+import { sanitizeSourceUrl, validateSource } from "./source-validator";
 
 // ── Model Configuration ──
 // sonar = cheaper, good for research/discovery tasks with web search
@@ -16,6 +16,10 @@ export interface ResearchedPromise {
   description: string;
   category: string;
   status: string;
+  statusConfidence: string;
+  statusReason: string;
+  statusDate: string;
+  statusSource: string;
   dateMade: string;
   sourceUrl: string;
   severity: number;
@@ -28,44 +32,48 @@ export async function researchPromises(
   party: string,
   position: string,
 ): Promise<ResearchedPromise[]> {
-  const systemPrompt = `You are a political researcher. Find specific, verifiable campaign promises made by the given politician. For each promise, provide:
-1. The exact promise (what they said they would do)
-2. A brief description (2-3 sentences explaining the promise)
-3. The category (one of: Economy, Healthcare, Environment, Immigration, Education, Infrastructure, Foreign Policy, Justice, Housing, Technology, Other)
-4. When it was made (approximate date, YYYY-MM-DD format)
-5. Source URL (link to where they said it — campaign website, speech transcript, news article, official statement)
-6. A suggested severity rating (1-5, where 5=cornerstone campaign promise, 1=minor/specific)
-7. A suggested expectedMonths (how many months this should reasonably take to fulfill)
+  const systemPrompt = `You are a political researcher. For each campaign promise you find, provide:
+1. title: Short clear promise name
+2. description: 2-3 sentences explaining the promise
+3. category: Economy, Healthcare, Environment, Immigration, Education, Infrastructure, Foreign Policy, Justice, Housing, Technology, Other
+4. dateMade: When the promise was made (YYYY-MM-DD)
+5. sourceUrl: Link to where they said it. NEVER use wikipedia.org. Use: official campaign sites, .gov, C-SPAN, AP, Reuters, NYT, WaPo, Politico, The Hill, CNN, Fox News, NPR.
+6. severity: 1-5 (5=cornerstone, 4=major, 3=standard, 2=minor, 1=trivial)
+7. expectedMonths: How many months to reasonably fulfill
+8. billRelated: true/false — is this directly tied to specific legislation or executive action?
+9. status: Current status (FULFILLED/PARTIAL/IN_PROGRESS/NOT_STARTED/BROKEN/REVERSED)
+10. statusConfidence: high/medium/low — how confident are you in this status?
+11. statusReason: 1-2 sentences explaining WHY this is the current status
+12. statusDate: YYYY-MM-DD — when did this status become true? (e.g., when was the EO signed, when did the bill pass, when was the promise broken). This is NOT today's date — it's when the actual event happened.
+13. statusSource: URL proving the current status (different from the promise source). NEVER use wikipedia.org.
 
 NEVER use Wikipedia (wikipedia.org) as a source URL. If your only source is Wikipedia, find the original source that Wikipedia cites instead. Preferred sources: official campaign websites, government records (.gov), C-SPAN, AP, Reuters, NYT, Washington Post, Politico, The Hill, CNN, Fox News, NPR, local newspapers, official press releases.
 
-Assign severity 5 to cornerstone promises that defined their campaign, 4 to major policy items, 3 to standard promises, 2 to minor ones, 1 to trivial/specific ones. Be generous with severity 4-5 — most campaign promises worth tracking are at least a 3.
+Assign severity 5 to cornerstone promises that defined their campaign, 4 to major policy items, 3 to standard promises, 2 to minor ones, 1 to trivial/specific ones.
 
-For each promise, also determine its current status based on your knowledge:
-- FULFILLED: The promise has been fully delivered with clear evidence
+For status:
+- FULFILLED: Fully delivered with clear evidence
 - PARTIAL: Some progress but not fully delivered
-- IN_PROGRESS: Active work is being done but not complete
+- IN_PROGRESS: Active work being done but not complete
 - NOT_STARTED: No meaningful action taken
-- BROKEN: The politician has clearly gone against the promise or abandoned it
-- REVERSED: The promise was initially fulfilled or partially fulfilled, but the action was later undone, rolled back, paused, or reversed. Use this when there was real progress that was then walked back.
+- BROKEN: Clearly gone against the promise
+- REVERSED: Was fulfilled/partial then undone or rolled back
 
-Be accurate and fair. If unsure, default to NOT_STARTED.
+If unsure about status, default to NOT_STARTED with statusConfidence: "low".
 
-For each promise, also determine if this promise is directly related to specific legislation that would be voted on in Congress, OR for executive branch politicians, related to a specific executive action (executive order, memorandum, proclamation, bill signing). Set billRelated: true if it is, false if it's a general/aspirational/economic promise that wouldn't have a specific bill vote or executive action.
-
-Return ONLY a JSON array of promises. No markdown, no explanation. Each object should have: title, description, category, status, dateMade, sourceUrl, severity, expectedMonths, billRelated`;
+Return ONLY a JSON array. No markdown, no explanation. Each object should have: title, description, category, status, statusConfidence, statusReason, statusDate, statusSource, dateMade, sourceUrl, severity, expectedMonths, billRelated`;
 
   const userPrompt = `Find ALL major campaign promises made by ${politicianName} (${party}), who serves as ${position}.
 
 PRIORITY ORDER:
-1. Cornerstone promises (the 3-5 things they are MOST known for promising — the reasons people voted for them)
-2. Major policy promises (significant commitments on economy, healthcare, immigration, etc.)
+1. Cornerstone promises (the 3-5 things they are MOST known for promising)
+2. Major policy promises (economy, healthcare, immigration, etc.)
 3. Specific legislative promises (bills they promised to pass or oppose)
-4. Smaller commitments (district-specific, procedural, or minor promises)
+4. Smaller commitments (district-specific, procedural, or minor)
 
-Find at least 15 specific, verifiable promises with real source URLs. Cover ALL major policy areas they campaigned on — do not miss any signature promises. For each promise, note if it was a DAY ONE promise or had a specific timeline attached.
+Find at least 15 specific, verifiable promises with real source URLs. Cover ALL major policy areas. For each promise, include the status with an actual event date (not today's date) and a source URL proving the status.
 
-Do not use Wikipedia as a source. Prefer: official campaign websites, speech transcripts, debate transcripts, policy platforms, reputable news coverage of campaign events.`;
+NEVER use Wikipedia as a source.`;
 
   const text = await callPerplexity(systemPrompt, userPrompt, MODEL_RESEARCH);
   const parsed = parseJsonFromResponse(text);
@@ -74,22 +82,65 @@ Do not use Wikipedia as a source. Prefer: official campaign websites, speech tra
     throw new Error("Expected JSON array from research response");
   }
 
+  return parsed.map((item: Record<string, unknown>) => processResearchItem(item));
+}
+
+function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
   const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
-  return parsed.map((item: Record<string, unknown>) => {
-    const rawUrl = String(item.sourceUrl || "");
-    const sourceUrl = sanitizeSourceUrl(rawUrl, String(item.title || ""));
-    return {
-      title: String(item.title || ""),
-      description: String(item.description || ""),
-      category: String(item.category || "Other"),
-      status: VALID_STATUSES.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED",
-      dateMade: String(item.dateMade || new Date().toISOString().split("T")[0]),
-      sourceUrl,
-      severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),
-      expectedMonths: Math.max(1, Number(item.expectedMonths) || 12),
-      billRelated: item.billRelated === true || item.billRelated === "true",
-    };
-  });
+  const VALID_CONFIDENCE = ["high", "medium", "low"];
+
+  // Source validation
+  const rawSourceUrl = String(item.sourceUrl || "");
+  const sourceUrl = sanitizeSourceUrl(rawSourceUrl, String(item.title || ""));
+
+  const rawStatusSource = String(item.statusSource || "");
+  const statusSource = sanitizeSourceUrl(rawStatusSource, `${item.title} (status)`);
+
+  // Confidence scoring
+  let confidence = String(item.statusConfidence || "low").toLowerCase();
+  if (!VALID_CONFIDENCE.includes(confidence)) confidence = "low";
+
+  // Downgrade confidence if no source or untrusted source
+  const statusSourceValidation = validateSource(statusSource);
+  if (!statusSource || !statusSourceValidation.valid) {
+    confidence = "low";
+  } else if (statusSourceValidation.trusted === false && confidence === "high") {
+    confidence = "medium";
+  }
+
+  // Date validation
+  const now = new Date();
+  let statusDate = String(item.statusDate || "");
+  const statusDateObj = new Date(statusDate);
+  if (!statusDate || isNaN(statusDateObj.getTime()) || statusDateObj > now) {
+    // Invalid or future date — downgrade confidence
+    statusDate = "";
+    if (confidence !== "low") confidence = "low";
+  }
+
+  const dateMade = String(item.dateMade || new Date().toISOString().split("T")[0]);
+  // If statusDate is before dateMade, flag
+  if (statusDate && dateMade && new Date(statusDate) < new Date(dateMade)) {
+    confidence = "low";
+  }
+
+  const status = VALID_STATUSES.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED";
+
+  return {
+    title: String(item.title || ""),
+    description: String(item.description || ""),
+    category: String(item.category || "Other"),
+    status,
+    statusConfidence: confidence,
+    statusReason: String(item.statusReason || ""),
+    statusDate,
+    statusSource,
+    dateMade,
+    sourceUrl,
+    severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),
+    expectedMonths: Math.max(1, Number(item.expectedMonths) || 12),
+    billRelated: item.billRelated === true || item.billRelated === "true",
+  };
 }
 
 // ── News Research ──
@@ -132,7 +183,11 @@ export interface StatusSuggestion {
   title: string;
   currentStatus: string;
   suggestedStatus: string;
+  confidence: string;
+  eventDate: string;
   reason: string;
+  sourceUrl: string;
+  changed: boolean;
 }
 
 export async function checkPromiseStatuses(
@@ -142,28 +197,45 @@ export async function checkPromiseStatuses(
 ): Promise<StatusSuggestion[]> {
   if (promises.length === 0) return [];
 
-  const systemPrompt = `You are a political fact-checker. For each promise, determine its current status. Be fair and recognize partial efforts:
-- FULFILLED: Fully delivered, clear evidence it's done
-- PARTIAL: Meaningful progress made but not fully delivered. Use this if they've taken concrete steps but the promise isn't complete yet.
-- IN_PROGRESS: They have started working on it — executive orders signed, bills introduced, public statements of intent with follow-through. Even early-stage action counts as IN_PROGRESS.
-- NOT_STARTED: Genuinely NO action taken at all. No executive orders, no bills introduced, no public effort. Only use this if they have truly done nothing.
-- BROKEN: Actively contradicted the promise or explicitly abandoned it.
-- REVERSED: The promise was initially fulfilled or partially fulfilled, but the action was later undone, rolled back, paused, or reversed. Use this when there was real progress that was then walked back.
+  const systemPrompt = `You are a political fact-checker. For each promise, determine if the status has changed based on the latest available information.
 
-Err on the side of IN_PROGRESS over NOT_STARTED. If there is ANY evidence of effort, even small steps, it should be at least IN_PROGRESS.
+For each promise, return:
+1. title: The promise title (must match exactly)
+2. currentStatus: What the status currently is in our database (provided to you)
+3. suggestedStatus: What you think the status should be now
+4. confidence: high/medium/low
+5. eventDate: YYYY-MM-DD — when did the change happen? NOT today's date. The actual date of the event that caused the status change.
+6. reason: 1-2 sentences explaining what happened
+7. sourceUrl: URL proving the change. NEVER use wikipedia.org.
+8. changed: true/false — did the status actually change from currentStatus?
 
-NEVER use Wikipedia (wikipedia.org) as a source URL. If your only source is Wikipedia, find the original source that Wikipedia cites instead. Preferred sources: official campaign websites, government records (.gov), C-SPAN, AP, Reuters, NYT, Washington Post, Politico, The Hill, CNN, Fox News, NPR, local newspapers, official press releases.`;
+IMPORTANT RULES:
+- If nothing has changed, set changed: false and keep suggestedStatus = currentStatus
+- eventDate must be the date of the ACTUAL EVENT, not today
+- NEVER use wikipedia.org as a source
+- Be fair: if there is ANY evidence of effort, even small steps, use IN_PROGRESS not NOT_STARTED
+- REVERSED means it was done then undone — not that progress stalled
 
-  // Truncate descriptions to 100 chars to save tokens
+Status definitions:
+- FULFILLED: Fully delivered, clear evidence
+- PARTIAL: Meaningful progress but not complete
+- IN_PROGRESS: Active work being done, even early-stage
+- NOT_STARTED: Genuinely NO action taken at all
+- BROKEN: Actively contradicted or abandoned
+- REVERSED: Was fulfilled/partial then undone or rolled back
+
+Return ONLY a JSON array.`;
+
+  // Include current status so AI knows what we have
   const promiseList = promises
-    .map((p, i) => `${i + 1}. "${p.title}": ${p.description.slice(0, 100)}`)
+    .map((p, i) => `${i + 1}. [${p.status}] "${p.title}": ${p.description.slice(0, 100)}`)
     .join("\n");
 
-  const userPrompt = `Here are campaign promises made by ${politicianName} (${party}). For each one, determine the current status and provide a brief reason (1-2 sentences) explaining why.
+  const userPrompt = `Here are campaign promises made by ${politicianName} (${party}) with their CURRENT status in brackets. For each one, determine if the status should change based on the latest information.
 
 ${promiseList}
 
-Return ONLY a JSON array: [{ "title": "string", "status": "FULFILLED" | "PARTIAL" | "IN_PROGRESS" | "NOT_STARTED" | "BROKEN" | "REVERSED", "reason": "string" }]`;
+Return ONLY a JSON array with objects having: title, currentStatus, suggestedStatus, confidence, eventDate, reason, sourceUrl, changed`;
 
   const text = await callPerplexity(systemPrompt, userPrompt, MODEL_FACTCHECK);
   const parsed = parseJsonFromResponse(text);
@@ -173,18 +245,53 @@ Return ONLY a JSON array: [{ "title": "string", "status": "FULFILLED" | "PARTIAL
   }
 
   const VALID = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
+  const VALID_CONFIDENCE = ["high", "medium", "low"];
+  const now = new Date();
 
-  // Match AI results back to promises by index/title
   return parsed.map((item: Record<string, unknown>, i: number) => {
     const promise = promises[i] || promises.find((p) => p.title === String(item.title));
     if (!promise) return null;
-    const suggestedStatus = VALID.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED";
+
+    const suggestedStatus = VALID.includes(String(item.suggestedStatus || ""))
+      ? String(item.suggestedStatus)
+      : promise.status;
+
+    // Source validation
+    const rawUrl = String(item.sourceUrl || "");
+    const sourceUrl = sanitizeSourceUrl(rawUrl, promise.title);
+
+    // Confidence with validation
+    let confidence = String(item.confidence || "low").toLowerCase();
+    if (!VALID_CONFIDENCE.includes(confidence)) confidence = "low";
+
+    // Downgrade if no source or untrusted
+    const srcValidation = validateSource(sourceUrl);
+    if (!sourceUrl || !srcValidation.valid) {
+      confidence = "low";
+    } else if (srcValidation.trusted === false && confidence === "high") {
+      confidence = "medium";
+    }
+
+    // Date validation
+    let eventDate = String(item.eventDate || "");
+    const eventDateObj = new Date(eventDate);
+    if (!eventDate || isNaN(eventDateObj.getTime()) || eventDateObj > now) {
+      eventDate = new Date().toISOString().split("T")[0]; // fallback to today
+      if (confidence !== "low") confidence = "low";
+    }
+
+    const changed = item.changed === true || item.changed === "true";
+
     return {
       promiseId: promise.id,
       title: promise.title,
       currentStatus: promise.status,
       suggestedStatus,
+      confidence,
+      eventDate,
       reason: String(item.reason || ""),
+      sourceUrl,
+      changed,
     };
   }).filter((x): x is StatusSuggestion => x !== null);
 }

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { PromiseStatus } from "@prisma/client";
+import { applyStatusChange } from "@/lib/promise-updates";
 
 export async function PUT(
   req: NextRequest,
@@ -22,6 +23,7 @@ export async function PUT(
     ? (body.expectedMonths != null ? Math.max(1, Math.round(Number(body.expectedMonths))) : null)
     : undefined;
 
+  // Update non-status fields
   const promise = await prisma.promise.update({
     where: { id: params.promiseId },
     data: {
@@ -30,21 +32,20 @@ export async function PUT(
       category: body.category,
       dateMade: new Date(body.dateMade),
       sourceUrl: body.sourceUrl || null,
-      status: newStatus,
       ...(weight !== undefined && { weight }),
       ...(expectedMonths !== undefined && { expectedMonths }),
+      reviewedAt: new Date(),
     },
   });
 
-  // Auto-track status change
+  // Handle status change through the rules engine (human override)
   if (current && current.status !== newStatus) {
-    await prisma.promiseStatusChange.create({
-      data: {
-        promiseId: params.promiseId,
-        oldStatus: current.status,
-        newStatus: newStatus,
-        note: body.statusNote || null,
-      },
+    await applyStatusChange({
+      promiseId: params.promiseId,
+      newStatus,
+      eventDate: new Date(),
+      title: body.statusNote || `Status manually changed to ${newStatus}`,
+      createdBy: "human",
     });
   }
 

@@ -35,7 +35,11 @@ interface StatusSuggestion {
   title: string;
   currentStatus: string;
   suggestedStatus: string;
+  confidence: string;
+  eventDate: string;
   reason: string;
+  sourceUrl: string;
+  changed: boolean;
   accepted: boolean;
 }
 
@@ -333,7 +337,7 @@ export default function ResearchPage() {
       setStatusSuggestions(
         (data.suggestions || []).map((s: StatusSuggestion) => ({
           ...s,
-          accepted: s.currentStatus !== s.suggestedStatus,
+          accepted: s.changed === true || s.currentStatus !== s.suggestedStatus,
         })),
       );
       setStatusCheckStatus("done");
@@ -362,6 +366,10 @@ export default function ResearchPage() {
             promiseId: s.promiseId,
             status: s.suggestedStatus,
             reason: s.reason,
+            confidence: s.confidence,
+            eventDate: s.eventDate,
+            sourceUrl: s.sourceUrl,
+            humanApproved: true,
           })),
         }),
       });

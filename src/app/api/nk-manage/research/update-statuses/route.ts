@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { PromiseStatus } from "@prisma/client";
+import { applyStatusChange } from "@/lib/promise-updates";
 
 const VALID_STATUSES = new Set(["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"]);
 
@@ -16,40 +16,49 @@ export async function POST(request: NextRequest) {
     }
 
     let updated = 0;
+    let flagged = 0;
+    let skipped = 0;
+
     for (const u of updates) {
       const promiseId = String(u.promiseId);
-      const newStatus = String(u.status);
+      const newStatus = String(u.status || u.suggestedStatus);
       const reason = String(u.reason || "");
+      const confidence = String(u.confidence || "medium");
+      const sourceUrl = String(u.sourceUrl || "");
 
-      if (!VALID_STATUSES.has(newStatus)) continue;
+      if (!VALID_STATUSES.has(newStatus)) {
+        skipped++;
+        continue;
+      }
 
-      const promise = await prisma.promise.findUnique({
-        where: { id: promiseId },
-        select: { status: true },
+      // Use AI's eventDate if provided, otherwise fall back to now
+      const eventDate = u.eventDate ? new Date(u.eventDate) : new Date();
+
+      // If this came from the admin UI (human accepted the AI suggestion),
+      // treat it as a human override
+      const isHumanAccepted = u.humanApproved === true;
+
+      const result = await applyStatusChange({
+        promiseId,
+        newStatus: newStatus as PromiseStatus,
+        eventDate,
+        title: reason || `Status updated to ${newStatus}`,
+        description: reason || undefined,
+        sourceUrl: sourceUrl || undefined,
+        createdBy: isHumanAccepted ? "human" : "ai_auto",
+        confidence: isHumanAccepted ? null : (confidence as "high" | "medium" | "low"),
       });
-      if (!promise) continue;
 
-      const oldStatus = promise.status;
-      if (oldStatus === newStatus) continue;
-
-      await prisma.promise.update({
-        where: { id: promiseId },
-        data: { status: newStatus as PromiseStatus },
-      });
-
-      await prisma.promiseStatusChange.create({
-        data: {
-          promiseId,
-          oldStatus: oldStatus as PromiseStatus,
-          newStatus: newStatus as PromiseStatus,
-          note: reason || "Status updated via AI research",
-        },
-      });
-
-      updated++;
+      if (result.applied) {
+        updated++;
+      } else if (result.flagged) {
+        flagged++;
+      } else {
+        skipped++;
+      }
     }
 
-    return NextResponse.json({ success: true, updated });
+    return NextResponse.json({ success: true, updated, flagged, skipped });
   } catch (err) {
     console.error("Update statuses error:", err);
     return NextResponse.json(
