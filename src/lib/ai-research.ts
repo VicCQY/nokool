@@ -99,12 +99,8 @@ function stripCitations(text: string): string {
   return text.replace(/\[\d+\]/g, "").replace(/\s{2,}/g, " ").trim();
 }
 
-// Vague action words that indicate lazy AI output when no bill/EO number is nearby
-const VAGUE_WORDS = /\b(initiated|launched|established|advocated|prioritized)\b/i;
-const HAS_SPECIFIC_REF = /\b(H\.?R\.?\s*\d|S\.?\s*\d|EO\s*\d|Executive Order\s*\d|P\.?L\.?\s*\d|Public Law\s*\d)/i;
-
 function validateResearchQuality(results: ResearchedPromise[]): void {
-  // Check for lazy same-day dateMade
+  // Warn about lazy same-day dateMade (log only)
   const dateCounts: Record<string, number> = {};
   for (const p of results) {
     dateCounts[p.dateMade] = (dateCounts[p.dateMade] || 0) + 1;
@@ -115,7 +111,7 @@ function validateResearchQuality(results: ResearchedPromise[]): void {
     }
   }
 
-  // Check for lazy same sourceUrl
+  // Warn about lazy same sourceUrl (log only)
   const srcCounts: Record<string, number> = {};
   for (const p of results) {
     if (p.sourceUrl) {
@@ -125,29 +121,6 @@ function validateResearchQuality(results: ResearchedPromise[]): void {
   for (const [url, count] of Object.entries(srcCounts)) {
     if (count > 2) {
       console.warn(`[Research Quality] Lazy sources detected: ${count} promises share sourceUrl=${url}`);
-    }
-  }
-
-  // Scrub vague timeline events that lack specific bill/EO references
-  for (const p of results) {
-    const before = p.timeline.length;
-    p.timeline = p.timeline.filter((evt) => {
-      const text = `${evt.title} ${evt.description}`;
-      if (VAGUE_WORDS.test(text) && !HAS_SPECIFIC_REF.test(text)) {
-        console.warn(`[Research Quality] Removed vague event from "${p.title}": "${evt.title}"`);
-        return false;
-      }
-      return true;
-    });
-
-    // If we removed events, re-derive status from remaining timeline
-    if (p.timeline.length < before) {
-      const lastStatus = [...p.timeline].reverse().find((e) => e.type === "status_change" && e.newStatus);
-      if (lastStatus?.newStatus) {
-        p.status = lastStatus.newStatus;
-      } else if (p.timeline.length === 0) {
-        p.status = "NOT_STARTED";
-      }
     }
   }
 }
