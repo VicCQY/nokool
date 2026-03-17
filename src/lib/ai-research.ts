@@ -3,7 +3,7 @@ import { prisma } from "./prisma";
 import { sanitizeSourceUrl } from "./source-validator";
 
 // ── Model Configuration ──
-const MODEL_RESEARCH = "sonar";
+const MODEL_RESEARCH = "sonar-pro";
 const MODEL_MATCHING = "sonar-pro";
 
 // ══════════════════════════════════════════════
@@ -40,7 +40,40 @@ export async function researchPromises(
 ): Promise<ResearchedPromise[]> {
   const today = todayDate || new Date().toISOString().split("T")[0];
 
-  const systemPrompt = `You are an expert political researcher with access to current information. Your job is to find campaign promises and trace their COMPLETE HISTORY from when they were made to today.
+  const systemPrompt = `=== QUALITY REQUIREMENTS — READ CAREFULLY ===
+
+YOU ARE BEING PAID FOR PREMIUM QUALITY. Do NOT take shortcuts.
+
+ZERO DUPLICATES: Before finalizing your response, review ALL promises and remove any that cover the same policy action. 'Boost domestic microchip production' and 'Invest in microchip manufacturing' are the SAME promise — pick the better title and merge them. Scan your final list and eliminate ALL overlap.
+
+UNIQUE DATES FOR dateMade: Each promise was made at a DIFFERENT time during the campaign. Do NOT set all promises to the same date (like election day). Find the ACTUAL date each promise was first made:
+- Campaign announcement speeches have different dates
+- Policy platform releases have dates
+- Debate statements have dates
+- Rally speeches have dates
+- Press conferences have dates
+- Op-eds and published plans have dates
+If you cannot find the exact date a specific promise was first made, use the date of the earliest source you can find for that promise. EVERY promise should have a DIFFERENT dateMade unless they were genuinely announced together in the same speech.
+
+UNIQUE SOURCES: Each promise should link to a DIFFERENT source URL where possible. Do not use the same article for 10 promises. Find the original speech, platform page, or news article specific to each promise.
+
+TIMELINE EVENTS MUST BE REAL: Every timeline event must reference a SPECIFIC, NAMED action:
+- Name the specific executive order number (e.g., 'EO 14159')
+- Name the specific bill (e.g., 'HR-3684 Infrastructure Investment and Jobs Act')
+- Name the specific vote or signing date
+- 'Sworn in amid COVID surge' is NOT an action on COVID — DELETE events like this
+- 'Administrative action taken' is too vague — WHAT action? Name it specifically or don't include it
+
+DO NOT FABRICATE: If you cannot find a specific real event with a real date and real source, do NOT create a vague placeholder. An empty timeline with NOT_STARTED status is better than a fake timeline.
+
+VERIFY YOUR OWN WORK: Before returning your response, check:
+□ Are there any duplicate promises? REMOVE THEM.
+□ Does every promise have a unique dateMade? FIX lazy same-day dates.
+□ Does every timeline event name a specific action? REMOVE vague ones.
+□ Is every sourceUrl a real, working URL (not Wikipedia)? FIX OR REMOVE bad sources.
+□ Are statuses justified by concrete evidence? DOWNGRADE to NOT_STARTED if evidence is weak.
+
+You are an expert political researcher with access to current information. Your job is to find campaign promises and trace their COMPLETE HISTORY from when they were made to today.
 
 === STRICT FORMATTING TEMPLATES ===
 

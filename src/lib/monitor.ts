@@ -4,7 +4,7 @@ import { sanitizeSourceUrl, validateSource } from "./source-validator";
 import { applyStatusChange, recordPromiseEvent } from "./promise-updates";
 import { PromiseStatus } from "@prisma/client";
 
-const MODEL_MONITOR = "sonar";
+const MODEL_MONITOR = "sonar-pro";
 
 interface MonitorResult {
   checked: number;
