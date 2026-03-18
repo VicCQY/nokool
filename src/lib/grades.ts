@@ -1,67 +1,31 @@
-import { calculateWeightedGrade, type PromiseForGrade } from "./weighted-grade";
+import { calculateGradeFromScores } from "./promise-score";
 
 interface PromiseRecord {
-  status: string;
+  score?: number;
+  status?: string;
   category?: string;
   weight?: number;
-  dateMade?: Date;
+  dateMade?: Date | string;
   expectedMonths?: number | null;
-}
-
-interface PoliticianTermInfo {
-  termStart: Date;
-  termEnd: Date | null;
-  branch: string;
-  chamber: string | null;
 }
 
 export function calculateFulfillment(
   promises: PromiseRecord[],
-  termInfo?: PoliticianTermInfo,
+  _termInfo?: unknown,
   issueWeights?: Record<string, number>,
 ) {
-  if (promises.length === 0) return { percentage: 0, grade: "N/A", termProgress: 0 };
+  if (promises.length === 0) return { percentage: 0, grade: "N/A" };
 
-  // If we have term info, use the weighted grade system
-  if (termInfo) {
-    const gradePromises: PromiseForGrade[] = promises.map((p) => ({
-      status: p.status,
-      category: p.category || "Other",
-      weight: p.weight || 3,
-      dateMade: p.dateMade || termInfo.termStart,
-      expectedMonths: p.expectedMonths,
-    }));
+  const gradePromises = promises.map((p) => ({
+    score: p.score ?? 0,
+    weight: p.weight || 3,
+    category: p.category || "Other",
+  }));
 
-    const result = calculateWeightedGrade(
-      gradePromises,
-      termInfo.termStart,
-      termInfo.termEnd,
-      termInfo.branch,
-      termInfo.chamber,
-      issueWeights,
-    );
+  const result = calculateGradeFromScores(gradePromises, issueWeights);
 
-    return {
-      percentage: Math.round(result.percent),
-      grade: result.letter,
-      termProgress: result.termProgress,
-    };
-  }
-
-  // Fallback: old flat formula (for cases where term info isn't available)
-  const fulfilled = promises.filter((p) => p.status === "FULFILLED").length;
-  const partial = promises.filter((p) => p.status === "PARTIAL").length;
-  const advancing = promises.filter((p) => p.status === "ADVANCING").length;
-
-  const score = ((fulfilled + partial * 0.5 + advancing * 0.35) / promises.length) * 100;
-  const percentage = Math.round(score);
-
-  let grade: string;
-  if (percentage >= 80) grade = "A";
-  else if (percentage >= 65) grade = "B";
-  else if (percentage >= 50) grade = "C";
-  else if (percentage >= 35) grade = "D";
-  else grade = "F";
-
-  return { percentage, grade, termProgress: 0 };
+  return {
+    percentage: result.percent,
+    grade: result.letter,
+  };
 }

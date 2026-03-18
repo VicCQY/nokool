@@ -19,7 +19,7 @@ export async function GET(
       termStart: true,
       termEnd: true,
       promises: {
-        select: { status: true, category: true, weight: true, dateMade: true },
+        select: { status: true, category: true, weight: true, dateMade: true, score: true },
       },
     },
   });
@@ -29,15 +29,9 @@ export async function GET(
   }
 
   const weights = await getIssueWeights();
-  const termInfo = {
-    termStart: politician.termStart,
-    termEnd: politician.termEnd,
-    branch: politician.branch,
-    chamber: politician.chamber,
-  };
   const { percentage, grade } = calculateFulfillment(
     politician.promises,
-    termInfo,
+    undefined,
     weights,
   );
   const koolAid = calculateKoolAidLevel(percentage);

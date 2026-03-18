@@ -8,8 +8,7 @@ import {
 import type { PromiseStatus } from "@prisma/client";
 
 interface Props {
-  promises: { category: string; status: PromiseStatus; weight?: number; dateMade?: string; expectedMonths?: number | null }[];
-  termInfo?: { termStart: string; termEnd: string | null; branch: string; chamber: string | null };
+  promises: { category: string; status: PromiseStatus; score?: number; weight?: number }[];
   issueWeights?: Record<string, number>;
 }
 
@@ -26,14 +25,8 @@ const SEGMENTS: {
   { key: "broken", label: "Broken", color: "#ef4444" },
 ];
 
-export function CategoryBarChart({ promises, termInfo, issueWeights }: Props) {
-  const parsedTermInfo = termInfo ? {
-    termStart: new Date(termInfo.termStart),
-    termEnd: termInfo.termEnd ? new Date(termInfo.termEnd) : null,
-    branch: termInfo.branch,
-    chamber: termInfo.chamber,
-  } : undefined;
-  const breakdown = calculateCategoryBreakdown(promises, parsedTermInfo, issueWeights).sort(
+export function CategoryBarChart({ promises, issueWeights }: Props) {
+  const breakdown = calculateCategoryBreakdown(promises, undefined, issueWeights).sort(
     (a, b) => b.fulfillmentPercent - a.fulfillmentPercent,
   );
   const [tooltip, setTooltip] = useState<{

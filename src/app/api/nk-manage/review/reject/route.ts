@@ -22,9 +22,9 @@ export async function POST(request: NextRequest) {
       data: { reviewed: true, approved: false },
     });
 
-    // Recalculate status — rejecting an event may change it
-    const { recalculatePromiseStatus } = await import("@/lib/calculate-promise-status");
-    await recalculatePromiseStatus(event.promiseId);
+    // Recalculate score — rejecting an event may change it
+    const { recalculatePromiseScore } = await import("@/lib/promise-score");
+    await recalculatePromiseScore(event.promiseId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

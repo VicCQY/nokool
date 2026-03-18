@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { recalculatePromiseStatus } from "@/lib/calculate-promise-status";
+import { recalculatePromiseScore } from "@/lib/promise-score";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
       data: { reviewed: true, approved: true },
     });
 
-    // Recalculate status — the newly approved event may change it
-    await recalculatePromiseStatus(event.promiseId);
+    // Recalculate score — the newly approved event may change it
+    await recalculatePromiseScore(event.promiseId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

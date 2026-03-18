@@ -198,6 +198,7 @@ export function PromiseForm({
           onChange={(e) => setForm({ ...form, status: e.target.value })}
         >
           <option value="NOT_STARTED">Not Started</option>
+          <option value="MINIMAL_EFFORT">Minimal Effort</option>
           <option value="IN_PROGRESS">In Progress</option>
           <option value="ADVANCING">Advancing</option>
           <option value="FULFILLED">Fulfilled</option>

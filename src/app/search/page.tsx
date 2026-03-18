@@ -86,7 +86,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
           { party: { contains: q, mode: "insensitive" } },
         ],
       },
-      include: { promises: { select: { status: true } } },
+      include: { promises: { select: { status: true, score: true } } },
     }),
     prisma.promise.findMany({
       where: {

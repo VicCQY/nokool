@@ -1,22 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { SEVERITY_LABELS } from "@/lib/issue-weights";
-import { getTimeAdjustedStatusValue, getPromiseProgress } from "@/lib/time-decay";
+import { SEVERITY_LABELS, ISSUE_WEIGHTS } from "@/lib/issue-weights";
 
 interface Props {
   promises: Array<{
     title: string;
     category: string;
     status: string;
+    score: number;
     weight: number;
-    dateMade: string;
-    expectedMonths: number | null;
   }>;
-  termProgress: number;
-  termEndStr: string;
   issueWeights: Record<string, number>;
-  chamber: string | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,41 +19,28 @@ const STATUS_LABELS: Record<string, string> = {
   PARTIAL: "Partial",
   ADVANCING: "Advancing",
   IN_PROGRESS: "In Progress",
+  MINIMAL_EFFORT: "Minimal",
   NOT_STARTED: "Not Started",
   BROKEN: "Broken",
   REVERSED: "Reversed",
 };
 
-export function GradeBreakdown({
-  promises,
-  termProgress,
-  termEndStr,
-  issueWeights,
-  chamber,
-}: Props) {
-  const termEnd = new Date(termEndStr);
+export function GradeBreakdown({ promises, issueWeights }: Props) {
   const [open, setOpen] = useState(false);
+  const weights = issueWeights || ISSUE_WEIGHTS;
 
-  // Calculate term length label
-  const termYears = chamber === "senate" ? 6 : chamber === "house" ? 2 : 4;
-  const currentYear = Math.min(
-    Math.ceil(termProgress * termYears),
-    termYears,
-  );
-
-  let totalWeightedScore = 0;
-  let totalMaxWeight = 0;
+  let totalWeighted = 0;
+  let totalMax = 0;
 
   const rows = promises.map((p) => {
     const severity = p.weight || 3;
-    const issueWeight = issueWeights[p.category] || 1.0;
-    const promiseProgress = getPromiseProgress(new Date(p.dateMade), termEnd, p.expectedMonths);
-    const statusValue = getTimeAdjustedStatusValue(p.status, promiseProgress);
+    const issueWeight = weights[p.category] || 1.0;
     const combinedWeight = severity * issueWeight;
-    const score = combinedWeight * statusValue;
+    const weighted = p.score * combinedWeight;
+    const max = 100 * combinedWeight;
 
-    totalWeightedScore += score;
-    totalMaxWeight += combinedWeight;
+    totalWeighted += weighted;
+    totalMax += max;
 
     return {
       title: p.title,
@@ -68,13 +50,14 @@ export function GradeBreakdown({
       category: p.category,
       status: p.status,
       statusLabel: STATUS_LABELS[p.status] || p.status,
-      statusValue: Math.round(statusValue * 100) / 100,
-      score: Math.round(score * 100) / 100,
+      score: p.score,
+      weighted: Math.round(weighted),
+      max: Math.round(max),
     };
   });
 
-  const finalPercent = totalMaxWeight > 0
-    ? Math.max(0, Math.min(100, (totalWeightedScore / totalMaxWeight) * 100))
+  const finalPercent = totalMax > 0
+    ? Math.max(0, Math.min(100, Math.round((totalWeighted / totalMax) * 100)))
     : 0;
 
   return (
@@ -98,30 +81,13 @@ export function GradeBreakdown({
       {open && (
         <div className="border-t border-gray-100 px-5 py-4 space-y-4">
           <p className="text-sm text-gray-600">
-            This grade uses a weighted formula based on promise severity, voter
-            issue priorities, and term progress.
+            Each promise earns a <strong>Promise Effort Score</strong> (0-100)
+            based on legislation introduced, votes cast, and executive actions taken.
+            The overall grade weights each score by promise severity and issue priority.
           </p>
 
-          {/* Term progress bar */}
-          <div>
-            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-              <span>
-                Year {currentYear} of {termYears} &mdash;{" "}
-                {Math.round(termProgress * 100)}% through term
-              </span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-blue-500 transition-all duration-500"
-                style={{ width: `${Math.round(termProgress * 100)}%` }}
-              />
-            </div>
-          </div>
-
           <p className="text-xs text-gray-400">
-            Unfinished promises are graded more leniently early in a term. As the
-            term progresses, NOT_STARTED and IN_PROGRESS promises increasingly
-            hurt the grade.
+            Score = (sum of score &times; severity &times; issue weight) / (sum of 100 &times; severity &times; issue weight) &times; 100
           </p>
 
           {/* Breakdown table */}
@@ -133,8 +99,8 @@ export function GradeBreakdown({
                   <th className="py-2 pr-3 font-medium whitespace-nowrap">Severity</th>
                   <th className="py-2 pr-3 font-medium whitespace-nowrap">Issue Wt</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
-                  <th className="py-2 pr-3 font-medium whitespace-nowrap">Adj. Value</th>
-                  <th className="py-2 font-medium text-right">Score</th>
+                  <th className="py-2 pr-3 font-medium text-right">PES</th>
+                  <th className="py-2 font-medium text-right">Weighted</th>
                 </tr>
               </thead>
               <tbody>
@@ -150,10 +116,11 @@ export function GradeBreakdown({
                       {row.issueWeight.toFixed(1)} ({row.category})
                     </td>
                     <td className="py-2 pr-3 text-gray-500">{row.statusLabel}</td>
-                    <td className="py-2 pr-3 text-gray-500">{row.statusValue}</td>
+                    <td className="py-2 pr-3 text-right font-mono text-brand-charcoal">
+                      {row.score}
+                    </td>
                     <td className="py-2 text-right font-mono text-brand-charcoal">
-                      {row.score > 0 ? "+" : ""}
-                      {row.score.toFixed(1)}
+                      {row.weighted}/{row.max}
                     </td>
                   </tr>
                 ))}
@@ -161,10 +128,10 @@ export function GradeBreakdown({
               <tfoot>
                 <tr className="border-t border-gray-200">
                   <td colSpan={5} className="py-2 pr-3 font-mono font-semibold text-brand-charcoal">
-                    Total: {totalWeightedScore.toFixed(1)} / {totalMaxWeight.toFixed(1)}
+                    Total: {Math.round(totalWeighted)} / {Math.round(totalMax)}
                   </td>
                   <td className="py-2 text-right font-mono font-semibold text-brand-charcoal">
-                    {finalPercent.toFixed(1)}%
+                    {finalPercent}%
                   </td>
                 </tr>
               </tfoot>

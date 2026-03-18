@@ -8,8 +8,7 @@ import {
 import type { PromiseStatus } from "@prisma/client";
 
 interface Props {
-  promises: { category: string; status: PromiseStatus; weight?: number; dateMade?: string; expectedMonths?: number | null }[];
-  termInfo?: { termStart: string; termEnd: string | null; branch: string; chamber: string | null };
+  promises: { category: string; status: PromiseStatus; score?: number; weight?: number }[];
   issueWeights?: Record<string, number>;
 }
 
@@ -25,14 +24,8 @@ function polarToXY(
   ];
 }
 
-export function CategoryRadarChart({ promises, termInfo, issueWeights }: Props) {
-  const parsedTermInfo = termInfo ? {
-    termStart: new Date(termInfo.termStart),
-    termEnd: termInfo.termEnd ? new Date(termInfo.termEnd) : null,
-    branch: termInfo.branch,
-    chamber: termInfo.chamber,
-  } : undefined;
-  const breakdown = calculateCategoryBreakdown(promises, parsedTermInfo, issueWeights);
+export function CategoryRadarChart({ promises, issueWeights }: Props) {
+  const breakdown = calculateCategoryBreakdown(promises, undefined, issueWeights);
   const [animProgress, setAnimProgress] = useState(0);
   const [tooltip, setTooltip] = useState<{
     x: number;

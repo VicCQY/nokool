@@ -18,6 +18,7 @@ interface SuggestedMatch {
   itemType: "bill" | "action";
   alignment: "aligns" | "contradicts";
   confidence: "high" | "medium";
+  relevance: number;
   reason: string;
   selected: boolean;
 }
@@ -103,6 +104,7 @@ export default function MatchPage() {
             itemId: m.itemId,
             itemType: m.itemType,
             alignment: m.alignment,
+            relevance: m.relevance,
           })),
         }),
       });
@@ -320,6 +322,9 @@ export default function MatchPage() {
                             </span>
                             <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
                               {m.itemType}
+                            </span>
+                            <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                              rel: {m.relevance?.toFixed(1) ?? "0.5"}
                             </span>
                           </div>
                           <p className="text-sm font-medium text-gray-800 mt-1">{m.itemTitle}</p>

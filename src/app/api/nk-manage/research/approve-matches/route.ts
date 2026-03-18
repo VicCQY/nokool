@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
       const itemId = String(m.itemId);
       const itemType = String(m.itemType);
       const alignment = m.alignment === "contradicts" ? "contradicts" : "aligns";
+      const relevanceScore = typeof m.relevance === "number" ? Math.max(0, Math.min(1, m.relevance)) : 0.5;
 
       try {
         if (itemType === "bill") {
@@ -31,11 +32,13 @@ export async function POST(request: NextRequest) {
               promiseId,
               billId: itemId,
               relevance: "ai",
+              relevanceScore,
               alignment,
             },
             update: {
               alignment,
               relevance: "ai",
+              relevanceScore,
             },
           });
           billLinks++;
@@ -47,10 +50,12 @@ export async function POST(request: NextRequest) {
             create: {
               promiseId,
               actionId: itemId,
+              relevanceScore,
               alignment: alignment === "aligns" ? "supports" : "contradicts",
             },
             update: {
               alignment: alignment === "aligns" ? "supports" : "contradicts",
+              relevanceScore,
             },
           });
           actionLinks++;

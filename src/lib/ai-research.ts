@@ -464,6 +464,7 @@ export interface SuggestedMatch {
   itemType: "bill" | "action";
   alignment: "aligns" | "contradicts";
   confidence: "high" | "medium";
+  relevance: number;
   reason: string;
 }
 
@@ -609,6 +610,10 @@ For each match, provide:
 - itemId: ID of the bill/action
 - alignment: 'aligns' or 'contradicts'
 - confidence: 'high' or 'medium'
+- relevance: a number from 0.0 to 1.0 indicating how relevant the bill is to this specific promise:
+  1.0 = bill is entirely/primarily about this promise
+  0.5 = bill significantly relates to the promise but isn't its primary focus
+  0.2 = tangentially related (only include if there's still a clear substantive connection)
 - reason: ONE sentence explaining the DIRECT connection
 
 IMPORTANT: Many bill titles below are just bill NUMBERS (e.g., 'H.R. 3684, As Amended'). Use your knowledge to identify what these bills are:
@@ -645,7 +650,7 @@ ${itemList}
 For each promise, find bills/actions that DIRECTLY address the promise's specific policy goal (maximum 5 per promise). Many bills are listed by number only (e.g., "H.R. 3684, As Amended") — look up what these bills are and match based on their actual content/purpose.
 
 Return JSON:
-[{ "promiseId": "string", "itemId": "string", "alignment": "aligns" | "contradicts", "confidence": "high" | "medium", "reason": "string" }]
+[{ "promiseId": "string", "itemId": "string", "alignment": "aligns" | "contradicts", "confidence": "high" | "medium", "relevance": number, "reason": "string" }]
 
 STRICT: Only include matches where the bill/action substantively advances or contradicts the specific promise. Skip confirmation votes, procedural votes, and tangential connections. If no bills clearly match a promise, skip it entirely — no match is better than a weak match.`;
 }
@@ -744,6 +749,7 @@ export async function matchPromisesToBills(
         itemType: item.type,
         alignment: m.alignment === "contradicts" ? "contradicts" as const : "aligns" as const,
         confidence: m.confidence === "medium" ? "medium" as const : "high" as const,
+        relevance: typeof m.relevance === "number" ? Math.max(0, Math.min(1, m.relevance)) : 0.5,
         reason: String(m.reason || ""),
       };
     })

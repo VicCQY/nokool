@@ -78,6 +78,7 @@ const STATUS_COLORS: Record<PromiseStatus, { bg: string; text: string; label: st
   ADVANCING: { bg: "bg-teal-50", text: "text-teal-700", label: "Advancing" },
   BROKEN: { bg: "bg-red-50", text: "text-red-700", label: "Broken" },
   IN_PROGRESS: { bg: "bg-blue-50", text: "text-blue-700", label: "In Progress" },
+  MINIMAL_EFFORT: { bg: "bg-gray-50", text: "text-gray-500", label: "Minimal" },
   NOT_STARTED: { bg: "bg-gray-50", text: "text-gray-600", label: "Not Started" },
   REVERSED: { bg: "bg-orange-50", text: "text-orange-700", label: "Reversed" },
 };

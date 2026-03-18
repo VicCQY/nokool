@@ -24,7 +24,7 @@ import { CategoryBreakdownSection } from "@/components/CategoryBreakdownSection"
 import { getIssueWeights } from "@/lib/issue-weights-cache";
 import { SEVERITY_LABELS } from "@/lib/issue-weights";
 import { GradeBreakdown } from "./GradeBreakdown";
-import { getTermEnd, getTermProgress } from "@/lib/time-decay";
+import { getTermProgress } from "@/lib/time-decay";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,7 @@ export async function generateMetadata({
     select: {
       name: true,
       party: true,
-      promises: { select: { status: true, category: true, weight: true, dateMade: true } },
+      promises: { select: { status: true, score: true, category: true, weight: true, dateMade: true } },
       termStart: true,
       termEnd: true,
       branch: true,
@@ -50,13 +50,7 @@ export async function generateMetadata({
 
   const { getIssueWeights: getWeights } = await import("@/lib/issue-weights-cache");
   const weights = await getWeights();
-  const termInfo = {
-    termStart: politician.termStart,
-    termEnd: politician.termEnd,
-    branch: politician.branch,
-    chamber: politician.chamber,
-  };
-  const { percentage, grade } = calculateFulfillment(politician.promises, termInfo, weights);
+  const { percentage, grade } = calculateFulfillment(politician.promises, undefined, weights);
 
   const title = `${politician.name} — Grade: ${grade}`;
   const description = `${politician.name} has ${politician.promises.length} promises tracked, ${percentage}% fulfillment rate. ${grade} grade on the NoKool accountability scale.`;
@@ -212,19 +206,12 @@ export default async function PoliticianPage({
   try { isAdmin = isAuthenticated(); } catch {}
 
   const issueWeights = await getIssueWeights();
-  const termInfo = {
-    termStart: politician.termStart,
-    termEnd: politician.termEnd,
-    branch: politician.branch,
-    chamber: politician.chamber,
-  };
   const { percentage, grade } = calculateFulfillment(
     politician.promises,
-    termInfo,
+    undefined,
     issueWeights,
   );
   const termProgress = getTermProgress(politician.termStart, politician.termEnd, politician.branch, politician.chamber);
-  const resolvedTermEnd = getTermEnd(politician.termStart, politician.termEnd, politician.branch, politician.chamber);
   const countryInfo = COUNTRIES[politician.country as keyof typeof COUNTRIES];
 
   // Promise filtering
@@ -523,16 +510,9 @@ export default async function PoliticianPage({
             promises={politician.promises.map((p) => ({
               category: p.category,
               status: p.status,
+              score: p.score,
               weight: p.weight,
-              dateMade: p.dateMade.toISOString(),
-              expectedMonths: p.expectedMonths,
             }))}
-            termInfo={{
-              termStart: politician.termStart.toISOString(),
-              termEnd: politician.termEnd?.toISOString() ?? null,
-              branch: politician.branch,
-              chamber: politician.chamber,
-            }}
             issueWeights={issueWeights}
           />
         </section>
@@ -546,14 +526,10 @@ export default async function PoliticianPage({
               title: p.title,
               category: p.category,
               status: p.status,
+              score: p.score,
               weight: p.weight,
-              dateMade: p.dateMade.toISOString(),
-              expectedMonths: p.expectedMonths,
             }))}
-            termProgress={termProgress}
-            termEndStr={resolvedTermEnd.toISOString()}
             issueWeights={issueWeights}
-            chamber={politician.chamber}
           />
         </section>
       )}
@@ -710,6 +686,7 @@ export default async function PoliticianPage({
                 title: p.title,
                 category: p.category,
                 status: p.status,
+                score: p.score,
                 weight: p.weight,
                 dateMade: p.dateMade.toISOString(),
                 sourceUrl: p.sourceUrl || "",
@@ -732,6 +709,7 @@ export default async function PoliticianPage({
                   id: link.id,
                   alignment: link.alignment,
                   relevance: link.relevance,
+                  relevanceScore: link.relevanceScore,
                   bill: {
                     id: link.bill.id,
                     title: link.bill.title,
@@ -744,6 +722,7 @@ export default async function PoliticianPage({
                 actionLinks: (p.actionLinks || []).map((link) => ({
                   id: link.id,
                   alignment: link.alignment,
+                  relevanceScore: link.relevanceScore,
                   action: {
                     id: link.action.id,
                     title: link.action.title,

@@ -85,7 +85,7 @@ export default async function HomePage() {
       ...pol,
       ...calculateFulfillment(
         pol.promises,
-        { termStart: pol.termStart, termEnd: pol.termEnd, branch: pol.branch, chamber: pol.chamber },
+        undefined,
         issueWeights,
       ),
       dataCount: pol.promises.length + pol.votes.length,

@@ -17,6 +17,7 @@ interface BillLinkData {
   id: string;
   alignment: string;
   relevance: string;
+  relevanceScore?: number;
   bill: {
     id: string;
     title: string;
@@ -30,6 +31,7 @@ interface BillLinkData {
 interface ActionLinkData {
   id: string;
   alignment: string;
+  relevanceScore?: number;
   action: {
     id: string;
     title: string;
@@ -53,6 +55,7 @@ interface PromiseWithJourney {
   title: string;
   category: string;
   status: PromiseStatus;
+  score?: number;
   weight: number;
   dateMade: string;
   sourceUrl: string;
@@ -71,16 +74,6 @@ const ACTION_TYPE_LABELS: Record<string, string> = {
   POLICY_DIRECTIVE: "Policy Directive",
 };
 
-const STATUS_LABELS: Record<PromiseStatus, string> = {
-  FULFILLED: "Fulfilled",
-  PARTIAL: "Partial",
-  ADVANCING: "Advancing",
-  IN_PROGRESS: "In Progress",
-  NOT_STARTED: "Not Started",
-  BROKEN: "Broken",
-  REVERSED: "Reversed",
-};
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-US", {
     month: "short",
@@ -89,62 +82,65 @@ function formatDate(dateStr: string) {
   });
 }
 
+const PASSAGE_PATTERN = /\bsigned into law\b|\benacted\b|\bbecame law\b|\bpassed into law\b/i;
+
 type TimelineEvent = {
   date: string;
   sortDate: number;
-  statusTransition?: PromiseStatus; // shown when this event upgrades the status
+  points?: number; // PES points for this event
 } & (
   | { type: "promise_made"; sourceUrl: string }
   | { type: "legislation"; title: string; description: string | null; sourceUrl: string | null; isPassage: boolean }
-  | { type: "bill_link"; bill: BillLinkData["bill"]; alignment: string; votePosition?: VotePosition | null }
-  | { type: "action_link"; action: ActionLinkData["action"]; alignment: string }
+  | { type: "bill_link"; bill: BillLinkData["bill"]; alignment: string; relevanceScore: number; votePosition?: VotePosition | null }
+  | { type: "action_link"; action: ActionLinkData["action"]; alignment: string; relevanceScore: number }
 );
 
-// Status rank for determining upgrades (higher = better)
-const STATUS_RANK: Record<string, number> = {
-  NOT_STARTED: 0,
-  IN_PROGRESS: 1,
-  ADVANCING: 2,
-  PARTIAL: 3,
-  FULFILLED: 4,
-};
-
 /**
- * Calculate what status would be after this event, given running counts.
- * Returns the new status if it's an UPGRADE, or null if no change/downgrade.
+ * Calculate PES points for a legislation event.
  */
-function calculateStatusAfterEvent(
-  currentStatus: string,
-  branch: string,
-  counts: { votes: number; sponsorships: number; cosponsorships: number; execActions: number; passed: boolean },
-): PromiseStatus | null {
-  let newStatus: PromiseStatus = "NOT_STARTED";
-
-  if (branch === "executive") {
-    if (counts.passed) newStatus = "FULFILLED";
-    else if (counts.execActions >= 3) newStatus = "PARTIAL";
-    else if (counts.execActions >= 1) newStatus = "ADVANCING";
-    else if (counts.votes >= 1) newStatus = "IN_PROGRESS";
-  } else {
-    if (counts.passed) newStatus = "FULFILLED";
-    else if (counts.sponsorships >= 3) newStatus = "PARTIAL";
-    else if (counts.sponsorships >= 1) newStatus = "ADVANCING";
-    else if (counts.cosponsorships >= 1 || counts.votes >= 1) newStatus = "IN_PROGRESS";
+function getLegislationPoints(title: string, introCount: number, cosponsorCount: number): { points: number; introCount: number; cosponsorCount: number } {
+  if (PASSAGE_PATTERN.test(title)) {
+    return { points: 100, introCount, cosponsorCount };
   }
-
-  // Only show upgrade transitions
-  const oldRank = STATUS_RANK[currentStatus] ?? 0;
-  const newRank = STATUS_RANK[newStatus] ?? 0;
-  if (newRank > oldRank) return newStatus;
-  return null;
+  if (/\bIntroduced\b/i.test(title)) {
+    introCount++;
+    return { points: introCount === 1 ? 25 : 15, introCount, cosponsorCount };
+  }
+  if (/\bCo-sponsored\b/i.test(title)) {
+    cosponsorCount++;
+    return { points: cosponsorCount === 1 ? 10 : 5, introCount, cosponsorCount };
+  }
+  // Default to introduction
+  introCount++;
+  return { points: introCount === 1 ? 25 : 15, introCount, cosponsorCount };
 }
 
-const PASSAGE_PATTERN = /\bsigned into law\b|\benacted\b|\bbecame law\b|\bpassed into law\b/i;
+/**
+ * Calculate PES points for a bill vote.
+ */
+function getVotePoints(alignment: string, position: VotePosition | null | undefined, relevance: number): number {
+  if (!position || position === "ABSENT" || position === "ABSTAIN") return 0;
+  const aligns = alignment === "aligns";
+  let raw = 0;
+  if (position === "YEA") raw = aligns ? 5 : -30;
+  else if (position === "NAY") raw = aligns ? -30 : 5;
+  return Math.round(raw * relevance);
+}
 
-function buildTimeline(promise: PromiseWithJourney, branch: string): TimelineEvent[] {
+/**
+ * Calculate PES points for an executive action link.
+ */
+function getActionPoints(actionType: string, alignment: string, relevance: number): number {
+  if (actionType === "BILL_SIGNED") return 100;
+  const isEO = actionType === "EXECUTIVE_ORDER";
+  const base = isEO ? 30 : 15;
+  const raw = alignment === "supports" ? base : -base;
+  return Math.round(raw * relevance);
+}
+
+function buildTimeline(promise: PromiseWithJourney): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
-  // Promise made
   events.push({
     type: "promise_made",
     date: promise.dateMade,
@@ -152,72 +148,74 @@ function buildTimeline(promise: PromiseWithJourney, branch: string): TimelineEve
     sourceUrl: promise.sourceUrl,
   });
 
-  // Legislation events from PromiseEvents (AI research: introductions, passages)
+  let introCount = 0;
+  let cosponsorCount = 0;
+
+  // Legislation events from PromiseEvents
   for (const evt of promise.events) {
-    if (evt.eventType === "legislation") {
-      events.push({
-        type: "legislation",
-        date: evt.eventDate,
-        sortDate: new Date(evt.eventDate).getTime(),
-        title: evt.title,
-        description: evt.description,
-        sourceUrl: evt.sourceUrl,
-        isPassage: PASSAGE_PATTERN.test(evt.title),
-      });
+    if (evt.eventType === "legislation" || evt.eventType === "executive_action") {
+      if (evt.eventType === "legislation") {
+        const result = getLegislationPoints(evt.title, introCount, cosponsorCount);
+        introCount = result.introCount;
+        cosponsorCount = result.cosponsorCount;
+        events.push({
+          type: "legislation",
+          date: evt.eventDate,
+          sortDate: new Date(evt.eventDate).getTime(),
+          title: evt.title,
+          description: evt.description,
+          sourceUrl: evt.sourceUrl,
+          isPassage: PASSAGE_PATTERN.test(evt.title),
+          points: result.points,
+        });
+      }
     }
   }
 
-  // Bill links (from bill matching system)
+  // Bill links
   for (const link of promise.billLinks) {
+    const rel = link.relevanceScore ?? 0.5;
+    const pts = getVotePoints(link.alignment, link.votePosition, rel);
     events.push({
       type: "bill_link",
       date: link.bill.dateVoted,
       sortDate: new Date(link.bill.dateVoted).getTime(),
       bill: link.bill,
       alignment: link.alignment,
+      relevanceScore: rel,
       votePosition: link.votePosition,
+      points: pts,
     });
   }
 
-  // Action links (executive actions)
+  // Action links
   for (const link of promise.actionLinks) {
+    const rel = link.relevanceScore ?? 0.5;
+    const pts = getActionPoints(link.action.type, link.alignment, rel);
     events.push({
       type: "action_link",
       date: link.action.dateIssued,
       sortDate: new Date(link.action.dateIssued).getTime(),
       action: link.action,
       alignment: link.alignment,
+      relevanceScore: rel,
+      points: pts,
     });
   }
 
   events.sort((a, b) => a.sortDate - b.sortDate);
-
-  // Calculate status transitions chronologically
-  let runningStatus = "NOT_STARTED";
-  const counts = { votes: 0, sponsorships: 0, cosponsorships: 0, execActions: 0, passed: false };
-
-  for (const event of events) {
-    if (event.type === "promise_made") continue;
-
-    if (event.type === "legislation") {
-      if (/\bIntroduced\b/i.test(event.title)) counts.sponsorships++;
-      else if (/\bCo-sponsored\b/i.test(event.title)) counts.cosponsorships++;
-      else counts.sponsorships++; // default to sponsorship if unclear
-      if (event.isPassage) counts.passed = true;
-    } else if (event.type === "bill_link") {
-      counts.votes++;
-    } else if (event.type === "action_link") {
-      counts.execActions++;
-    }
-
-    const transition = calculateStatusAfterEvent(runningStatus, branch, counts);
-    if (transition) {
-      event.statusTransition = transition;
-      runningStatus = transition;
-    }
-  }
-
   return events;
+}
+
+function PointsBadge({ points }: { points?: number }) {
+  if (points === undefined || points === 0) return null;
+  const isPositive = points > 0;
+  const color = isPositive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700";
+  return (
+    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-mono font-semibold ${color}`}>
+      {isPositive ? "+" : ""}{points}
+    </span>
+  );
 }
 
 export function SaysVsDoes({
@@ -229,7 +227,6 @@ export function SaysVsDoes({
 }) {
   const isExecutive = branch === "executive";
 
-  // Summary stats — only count promises with bill/action links
   const { supportsCount, opposesCount } = useMemo(() => {
     let supports = 0;
     let opposes = 0;
@@ -252,7 +249,6 @@ export function SaysVsDoes({
 
   return (
     <div className="space-y-6">
-      {/* Summary stats — only shown when there is linked data */}
       {(supportsCount > 0 || opposesCount > 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-xl border border-gray-200 border-t-2 border-t-status-fulfilled bg-white p-4 shadow-sm">
@@ -270,28 +266,28 @@ export function SaysVsDoes({
         </div>
       )}
 
-      {/* Promise journey cards */}
       <div className="space-y-4">
         {promises.map((promise) => (
-          <PromiseJourneyCard
-            key={promise.id}
-            promise={promise}
-            branch={branch || "legislative"}
-          />
+          <PromiseJourneyCard key={promise.id} promise={promise} />
         ))}
       </div>
     </div>
   );
 }
 
-function PromiseJourneyCard({
-  promise,
-  branch,
-}: {
-  promise: PromiseWithJourney;
-  branch: string;
-}) {
-  const events = useMemo(() => buildTimeline(promise, branch), [promise, branch]);
+function PromiseJourneyCard({ promise }: { promise: PromiseWithJourney }) {
+  const events = useMemo(() => buildTimeline(promise), [promise]);
+
+  // Running score total
+  const runningTotal = useMemo(() => {
+    let total = 0;
+    for (const evt of events) {
+      if (evt.type !== "promise_made" && evt.points) {
+        total += evt.points;
+      }
+    }
+    return Math.min(100, Math.max(-50, total));
+  }, [events]);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -324,7 +320,7 @@ function PromiseJourneyCard({
           <TimelineEventRow key={i} event={event} />
         ))}
 
-        {/* Current status at bottom */}
+        {/* Score summary at bottom */}
         <div className="relative py-2">
           <div className="absolute -left-[27px] top-3 h-3.5 w-3.5 rounded-full border-2 border-brand-charcoal bg-white flex items-center justify-center">
             <div className="h-1.5 w-1.5 rounded-full bg-brand-charcoal" />
@@ -332,6 +328,9 @@ function PromiseJourneyCard({
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-slate">Current:</span>
             <StatusStamp status={promise.status} size="sm" id={promise.id} />
+            <span className="font-mono text-xs text-gray-500">
+              Score: {promise.score ?? runningTotal}/100
+            </span>
           </div>
         </div>
       </div>
@@ -339,11 +338,7 @@ function PromiseJourneyCard({
   );
 }
 
-function TimelineEventRow({
-  event,
-}: {
-  event: TimelineEvent;
-}) {
+function TimelineEventRow({ event }: { event: TimelineEvent }) {
   if (event.type === "promise_made") {
     return (
       <div className="relative py-2">
@@ -352,16 +347,9 @@ function TimelineEventRow({
           <span className="text-xs font-semibold text-gray-700">Promise Made</span>
           <span className="text-xs text-slate">{formatDate(event.date)}</span>
           {event.sourceUrl && (
-            <a
-              href={event.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-0.5 text-[11px] text-brand-red hover:underline"
-            >
-              Source
-              <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
+            <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 text-[11px] text-brand-red hover:underline">
+              Source <ExternalIcon />
             </a>
           )}
         </div>
@@ -379,8 +367,7 @@ function TimelineEventRow({
           <div className="flex flex-wrap items-center gap-1.5">
             {isPassage ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
-                <CheckIcon />
-                Passed
+                <CheckIcon /> Passed
               </span>
             ) : (
               <span className="inline-flex items-center rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
@@ -388,7 +375,7 @@ function TimelineEventRow({
               </span>
             )}
             <span className="text-xs text-slate">{formatDate(event.date)}</span>
-            <StatusTransitionBadge status={event.statusTransition} />
+            <PointsBadge points={event.points} />
           </div>
           <p className={`text-xs mt-1 ${isPassage ? "font-semibold text-green-800" : "text-brand-charcoal"}`}>
             {event.title}
@@ -397,16 +384,9 @@ function TimelineEventRow({
             <p className="text-[11px] text-slate mt-0.5">{event.description}</p>
           )}
           {event.sourceUrl && (
-            <a
-              href={event.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-0.5 text-[11px] text-brand-red hover:underline mt-0.5"
-            >
-              Source
-              <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
+            <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 text-[11px] text-brand-red hover:underline mt-0.5">
+              Source <ExternalIcon />
             </a>
           )}
         </div>
@@ -428,7 +408,7 @@ function TimelineEventRow({
               Bill Vote
             </span>
             <span className="text-xs text-slate">{formatDate(event.date)}</span>
-            <StatusTransitionBadge status={event.statusTransition} />
+            <PointsBadge points={event.points} />
           </div>
           <p className="text-xs text-brand-charcoal mt-1">
             {event.bill.title}
@@ -442,19 +422,22 @@ function TimelineEventRow({
             )}
             {alignment === "supports" && (
               <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
-                <CheckIcon />
-                Supports Promise
+                <CheckIcon /> Supports Promise
               </span>
             )}
             {alignment === "opposes" && (
               <span className="inline-flex items-center gap-1 rounded-full bg-muted-red px-2 py-0.5 text-[11px] font-semibold text-red-700">
-                <XIcon />
-                Opposes Promise
+                <XIcon /> Opposes Promise
               </span>
             )}
             {alignment === "neutral" && votePos && (
               <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-500">
                 No Position
+              </span>
+            )}
+            {event.relevanceScore !== 1.0 && event.relevanceScore !== 0.5 && (
+              <span className="text-[10px] text-gray-400 font-mono">
+                rel: {event.relevanceScore}
               </span>
             )}
           </div>
@@ -476,19 +459,17 @@ function TimelineEventRow({
               {ACTION_TYPE_LABELS[event.action.type] || event.action.type}
             </span>
             <span className="text-xs text-slate">{formatDate(event.date)}</span>
-            <StatusTransitionBadge status={event.statusTransition} />
+            <PointsBadge points={event.points} />
           </div>
           <p className="text-xs text-brand-charcoal mt-1">{event.action.title}</p>
           <div className="mt-1">
             {event.alignment === "supports" ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
-                <CheckIcon />
-                Supports Promise
+                <CheckIcon /> Supports Promise
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-muted-red px-2 py-0.5 text-[11px] font-semibold text-red-700">
-                <XIcon />
-                Contradicts Promise
+                <XIcon /> Contradicts Promise
               </span>
             )}
           </div>
@@ -499,24 +480,6 @@ function TimelineEventRow({
 
   return null;
 }
-
-const TRANSITION_COLORS: Record<string, string> = {
-  IN_PROGRESS: "bg-blue-50 text-blue-700",
-  ADVANCING: "bg-teal-50 text-teal-700",
-  PARTIAL: "bg-amber-50 text-amber-700",
-  FULFILLED: "bg-green-50 text-green-700",
-};
-
-function StatusTransitionBadge({ status }: { status?: PromiseStatus }) {
-  if (!status) return null;
-  const color = TRANSITION_COLORS[status] || "bg-gray-50 text-gray-600";
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${color}`}>
-      → {STATUS_LABELS[status]}
-    </span>
-  );
-}
-
 
 function CheckIcon() {
   return (
@@ -530,6 +493,14 @@ function XIcon() {
   return (
     <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function ExternalIcon() {
+  return (
+    <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
     </svg>
   );
 }

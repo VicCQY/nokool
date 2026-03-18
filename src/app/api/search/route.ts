@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
             { party: { contains: q, mode: "insensitive" } },
           ],
         },
-        include: { promises: { select: { status: true } } },
+        include: { promises: { select: { status: true, score: true } } },
         take: limit,
       }),
       prisma.politician.count({

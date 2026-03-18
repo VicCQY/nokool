@@ -22,11 +22,11 @@ export async function generateMetadata({
   const [polA, polB] = await Promise.all([
     prisma.politician.findUnique({
       where: { id: searchParams.a },
-      select: { name: true, promises: { select: { status: true, category: true, weight: true, dateMade: true } }, termStart: true, termEnd: true, branch: true, chamber: true },
+      select: { name: true, promises: { select: { status: true, category: true, weight: true, dateMade: true, score: true } }, termStart: true, termEnd: true, branch: true, chamber: true },
     }),
     prisma.politician.findUnique({
       where: { id: searchParams.b },
-      select: { name: true, promises: { select: { status: true, category: true, weight: true, dateMade: true } }, termStart: true, termEnd: true, branch: true, chamber: true },
+      select: { name: true, promises: { select: { status: true, category: true, weight: true, dateMade: true, score: true } }, termStart: true, termEnd: true, branch: true, chamber: true },
     }),
   ]);
 
@@ -35,8 +35,8 @@ export async function generateMetadata({
   }
 
   const weights = await getIssueWeights();
-  const gradeA = calculateFulfillment(polA.promises, { termStart: polA.termStart, termEnd: polA.termEnd, branch: polA.branch, chamber: polA.chamber }, weights).grade;
-  const gradeB = calculateFulfillment(polB.promises, { termStart: polB.termStart, termEnd: polB.termEnd, branch: polB.branch, chamber: polB.chamber }, weights).grade;
+  const gradeA = calculateFulfillment(polA.promises, undefined, weights).grade;
+  const gradeB = calculateFulfillment(polB.promises, undefined, weights).grade;
 
   return {
     title: `${polA.name} vs ${polB.name}`,
@@ -74,7 +74,7 @@ function buildComparison(
 
   const { percentage, grade } = calculateFulfillment(
     politician.promises,
-    { termStart: politician.termStart, termEnd: politician.termEnd, branch: politician.branch, chamber: politician.chamber },
+    undefined,
     issueWeights,
   );
   const countryInfo = COUNTRIES[politician.country as keyof typeof COUNTRIES];

@@ -6,12 +6,11 @@ import { CategoryBarChart } from "./CategoryBarChart";
 import type { PromiseStatus } from "@prisma/client";
 
 interface Props {
-  promises: { category: string; status: PromiseStatus; weight?: number; dateMade?: string; expectedMonths?: number | null }[];
-  termInfo?: { termStart: string; termEnd: string | null; branch: string; chamber: string | null };
+  promises: { category: string; status: PromiseStatus; score?: number; weight?: number }[];
   issueWeights?: Record<string, number>;
 }
 
-export function CategoryBreakdownSection({ promises, termInfo, issueWeights }: Props) {
+export function CategoryBreakdownSection({ promises, issueWeights }: Props) {
   const [chartType, setChartType] = useState<"radar" | "bars">("radar");
   const [isMobile, setIsMobile] = useState(false);
 
@@ -68,9 +67,9 @@ export function CategoryBreakdownSection({ promises, termInfo, issueWeights }: P
       </div>
 
       {chartType === "radar" && canShowRadar ? (
-        <CategoryRadarChart promises={promises} termInfo={termInfo} issueWeights={issueWeights} />
+        <CategoryRadarChart promises={promises} issueWeights={issueWeights} />
       ) : (
-        <CategoryBarChart promises={promises} termInfo={termInfo} issueWeights={issueWeights} />
+        <CategoryBarChart promises={promises} issueWeights={issueWeights} />
       )}
     </div>
   );

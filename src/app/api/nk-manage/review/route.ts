@@ -13,6 +13,7 @@ export async function GET() {
             select: {
               title: true,
               status: true,
+              score: true,
               politician: { select: { name: true } },
             },
           },
@@ -42,6 +43,7 @@ export async function GET() {
         promiseId: e.promiseId,
         promiseTitle: e.promise.title,
         promiseStatus: e.promise.status,
+        promiseScore: e.promise.score,
         politicianName: e.promise.politician.name,
         eventType: e.eventType,
         eventDate: e.eventDate.toISOString(),

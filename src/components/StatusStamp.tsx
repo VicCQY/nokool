@@ -30,6 +30,12 @@ const STATUS_STAMP_CONFIG: Record<
     text: "text-blue-700",
     bg: "bg-blue-50",
   },
+  MINIMAL_EFFORT: {
+    label: "Minimal",
+    border: "border-gray-400",
+    text: "text-gray-500",
+    bg: "bg-gray-100",
+  },
   NOT_STARTED: {
     label: "Not Started",
     border: "border-gray-400",

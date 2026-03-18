@@ -47,7 +47,7 @@ export default async function PoliticiansPage({ searchParams }: PageProps) {
       ...pol,
       ...calculateFulfillment(
         pol.promises,
-        { termStart: pol.termStart, termEnd: pol.termEnd, branch: pol.branch, chamber: pol.chamber },
+        undefined,
         issueWeights,
       ),
     }));

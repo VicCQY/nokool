@@ -56,6 +56,7 @@ const STATUS_COLORS: Record<
   PARTIAL: { fill: "#eab308", stroke: "#ca8a04", label: "Partial" },
   ADVANCING: { fill: "#14b8a6", stroke: "#0d9488", label: "Advancing" },
   IN_PROGRESS: { fill: "#3b82f6", stroke: "#2563eb", label: "In Progress" },
+  MINIMAL_EFFORT: { fill: "#d1d5db", stroke: "#9ca3af", label: "Minimal" },
   NOT_STARTED: { fill: "#9ca3af", stroke: "#6b7280", label: "Not Started" },
   BROKEN: { fill: "#ef4444", stroke: "#dc2626", label: "Broken" },
   REVERSED: { fill: "#f97316", stroke: "#ea580c", label: "Reversed" },

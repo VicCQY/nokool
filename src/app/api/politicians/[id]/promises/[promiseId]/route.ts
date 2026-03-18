@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { PromiseStatus } from "@prisma/client";
-import { recalculatePromiseStatus } from "@/lib/calculate-promise-status";
+import { recalculatePromiseScore } from "@/lib/promise-score";
 
 export async function PUT(
   req: NextRequest,
@@ -36,8 +36,8 @@ export async function PUT(
     },
   });
 
-  // Recalculate status (respects statusOverride if set)
-  await recalculatePromiseStatus(params.promiseId);
+  // Recalculate score (respects statusOverride if set)
+  await recalculatePromiseScore(params.promiseId);
 
   return NextResponse.json(promise);
 }

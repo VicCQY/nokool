@@ -18,6 +18,7 @@ enum Country {
 
 enum PromiseStatus {
   NOT_STARTED
+  MINIMAL_EFFORT
   IN_PROGRESS
   ADVANCING
   FULFILLED
@@ -109,6 +110,7 @@ model Promise {
   sourceUrl       String?
   status          PromiseStatus         @default(NOT_STARTED)
   statusOverride  PromiseStatus?
+  score           Int                   @default(0)
   weight          Int                   @default(3)
   expectedMonths  Int?
   billRelated     Boolean               @default(false)
@@ -257,14 +259,15 @@ model IssueWeight {
 }
 
 model PromiseBillLink {
-  id        String   @id @default(cuid())
-  promiseId String
-  promise   Promise  @relation(fields: [promiseId], references: [id], onDelete: Cascade)
-  billId    String
-  bill      Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
-  relevance String   @default("auto")
-  alignment String   @default("aligns")
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  promiseId      String
+  promise        Promise  @relation(fields: [promiseId], references: [id], onDelete: Cascade)
+  billId         String
+  bill           Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  relevance      String   @default("auto")
+  relevanceScore Float    @default(0.5)
+  alignment      String   @default("aligns")
+  createdAt      DateTime @default(now())
 
   @@unique([promiseId, billId])
   @@index([promiseId])
@@ -277,6 +280,7 @@ model PromiseActionLink {
   promise         Promise         @relation(fields: [promiseId], references: [id], onDelete: Cascade)
   actionId        String
   action          ExecutiveAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  relevanceScore  Float           @default(0.5)
   alignment       String          @default("supports")  // "supports" or "contradicts"
   createdAt       DateTime        @default(now())
 
@@ -286,12 +290,13 @@ model PromiseActionLink {
 }
 
 model PromiseEvent {
-  id          String   @id @default(cuid())
-  promiseId   String
-  promise     Promise  @relation(fields: [promiseId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  promiseId      String
+  promise        Promise  @relation(fields: [promiseId], references: [id], onDelete: Cascade)
 
-  eventType   String   // "status_change" | "bill_vote" | "executive_action" | "news" | "promise_made" | "research_note"
-  eventDate   DateTime // when it actually happened (NOT when the AI ran)
+  eventType      String   // "status_change" | "bill_vote" | "executive_action" | "news" | "promise_made" | "research_note"
+  eventDate      DateTime // when it actually happened (NOT when the AI ran)
+  relevanceScore Float    @default(1.0)
 
   oldStatus   String?  // previous status (null for initial)
   newStatus   String?  // new status (null if not a status change)

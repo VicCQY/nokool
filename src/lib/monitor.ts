@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { callPerplexity, parseJsonFromResponse } from "./perplexity-api";
 import { sanitizeSourceUrl, validateSource } from "./source-validator";
 import { recordPromiseEvent } from "./promise-updates";
-import { recalculatePromiseStatus } from "./calculate-promise-status";
+import { recalculatePromiseScore } from "./promise-score";
 
 const MODEL_MONITOR = "sonar-pro";
 
@@ -165,9 +165,9 @@ Return a JSON array. For unchanged promises, just { "title": "...", "changed": f
 
   // Recalculate status for all promises that got new events
   for (const pid of Array.from(promisesWithNewEvents)) {
-    const oldPromise = await prisma.promise.findUnique({ where: { id: pid }, select: { status: true } });
-    const newStatus = await recalculatePromiseStatus(pid);
-    if (oldPromise && oldPromise.status !== newStatus) autoApplied++;
+    const oldPromise = await prisma.promise.findUnique({ where: { id: pid }, select: { score: true } });
+    const result = await recalculatePromiseScore(pid);
+    if (oldPromise && oldPromise.score !== result.score) autoApplied++;
   }
 
   // Update lastMonitoredAt

@@ -1,5 +1,5 @@
 import { PromiseStatus } from "@prisma/client";
-import { calculateWeightedGrade, type PromiseForGrade } from "./weighted-grade";
+import { calculateGradeFromScores } from "./promise-score";
 
 export interface CategoryBreakdown {
   category: string;
@@ -13,24 +13,16 @@ export interface CategoryBreakdown {
   fulfillmentPercent: number;
 }
 
-interface TermInfo {
-  termStart: Date;
-  termEnd: Date | null;
-  branch: string;
-  chamber: string | null;
-}
-
 interface PromiseInput {
   category: string;
   status: PromiseStatus;
+  score?: number;
   weight?: number;
-  dateMade?: Date | string;
-  expectedMonths?: number | null;
 }
 
 export function calculateCategoryBreakdown(
   promises: PromiseInput[],
-  termInfo?: TermInfo,
+  _termInfo?: unknown,
   issueWeights?: Record<string, number>,
 ): CategoryBreakdown[] {
   const map: Record<
@@ -63,33 +55,13 @@ export function calculateCategoryBreakdown(
   }
 
   return Object.entries(map).map(([category, data]) => {
-    let fulfillmentPercent: number;
+    const gradePromises = data.promises.map((p) => ({
+      score: p.score ?? 0,
+      weight: p.weight || 3,
+      category: p.category,
+    }));
 
-    if (termInfo && data.promises.some((p) => p.weight != null)) {
-      // Use weighted grade formula per category
-      const gradePromises: PromiseForGrade[] = data.promises.map((p) => ({
-        status: p.status,
-        category: p.category,
-        weight: p.weight || 3,
-        dateMade: p.dateMade ? new Date(p.dateMade) : termInfo.termStart,
-        expectedMonths: p.expectedMonths,
-      }));
-
-      const result = calculateWeightedGrade(
-        gradePromises,
-        termInfo.termStart,
-        termInfo.termEnd,
-        termInfo.branch,
-        termInfo.chamber,
-        issueWeights,
-      );
-      fulfillmentPercent = Math.round(result.percent);
-    } else {
-      // Fallback: simple formula
-      fulfillmentPercent = data.total > 0
-        ? Math.round(((data.fulfilled + data.partial * 0.5) / data.total) * 100)
-        : 0;
-    }
+    const result = calculateGradeFromScores(gradePromises, issueWeights);
 
     return {
       category,
@@ -100,7 +72,7 @@ export function calculateCategoryBreakdown(
       broken: data.broken,
       inProgress: data.inProgress,
       notStarted: data.notStarted,
-      fulfillmentPercent,
+      fulfillmentPercent: result.percent,
     };
   });
 }

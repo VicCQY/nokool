@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PromiseStatus } from "@prisma/client";
 import { recordPromiseEvent } from "@/lib/promise-updates";
-import { recalculatePromiseStatus } from "@/lib/calculate-promise-status";
+import { recalculatePromiseScore } from "@/lib/promise-score";
 
 const EVENT_TYPE_MAP: Record<string, string> = {
   executive_action: "executive_action",
@@ -87,8 +87,8 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Calculate status from events
-      await recalculatePromiseStatus(promise.id);
+      // Calculate score from events
+      await recalculatePromiseScore(promise.id);
 
       created++;
     }
