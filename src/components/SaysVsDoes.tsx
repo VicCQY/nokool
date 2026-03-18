@@ -116,7 +116,7 @@ const STATUS_RANK: Record<string, number> = {
 function calculateStatusAfterEvent(
   currentStatus: string,
   branch: string,
-  counts: { votes: number; introductions: number; execActions: number; passed: boolean },
+  counts: { votes: number; sponsorships: number; cosponsorships: number; execActions: number; passed: boolean },
 ): PromiseStatus | null {
   let newStatus: PromiseStatus = "NOT_STARTED";
 
@@ -127,9 +127,9 @@ function calculateStatusAfterEvent(
     else if (counts.votes >= 1) newStatus = "IN_PROGRESS";
   } else {
     if (counts.passed) newStatus = "FULFILLED";
-    else if (counts.introductions >= 3) newStatus = "PARTIAL";
-    else if (counts.introductions >= 1) newStatus = "ADVANCING";
-    else if (counts.votes >= 1) newStatus = "IN_PROGRESS";
+    else if (counts.sponsorships >= 3) newStatus = "PARTIAL";
+    else if (counts.sponsorships >= 1) newStatus = "ADVANCING";
+    else if (counts.cosponsorships >= 1 || counts.votes >= 1) newStatus = "IN_PROGRESS";
   }
 
   // Only show upgrade transitions
@@ -194,13 +194,15 @@ function buildTimeline(promise: PromiseWithJourney, branch: string): TimelineEve
 
   // Calculate status transitions chronologically
   let runningStatus = "NOT_STARTED";
-  const counts = { votes: 0, introductions: 0, execActions: 0, passed: false };
+  const counts = { votes: 0, sponsorships: 0, cosponsorships: 0, execActions: 0, passed: false };
 
   for (const event of events) {
     if (event.type === "promise_made") continue;
 
     if (event.type === "legislation") {
-      counts.introductions++;
+      if (/\bIntroduced\b/i.test(event.title)) counts.sponsorships++;
+      else if (/\bCo-sponsored\b/i.test(event.title)) counts.cosponsorships++;
+      else counts.sponsorships++; // default to sponsorship if unclear
       if (event.isPassage) counts.passed = true;
     } else if (event.type === "bill_link") {
       counts.votes++;

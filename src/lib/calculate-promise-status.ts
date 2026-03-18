@@ -15,39 +15,52 @@ export interface StatusCalculation {
  * Calculate status for a LEGISLATIVE promise (senator/representative).
  *
  * Event types counted:
- * - bill_vote (from PromiseBillLinks) — supporting votes
- * - legislation (from AI research) — bill introductions
- * - "signed into law" / "enacted" / "became law" in title → passed
+ * - sponsorships: legislation events with "Introduced" in title (they led it)
+ * - cosponsorships: legislation events with "Co-sponsored" in title (they signed on)
+ * - passages: any event with "signed into law" / "enacted" / "became law" in title
+ * - bill_vote: supporting votes from bill matching
+ *
+ * Sponsoring your OWN bill = ADVANCING (real effort)
+ * Co-sponsoring someone else's bill = IN_PROGRESS (just support)
  */
 function calculateLegislativeStatus(events: { eventType: string; title: string }[]): StatusCalculation {
   const votes = events.filter((e) => e.eventType === "bill_vote");
   const opposingVotes = votes.filter((e) =>
     /\bvoted against\b/i.test(e.title) || /\bopposed\b/i.test(e.title) || /\bcontradicts\b/i.test(e.title),
   );
-  const introductions = events.filter((e) => e.eventType === "legislation");
-  const passed = events.filter((e) =>
+  const legislation = events.filter((e) => e.eventType === "legislation");
+  const sponsorships = legislation.filter((e) => /\bIntroduced\b/i.test(e.title));
+  const cosponsorships = legislation.filter((e) => /\bCo-sponsored\b/i.test(e.title));
+  const passages = events.filter((e) =>
     /\bsigned into law\b/i.test(e.title) || /\benacted\b/i.test(e.title) || /\bbecame law\b/i.test(e.title) || /\bpassed into law\b/i.test(e.title),
   );
 
   // Evaluated in this EXACT order — first match wins
-  if (passed.length > 0) {
-    return { status: "FULFILLED", reason: `Passed into law: ${passed[0].title}` };
+  if (passages.length > 0) {
+    return { status: "FULFILLED", reason: `Passed into law: ${passages[0].title}` };
   }
 
-  if (opposingVotes.length > 0 && votes.length === opposingVotes.length && introductions.length === 0) {
+  if (opposingVotes.length > 0 && votes.length === opposingVotes.length && legislation.length === 0) {
     return { status: "BROKEN", reason: `Voted against own promise: ${opposingVotes[0].title}` };
   }
 
-  if (introductions.length >= 3) {
-    return { status: "PARTIAL", reason: `${introductions.length} bill introductions` };
+  if (sponsorships.length >= 3) {
+    return { status: "PARTIAL", reason: `${sponsorships.length} bill sponsorships (led the fight)` };
   }
 
-  if (introductions.length >= 1) {
-    return { status: "ADVANCING", reason: `${introductions.length} bill introduction(s)` };
+  if (sponsorships.length >= 1) {
+    return { status: "ADVANCING", reason: `${sponsorships.length} bill sponsorship(s) (took initiative)` };
   }
 
-  if (votes.length >= 1) {
-    return { status: "IN_PROGRESS", reason: `${votes.length} supporting vote(s)` };
+  if (cosponsorships.length >= 3) {
+    return { status: "IN_PROGRESS", reason: `${cosponsorships.length} cosponsorships (consistent support)` };
+  }
+
+  if (cosponsorships.length >= 1 || votes.length >= 1) {
+    const parts = [];
+    if (cosponsorships.length > 0) parts.push(`${cosponsorships.length} cosponsorship(s)`);
+    if (votes.length > 0) parts.push(`${votes.length} supporting vote(s)`);
+    return { status: "IN_PROGRESS", reason: parts.join(", ") };
   }
 
   return { status: "NOT_STARTED", reason: "No events" };
