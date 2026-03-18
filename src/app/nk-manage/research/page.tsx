@@ -246,13 +246,19 @@ export default function ResearchPage() {
         return;
       }
 
+      const results = data.promises || [];
+      if (results.length === 0) {
+        setStatus("error");
+        setError("No promises found. The AI returned empty results — try again or use a different politician name.");
+        return;
+      }
       setPromises(
-        (data.promises || []).map((p: ResearchedPromise) => ({ ...p, selected: true })),
+        results.map((p: ResearchedPromise) => ({ ...p, selected: true })),
       );
       setStatus("done");
-    } catch {
+    } catch (err) {
       setStatus("error");
-      setError("Network error — could not reach the server");
+      setError(err instanceof Error ? err.message : "Network error — could not reach the server");
     }
   }
 

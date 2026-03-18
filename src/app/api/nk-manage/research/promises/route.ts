@@ -55,9 +55,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, promises });
   } catch (err) {
-    console.error("Promise research error:", err);
+    const message = err instanceof Error ? err.message : "Research failed";
+    console.error("Promise research error:", message, err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Research failed" },
+      { error: message },
       { status: 500 },
     );
   }

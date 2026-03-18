@@ -54,7 +54,11 @@ export async function callPerplexity(
     );
   }
 
-  return data.choices?.[0]?.message?.content || "";
+  const content = data.choices?.[0]?.message?.content || "";
+  if (!content) {
+    console.warn("[Perplexity] API returned empty content. Full response:", JSON.stringify(data).slice(0, 500));
+  }
+  return content;
 }
 
 export function parseJsonFromResponse(text: string): unknown {
