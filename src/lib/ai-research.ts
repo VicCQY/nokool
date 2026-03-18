@@ -370,6 +370,37 @@ function inferStatusFromTimeline(results: ResearchedPromise[]): void {
   }
 }
 
+const VALID_CATEGORIES = new Set([
+  "Economy", "Healthcare", "Environment", "Immigration", "Education",
+  "Infrastructure", "Foreign Policy", "Justice", "Housing", "Technology", "Other",
+]);
+
+const CATEGORY_ALIASES: Record<string, string> = {
+  "Health": "Healthcare",
+  "Constitution": "Justice",
+  "Civil Liberties": "Justice",
+  "Social Policy": "Other",
+  "Government Reform": "Other",
+  "Agriculture": "Economy",
+  "Energy": "Economy",
+  "Defense": "Foreign Policy",
+  "National Security": "Foreign Policy",
+  "Gun Rights": "Justice",
+  "Guns": "Justice",
+  "Civil Rights": "Justice",
+  "Trade": "Economy",
+  "Labor": "Economy",
+  "Taxes": "Economy",
+  "Budget": "Economy",
+};
+
+function normalizeCategory(raw: string): string {
+  const trimmed = raw.trim();
+  if (VALID_CATEGORIES.has(trimmed)) return trimmed;
+  if (CATEGORY_ALIASES[trimmed]) return CATEGORY_ALIASES[trimmed];
+  return "Other";
+}
+
 function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
   const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "ADVANCING", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
 
@@ -430,7 +461,7 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
   return {
     title: stripCitations(String(item.title || "")),
     description: stripCitations(String(item.description || "")),
-    category: String(item.category || "Other"),
+    category: normalizeCategory(String(item.category || "Other")),
     status,
     dateMade,
     sourceUrl,
