@@ -146,25 +146,45 @@ What are the 6-10 things this politician is MOST known for fighting for or again
 Find their 15-20 most significant promises from their entire career. For each, trace every bill introduced, vote cast, executive order, and development with real dates through ${today}.`;
   }
 
-  const text = await callPerplexity(systemPrompt, userPrompt, MODEL_RESEARCH);
-
-  // Check for refusal or non-JSON response before parsing
-  const trimmed = text.replace(/```(?:json)?\s*/gi, "").trim();
-  if (!trimmed.includes("[")) {
-    console.warn("[Research] AI returned non-JSON response:", text.slice(0, 500));
-    throw new Error("Research failed — please try again");
-  }
-
+  // Retry up to 2 times if Perplexity returns non-JSON (narrative text, refusals)
+  const MAX_ATTEMPTS = 3;
   let parsed: unknown;
-  try {
-    parsed = parseJsonFromResponse(text);
-  } catch {
-    console.warn("[Research] Failed to parse response:", text.slice(0, 500));
-    throw new Error("Research failed — please try again");
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const text = await callPerplexity(systemPrompt, userPrompt, MODEL_RESEARCH);
+
+    const trimmed = text.replace(/```(?:json)?\s*/gi, "").trim();
+    if (!trimmed.includes("[")) {
+      console.warn(`[Research] Attempt ${attempt}/${MAX_ATTEMPTS}: AI returned non-JSON response:`, text.slice(0, 300));
+      if (attempt === MAX_ATTEMPTS) {
+        throw new Error("Research failed after multiple attempts — the AI kept returning non-JSON. Please try again.");
+      }
+      continue;
+    }
+
+    try {
+      parsed = parseJsonFromResponse(text);
+    } catch {
+      console.warn(`[Research] Attempt ${attempt}/${MAX_ATTEMPTS}: Failed to parse response:`, text.slice(0, 300));
+      if (attempt === MAX_ATTEMPTS) {
+        throw new Error("Research failed after multiple attempts — could not parse AI response. Please try again.");
+      }
+      continue;
+    }
+
+    if (!Array.isArray(parsed)) {
+      console.warn(`[Research] Attempt ${attempt}/${MAX_ATTEMPTS}: Response is not an array:`, typeof parsed);
+      if (attempt === MAX_ATTEMPTS) {
+        throw new Error("Research failed after multiple attempts. Please try again.");
+      }
+      continue;
+    }
+
+    // Success — break out of retry loop
+    break;
   }
 
   if (!Array.isArray(parsed)) {
-    console.warn("[Research] Response parsed but is not an array:", typeof parsed);
     throw new Error("Research failed — please try again");
   }
 
