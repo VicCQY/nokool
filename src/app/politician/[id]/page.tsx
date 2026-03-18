@@ -144,6 +144,21 @@ export default async function PoliticianPage({
         orderBy: { dateMade: "desc" },
         include: {
           statusChanges: { orderBy: { changedAt: "asc" } },
+          events: {
+            where: {
+              approved: true,
+              eventType: { in: ["legislation", "executive_action", "bill_vote"] },
+            },
+            select: {
+              id: true,
+              eventType: true,
+              eventDate: true,
+              title: true,
+              description: true,
+              sourceUrl: true,
+            },
+            orderBy: { eventDate: "asc" },
+          },
           billLinks: {
             include: {
               bill: {
@@ -704,6 +719,14 @@ export default async function PoliticianPage({
                   newStatus: sc.newStatus,
                   changedAt: sc.changedAt.toISOString(),
                   note: sc.note,
+                })),
+                events: (p.events || []).map((e) => ({
+                  id: e.id,
+                  eventType: e.eventType,
+                  eventDate: e.eventDate.toISOString(),
+                  title: e.title,
+                  description: e.description,
+                  sourceUrl: e.sourceUrl,
                 })),
                 billLinks: (p.billLinks || []).map((link) => ({
                   id: link.id,

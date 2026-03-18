@@ -531,7 +531,7 @@ function isSubstantiveBill(title: string): boolean {
 function preFilterItems(
   promises: PromiseSummary[],
   items: ItemSummary[],
-  topN: number = 20,
+  topN: number = 30,
 ): ItemSummary[] {
   const selectedIds = new Set<string>();
 
@@ -553,7 +553,7 @@ function preFilterItems(
       }));
 
     const good = scored
-      .filter((s) => s.score >= 2)
+      .filter((s) => s.score >= 1)
       .sort((a, b) => b.score - a.score)
       .slice(0, topN);
 
@@ -562,6 +562,14 @@ function preFilterItems(
 
   for (const item of items) {
     if (item.type === "action") selectedIds.add(item.id);
+  }
+
+  // If too few matches, add the most recent bills as fallback
+  if (selectedIds.size < 30) {
+    const recentBills = items
+      .filter((item) => !selectedIds.has(item.id) && !PROCEDURAL_PATTERN.test(item.title))
+      .slice(0, 30 - selectedIds.size);
+    recentBills.forEach((item) => selectedIds.add(item.id));
   }
 
   return items.filter((item) => selectedIds.has(item.id));
@@ -588,6 +596,13 @@ RULES:
 - If you have to stretch to explain the connection, it's NOT a match
 - Quality over quantity — 2 perfect matches are better than 10 weak ones
 
+ALIGNMENT — think carefully:
+Before deciding alignment, think about what the bill DOES and what the promise WANTS.
+If the bill advances the promise's goal, it ALIGNS. If the bill works against the promise's goal, it CONTRADICTS.
+
+Example: Promise 'End U.S. involvement in foreign wars'. Bill 'Motion to Repeal Iraq War Authorization'. The bill ENDS war involvement, which ALIGNS with the promise. Voting YES = supports. Voting NO = opposes.
+Example: Promise 'Oppose all foreign aid'. Bill 'Ukraine Security Supplemental'. The bill SENDS aid, which CONTRADICTS the promise. Voting YES = opposes. Voting NO = supports.
+
 For each match, provide:
 - promiseId: ID of the promise
 - itemId: ID of the bill/action
@@ -613,7 +628,7 @@ function buildMatchUserPrompt(
   items: ItemSummary[],
 ): string {
   const promiseList = promises
-    .map((p) => `- [${p.id}] "${p.title}" (${p.category})`)
+    .map((p) => `- [${p.id}] "${p.title}" (${p.category}): ${p.description.slice(0, 150)}`)
     .join("\n");
 
   const itemList = items

@@ -39,6 +39,15 @@ interface ActionLinkData {
   };
 }
 
+interface PromiseEventData {
+  id: string;
+  eventType: string;
+  eventDate: string;
+  title: string;
+  description: string | null;
+  sourceUrl: string | null;
+}
+
 interface PromiseWithJourney {
   id: string;
   title: string;
@@ -48,6 +57,7 @@ interface PromiseWithJourney {
   dateMade: string;
   sourceUrl: string;
   statusChanges: StatusChangeData[];
+  events: PromiseEventData[];
   billLinks: BillLinkData[];
   actionLinks: ActionLinkData[];
 }
@@ -82,14 +92,56 @@ function formatDate(dateStr: string) {
 type TimelineEvent = {
   date: string;
   sortDate: number;
+  statusTransition?: PromiseStatus; // shown when this event upgrades the status
 } & (
   | { type: "promise_made"; sourceUrl: string }
-  | { type: "status_change"; oldStatus: PromiseStatus | null; newStatus: PromiseStatus; note: string | null }
+  | { type: "legislation"; title: string; description: string | null; sourceUrl: string | null; isPassage: boolean }
   | { type: "bill_link"; bill: BillLinkData["bill"]; alignment: string; votePosition?: VotePosition | null }
   | { type: "action_link"; action: ActionLinkData["action"]; alignment: string }
 );
 
-function buildTimeline(promise: PromiseWithJourney): TimelineEvent[] {
+// Status rank for determining upgrades (higher = better)
+const STATUS_RANK: Record<string, number> = {
+  NOT_STARTED: 0,
+  IN_PROGRESS: 1,
+  ADVANCING: 2,
+  PARTIAL: 3,
+  FULFILLED: 4,
+};
+
+/**
+ * Calculate what status would be after this event, given running counts.
+ * Returns the new status if it's an UPGRADE, or null if no change/downgrade.
+ */
+function calculateStatusAfterEvent(
+  currentStatus: string,
+  branch: string,
+  counts: { votes: number; introductions: number; execActions: number; passed: boolean },
+): PromiseStatus | null {
+  let newStatus: PromiseStatus = "NOT_STARTED";
+
+  if (branch === "executive") {
+    if (counts.passed) newStatus = "FULFILLED";
+    else if (counts.execActions >= 3) newStatus = "PARTIAL";
+    else if (counts.execActions >= 1) newStatus = "ADVANCING";
+    else if (counts.votes >= 1) newStatus = "IN_PROGRESS";
+  } else {
+    if (counts.passed) newStatus = "FULFILLED";
+    else if (counts.introductions >= 3) newStatus = "PARTIAL";
+    else if (counts.introductions >= 1) newStatus = "ADVANCING";
+    else if (counts.votes >= 1) newStatus = "IN_PROGRESS";
+  }
+
+  // Only show upgrade transitions
+  const oldRank = STATUS_RANK[currentStatus] ?? 0;
+  const newRank = STATUS_RANK[newStatus] ?? 0;
+  if (newRank > oldRank) return newStatus;
+  return null;
+}
+
+const PASSAGE_PATTERN = /\bsigned into law\b|\benacted\b|\bbecame law\b/i;
+
+function buildTimeline(promise: PromiseWithJourney, branch: string): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
   // Promise made
@@ -100,20 +152,22 @@ function buildTimeline(promise: PromiseWithJourney): TimelineEvent[] {
     sourceUrl: promise.sourceUrl,
   });
 
-  // Status changes
-  for (const sc of promise.statusChanges) {
-    if (sc.oldStatus === null) continue; // skip initial creation
-    events.push({
-      type: "status_change",
-      date: sc.changedAt,
-      sortDate: new Date(sc.changedAt).getTime(),
-      oldStatus: sc.oldStatus,
-      newStatus: sc.newStatus,
-      note: sc.note,
-    });
+  // Legislation events from PromiseEvents (AI research: introductions, passages)
+  for (const evt of promise.events) {
+    if (evt.eventType === "legislation") {
+      events.push({
+        type: "legislation",
+        date: evt.eventDate,
+        sortDate: new Date(evt.eventDate).getTime(),
+        title: evt.title,
+        description: evt.description,
+        sourceUrl: evt.sourceUrl,
+        isPassage: PASSAGE_PATTERN.test(evt.title),
+      });
+    }
   }
 
-  // Bill links
+  // Bill links (from bill matching system)
   for (const link of promise.billLinks) {
     events.push({
       type: "bill_link",
@@ -125,7 +179,7 @@ function buildTimeline(promise: PromiseWithJourney): TimelineEvent[] {
     });
   }
 
-  // Action links
+  // Action links (executive actions)
   for (const link of promise.actionLinks) {
     events.push({
       type: "action_link",
@@ -137,6 +191,30 @@ function buildTimeline(promise: PromiseWithJourney): TimelineEvent[] {
   }
 
   events.sort((a, b) => a.sortDate - b.sortDate);
+
+  // Calculate status transitions chronologically
+  let runningStatus = "NOT_STARTED";
+  const counts = { votes: 0, introductions: 0, execActions: 0, passed: false };
+
+  for (const event of events) {
+    if (event.type === "promise_made") continue;
+
+    if (event.type === "legislation") {
+      counts.introductions++;
+      if (event.isPassage) counts.passed = true;
+    } else if (event.type === "bill_link") {
+      counts.votes++;
+    } else if (event.type === "action_link") {
+      counts.execActions++;
+    }
+
+    const transition = calculateStatusAfterEvent(runningStatus, branch, counts);
+    if (transition) {
+      event.statusTransition = transition;
+      runningStatus = transition;
+    }
+  }
+
   return events;
 }
 
@@ -196,6 +274,7 @@ export function SaysVsDoes({
           <PromiseJourneyCard
             key={promise.id}
             promise={promise}
+            branch={branch || "legislative"}
           />
         ))}
       </div>
@@ -205,10 +284,12 @@ export function SaysVsDoes({
 
 function PromiseJourneyCard({
   promise,
+  branch,
 }: {
   promise: PromiseWithJourney;
+  branch: string;
 }) {
-  const events = useMemo(() => buildTimeline(promise), [promise]);
+  const events = useMemo(() => buildTimeline(promise, branch), [promise, branch]);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -286,20 +367,45 @@ function TimelineEventRow({
     );
   }
 
-  if (event.type === "status_change") {
-    const color = STATUS_DOT_COLORS[event.newStatus] || "bg-gray-400";
+  if (event.type === "legislation") {
+    const isPassage = event.isPassage;
+    const dotColor = isPassage ? "bg-green-500 border-green-600" : "bg-teal-500 border-teal-600";
     return (
       <div className="relative py-2">
-        <div className={`absolute -left-[27px] top-3 h-3.5 w-3.5 rounded-full ${color}`} />
+        <div className={`absolute -left-[27px] top-3 h-3.5 w-3.5 rounded-sm ${dotColor}`} />
         <div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold text-gray-700">
-              {event.oldStatus ? STATUS_LABELS[event.oldStatus] : "New"} → {STATUS_LABELS[event.newStatus]}
-            </span>
+            {isPassage ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+                <CheckIcon />
+                Passed
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
+                Legislation
+              </span>
+            )}
             <span className="text-xs text-slate">{formatDate(event.date)}</span>
+            <StatusTransitionBadge status={event.statusTransition} />
           </div>
-          {event.note && (
-            <p className="text-xs text-slate mt-0.5 italic">{event.note}</p>
+          <p className={`text-xs mt-1 ${isPassage ? "font-semibold text-green-800" : "text-brand-charcoal"}`}>
+            {event.title}
+          </p>
+          {event.description && (
+            <p className="text-[11px] text-slate mt-0.5">{event.description}</p>
+          )}
+          {event.sourceUrl && (
+            <a
+              href={event.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 text-[11px] text-brand-red hover:underline mt-0.5"
+            >
+              Source
+              <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
           )}
         </div>
       </div>
@@ -320,6 +426,7 @@ function TimelineEventRow({
               Bill Vote
             </span>
             <span className="text-xs text-slate">{formatDate(event.date)}</span>
+            <StatusTransitionBadge status={event.statusTransition} />
           </div>
           <p className="text-xs text-brand-charcoal mt-1">
             {event.bill.title}
@@ -367,6 +474,7 @@ function TimelineEventRow({
               {ACTION_TYPE_LABELS[event.action.type] || event.action.type}
             </span>
             <span className="text-xs text-slate">{formatDate(event.date)}</span>
+            <StatusTransitionBadge status={event.statusTransition} />
           </div>
           <p className="text-xs text-brand-charcoal mt-1">{event.action.title}</p>
           <div className="mt-1">
@@ -390,15 +498,23 @@ function TimelineEventRow({
   return null;
 }
 
-const STATUS_DOT_COLORS: Record<PromiseStatus, string> = {
-  FULFILLED: "bg-status-fulfilled",
-  PARTIAL: "bg-status-partial",
-  ADVANCING: "bg-teal-500",
-  IN_PROGRESS: "bg-status-in-progress",
-  NOT_STARTED: "bg-status-not-started",
-  BROKEN: "bg-status-broken",
-  REVERSED: "bg-status-reversed",
+const TRANSITION_COLORS: Record<string, string> = {
+  IN_PROGRESS: "bg-blue-50 text-blue-700",
+  ADVANCING: "bg-teal-50 text-teal-700",
+  PARTIAL: "bg-amber-50 text-amber-700",
+  FULFILLED: "bg-green-50 text-green-700",
 };
+
+function StatusTransitionBadge({ status }: { status?: PromiseStatus }) {
+  if (!status) return null;
+  const color = TRANSITION_COLORS[status] || "bg-gray-50 text-gray-600";
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${color}`}>
+      → {STATUS_LABELS[status]}
+    </span>
+  );
+}
+
 
 function CheckIcon() {
   return (
