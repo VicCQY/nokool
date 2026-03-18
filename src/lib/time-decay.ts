@@ -74,8 +74,8 @@ export function getTimeAdjustedStatusValue(
       // Led the fight repeatedly across multiple sessions
       return 0.9;
     case "ADVANCING":
-      // 0.8 early → 0.6 late (took initiative but could escalate further)
-      return 0.8 - 0.2 * termProgress;
+      // 0.85 early → 0.75 late (took initiative but could escalate further)
+      return 0.85 - 0.1 * termProgress;
     case "BROKEN":
       return -0.5;
     case "REVERSED":
