@@ -38,6 +38,7 @@ interface ResearchedPromise {
   billRelated: boolean;
   timeline: TimelineEvent[];
   selected: boolean;
+  sloganWarning?: boolean;
 }
 
 interface NewsArticle {
@@ -682,6 +683,11 @@ export default function ResearchPage() {
                           >
                             {p.billRelated ? "Bill-Related" : "No Bill"}
                           </button>
+                          {p.sloganWarning && (
+                            <span className="shrink-0 rounded-full bg-yellow-100 text-yellow-700 px-2.5 py-0.5 text-xs font-medium">
+                              Possible slogan
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400 mb-2">

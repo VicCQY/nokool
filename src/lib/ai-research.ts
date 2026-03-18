@@ -30,6 +30,7 @@ export interface ResearchedPromise {
   expectedMonths: number;
   billRelated: boolean;
   timeline: TimelineEvent[];
+  sloganWarning?: boolean;
 }
 
 // ══════════════════════════════════════════════
@@ -73,16 +74,15 @@ Format as JSON array:
 
 IMPORTANT: If a promise has executive actions or legislation in its timeline, its status CANNOT be NOT_STARTED. You MUST include a status_change event in the timeline reflecting the progress. For example, if an executive order was signed related to a promise, add a status_change event on that same date moving the status to at least IN_PROGRESS.
 
-STATUS FOR LEGISLATORS — EFFORT MATTERS:
-Legislators cannot unilaterally pass laws. They work within a system of 535 members. Judge them on what THEY did, not on what their colleagues blocked.
+STATUS DEFINITIONS:
+- FULFILLED = Promise achieved. The goal was reached — bill signed into law, EO implemented, measurable outcome delivered.
+- PARTIAL = Full effort, system blocked success. The legislator did everything in their power — introduced bills, co-sponsored, voted, held hearings, pushed hard — but it didn't pass because colleagues wouldn't support it. They kept their promise, the system failed them. This is NOT half-done — it's full effort without success.
+- IN_PROGRESS = Some effort started. A bill introduced, some votes cast, early-stage work. Not yet a sustained full push.
+- NOT_STARTED = Zero effort. Nothing introduced, no votes, no public action of any kind.
+- BROKEN = Actively contradicted the promise. Voted against it, publicly abandoned it, or took opposite action.
+- REVERSED = Initially fulfilled or progressed but then walked back or undone.
 
-- FULFILLED = the legislation passed and was signed into law, or the goal was achieved
-- PARTIAL = the legislator made serious, sustained effort — introduced bills, co-sponsored, pushed for votes, held hearings, attached amendments — but it didn't pass due to lack of support from colleagues. They did everything in their power. Example: Massie and Khanna pushing Epstein files legislation that colleagues won't support — that's PARTIAL. They kept their promise to fight for it.
-- IN_PROGRESS = recent effort in the current or last session. Bills introduced, actively being worked on.
-- NOT_STARTED = the legislator has done NOTHING on this promise. No bills, no co-sponsorships, no votes, no public effort whatsoever.
-- BROKEN = the legislator actively voted AGAINST their own promise or publicly abandoned it.
-
-The key question is: did the legislator do what was within THEIR power to keep this promise? If yes but it failed due to others, that's PARTIAL at minimum. If they did nothing, that's NOT_STARTED.
+For legislators: they cannot unilaterally pass laws. Judge them on what THEY did, not on what colleagues blocked. Did they do what was within THEIR power? If yes but it failed due to others, that's PARTIAL at minimum.
 
 Return ONLY the JSON array, no other text.`;
 
@@ -97,18 +97,54 @@ Return ONLY the JSON array, no other text.`;
 
   const results = parsed.map((item: Record<string, unknown>) => processResearchItem(item));
 
-  // Post-processing: detect and warn about lazy AI output
-  validateResearchQuality(results);
+  // Post-processing: deduplicate by title
+  const deduped = deduplicateByTitle(results);
+
+  // Detect and warn about lazy AI output
+  validateResearchQuality(deduped);
 
   // Infer status from timeline when AI forgot to add status_change events
-  inferStatusFromTimeline(results);
+  inferStatusFromTimeline(deduped);
 
-  return results;
+  // Flag possible slogans
+  flagSlogans(deduped);
+
+  return deduped;
 }
 
 // ══════════════════════════════════════════════
 // Post-processing & validation
 // ══════════════════════════════════════════════
+
+function deduplicateByTitle(results: ResearchedPromise[]): ResearchedPromise[] {
+  const seen = new Set<string>();
+  const deduped: ResearchedPromise[] = [];
+  for (const p of results) {
+    const key = p.title.toLowerCase().trim();
+    if (seen.has(key)) {
+      console.warn(`[Research Quality] Removed duplicate promise: "${p.title}"`);
+      continue;
+    }
+    seen.add(key);
+    deduped.push(p);
+  }
+  return deduped;
+}
+
+// Detect vague/slogan-like titles: too short, no verb, or just a noun phrase
+const ACTION_VERBS = /\b(pass|repeal|ban|impose|cut|raise|create|eliminate|end|build|fund|expand|reduce|withdraw|sign|pardon|abolish|legalize|decriminalize|deport|secure|close|open|reform|restore|protect|defund|audit|investigate|release|declassify|introduce|co-sponsor|vote|mandate|require|prohibit|block|overturn|implement|negotiate|renegotiate)\b/i;
+
+function flagSlogans(results: ResearchedPromise[]): void {
+  for (const p of results) {
+    const words = p.title.trim().split(/\s+/);
+    const hasVerb = ACTION_VERBS.test(p.title);
+    // Flag if: very short (1-2 words), or no action verb detected
+    if (words.length <= 2 || !hasVerb) {
+      p.sloganWarning = true;
+      console.warn(`[Research Quality] Possible slogan: "${p.title}"`);
+    }
+  }
+}
 
 // Strip Perplexity citation markers like [1], [2], [3] from text
 function stripCitations(text: string): string {

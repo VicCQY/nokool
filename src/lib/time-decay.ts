@@ -71,14 +71,15 @@ export function getTimeAdjustedStatusValue(
     case "FULFILLED":
       return 1.0;
     case "PARTIAL":
-      return 0.5;
+      // Full effort, system blocked success — near full credit
+      return 0.85;
     case "BROKEN":
       return -0.5;
     case "REVERSED":
       return -0.3;
     case "IN_PROGRESS":
-      // 0.7 early → 0.35 late (slow linear decay — at least they're working on it)
-      return 0.7 - 0.35 * termProgress;
+      // 0.5 early → 0.3 late (some effort, decays as time runs out)
+      return 0.5 - 0.2 * termProgress;
     case "NOT_STARTED":
       // 0.1 early → -0.2 late (nearly neutral at start, mild penalty late)
       return 0.1 - 0.3 * termProgress;
