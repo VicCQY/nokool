@@ -316,6 +316,7 @@ export default function ResearchPage() {
             title: p.title,
             description: p.description,
             category: p.category,
+            status: p.status,
             severity: p.severity,
             expectedMonths: p.expectedMonths,
             billRelated: p.billRelated,

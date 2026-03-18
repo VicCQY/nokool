@@ -28,11 +28,17 @@ export async function POST(request: NextRequest) {
     let politicianName: string;
     let party = "";
     let position = "";
+    let inOfficeSince: string | null = null;
+    let existingPromises: { title: string; category: string }[] = [];
 
     if (body.politicianId) {
       const pol = await prisma.politician.findUnique({
         where: { id: body.politicianId },
-        select: { name: true, party: true, branch: true, chamber: true, state: true, district: true },
+        select: {
+          name: true, party: true, branch: true, chamber: true,
+          state: true, district: true, inOfficeSince: true,
+          promises: { select: { title: true, category: true } },
+        },
       });
       if (!pol) {
         return NextResponse.json({ error: "Politician not found" }, { status: 404 });
@@ -40,6 +46,8 @@ export async function POST(request: NextRequest) {
       politicianName = pol.name;
       party = pol.party;
       position = getPosition(pol.branch, pol.chamber, pol.state, pol.district);
+      inOfficeSince = pol.inOfficeSince ? pol.inOfficeSince.toISOString().split("T")[0] : null;
+      existingPromises = pol.promises.map((p) => ({ title: p.title, category: p.category }));
     } else {
       politicianName = body.politicianName;
       party = body.party || "";
@@ -50,8 +58,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "politicianName is required" }, { status: 400 });
     }
 
-    const today = new Date().toISOString().split("T")[0];
-    const promises = await researchPromises(politicianName, party, position, today);
+    const promises = await researchPromises(politicianName, party, position, {
+      inOfficeSince,
+      existingPromises,
+    });
 
     return NextResponse.json({ success: true, promises });
   } catch (err) {

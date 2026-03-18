@@ -37,74 +37,114 @@ export interface ResearchedPromise {
 // RESEARCH PROMISES
 // ══════════════════════════════════════════════
 
+export interface ResearchContext {
+  inOfficeSince?: string | null;
+  existingPromises?: { title: string; category: string }[];
+}
+
 export async function researchPromises(
   politicianName: string,
   party: string,
   position: string,
-  todayDate?: string,
+  context: ResearchContext = {},
 ): Promise<ResearchedPromise[]> {
-  const today = todayDate || new Date().toISOString().split("T")[0];
+  const today = new Date().toISOString().split("T")[0];
+  const { inOfficeSince, existingPromises = [] } = context;
 
-  const systemPrompt = `Find all major campaign promises made by this politician throughout their career. For each promise, tell me:
-- What exactly they promised (be specific — not slogans)
-- When they first made this promise (the original date, not a recent repetition)
-- What category it falls under
-- What has happened since — every bill introduced, vote cast, executive order signed, or major development, with specific dates
-- What the current status is as of ${today}
+  const systemPrompt = `You are an expert political researcher. Find this politician's campaign promises and trace their complete history.
 
-Format as JSON array:
+=== WHAT IS A PROMISE ===
+A promise has: a clear FIELD (policy area), a clear SUBJECT (specific thing), a clear DIRECTION (specific action), and optionally a TIMEFRAME.
+GOOD: 'Pardon January 6 defendants', 'Impose 10% tariff on imports', 'Abolish the Federal Reserve', 'Legalize industrial hemp'
+BAD (slogans, reject these): 'Fight for families', 'Strengthen defense', 'Support Ukraine', 'Cut spending'
+
+=== PRIORITY ===
+First 6-10 promises: CORE — the things that DEFINE this politician. Severity 4-5.
+Next 5-10 promises: SECONDARY — important positions but not defining. Severity 2-3.
+
+=== STATUS CRITERIA ===
+FULFILLED = Goal achieved. Bill signed into law, EO implemented, outcome delivered.
+PARTIAL = Led the fight REPEATEDLY. Introduced the SAME bill across MULTIPLE sessions. Pushed for floor votes. Held hearings. Years of sustained leadership. The system blocked them, not lack of effort.
+ADVANCING = Introduced a bill OR led a concrete action. One bill introduction, organizing a hearing as chair, co-leading a major push. They took initiative beyond just voting.
+IN_PROGRESS = Voted correctly when it came up OR co-sponsored someone else's bill. Supportive but didn't lead.
+NOT_STARTED = ZERO action. No votes, no bills, no co-sponsorships, nothing.
+BROKEN = Voted AGAINST their own promise or publicly abandoned it.
+REVERSED = Did it then undid it.
+
+KEY: Voting yes = IN_PROGRESS. Introducing own bill = ADVANCING. Introducing bills multiple sessions = PARTIAL. Passed into law = FULFILLED.
+
+=== ASPIRATIONAL vs ACHIEVABLE PROMISES ===
+Some promises are politically impossible given current reality (e.g., 'Abolish the Federal Reserve', 'End UN membership'). These are real promises but essentially aspirational — no single legislator can achieve them regardless of effort.
+
+For aspirational/impossible promises:
+- Lower severity to 1-2 (these aren't realistic campaign commitments, more like ideological positions)
+- Give MORE credit for effort: introducing a bill on an impossible topic = ADVANCING even though it will never pass. It shows conviction.
+- Do NOT mark these as NOT_STARTED just because the outcome is impossible. If they introduced a bill, that's ADVANCING. If they talk about it regularly and vote consistently, that's IN_PROGRESS.
+- The key question is: are they sincere about this position? Not: will it ever happen?
+
+=== TIMELINE RULES ===
+Every event must be CONCRETE and VERIFIABLE:
+GOOD: 'Jan 8, 2023 — Introduced H.R. 664 American Sovereignty Restoration Act'
+BAD: 'Elected to Congress', 'Established platform', 'Advocated for reform'
+Getting elected, joining committees, making speeches, and endorsing ideas are NOT timeline events.
+If no concrete action was taken, the timeline must be EMPTY and status must be NOT_STARTED.
+
+=== SOURCES ===
+NEVER use Wikipedia or YouTube. Each promise should have a unique source URL from: .gov sites, C-SPAN, AP, Reuters, NYT, WaPo, Politico, The Hill, CNN, Fox News, NPR, official campaign sites.
+
+=== NO DUPLICATES ===
+One promise per distinct policy action. Do not create overlapping promises.
+Each promise must have a UNIQUE dateMade — find when FIRST announced, not a recent repetition.
+
+=== FORMAT ===
+Return ONLY a JSON array:
 [{
-  "title": "string (specific action, e.g. 'Pass Medicare for All', not vague like 'Improve healthcare')",
+  "title": "string",
   "description": "string (2-3 sentences: what was promised, context, what success looks like)",
   "category": "Economy | Healthcare | Environment | Immigration | Education | Infrastructure | Foreign Policy | Justice | Housing | Technology | Other",
-  "dateMade": "YYYY-MM-DD (when FIRST promised, not recently repeated)",
-  "sourceUrl": "string (where promise was made — not Wikipedia, not YouTube)",
-  "severity": "number 1-5 (5 = defining campaign promise, 1 = minor)",
-  "expectedMonths": "number (reasonable time to fulfill)",
-  "billRelated": "boolean (tied to specific legislation?)",
+  "dateMade": "YYYY-MM-DD (when FIRST promised)",
+  "sourceUrl": "string (not Wikipedia/YouTube)",
+  "severity": "number 1-5",
+  "expectedMonths": "number",
+  "billRelated": "boolean",
   "timeline": [{
-    "date": "YYYY-MM-DD",
+    "date": "YYYY-MM-DD (real date, NEVER today)",
     "type": "status_change | executive_action | legislation | news",
-    "title": "string (name specific bills, EO numbers, concrete actions)",
+    "title": "string (name specific bills, EO numbers)",
     "description": "string",
     "sourceUrl": "string",
-    "newStatus": "NOT_STARTED | IN_PROGRESS | ADVANCING | PARTIAL | FULFILLED | BROKEN | REVERSED (only for status_change, null otherwise)"
+    "newStatus": "FULFILLED | PARTIAL | ADVANCING | IN_PROGRESS | NOT_STARTED | BROKEN | REVERSED (only for status_change, null otherwise)"
   }]
 }]
+No markdown, no explanation, ONLY the JSON array.`;
 
-IMPORTANT: If a promise has executive actions or legislation in its timeline, its status CANNOT be NOT_STARTED. You MUST include a status_change event in the timeline reflecting the progress.
+  // Build dynamic user prompt based on context
+  const yearsServed = inOfficeSince
+    ? Math.floor((Date.now() - new Date(inOfficeSince).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    : null;
+  const officeInfo = inOfficeSince
+    ? `, in office since ${new Date(inOfficeSince).getFullYear()}, served ${yearsServed} years`
+    : "";
 
-STATUS DEFINITIONS — USE THESE EXACT CRITERIA:
+  let userPrompt: string;
 
-FULFILLED (1.0) = Goal achieved. Bill signed into law, EO fully implemented, measurable outcome delivered.
+  if (existingPromises.length > 0) {
+    // Re-research: find additional promises we're missing
+    const categories = Array.from(new Set(existingPromises.map((p) => p.category))).join(", ");
+    const existingTitles = existingPromises.map((p) => `"${p.title}"`).join(", ");
+    userPrompt = `Research ${politicianName} (${party}, ${position}${officeInfo}).
 
-PARTIAL (0.9) = Led the fight repeatedly. Introduced MULTIPLE bills on this topic across MULTIPLE sessions. Pushed for floor votes. Held hearings. Whipped colleagues. Kept reintroducing after failures. Years of sustained leadership on this issue. Example: introducing the same bill 3+ times over multiple congresses.
+They have ${existingPromises.length} tracked promises on: ${categories}. Find ADDITIONAL significant promises we're missing. Do not duplicate: ${existingTitles}.
 
-ADVANCING (0.8→0.6) = Introduced a bill OR led a concrete legislative action. One bill introduction counts. Co-leading a major push counts. Organized a hearing as chair/ranking member counts. More than just voting — they took initiative.
+For each new promise, trace what has happened through ${today}.`;
+  } else {
+    // Initial research
+    userPrompt = `Research ${politicianName} (${party}, ${position}${officeInfo}).
 
-IN_PROGRESS (0.5→0.3) = Voted correctly on related legislation when it came up, OR co-sponsored someone else's bill. They support it but haven't taken the lead. Voting yes on someone else's bill = IN_PROGRESS, not ADVANCING.
+What are the 6-10 things this politician is MOST known for fighting for or against? What defines them politically? What specific bills have they introduced or led? What distinguishes them from other ${party} members?
 
-NOT_STARTED (0.1→-0.2) = Zero action. No votes, no co-sponsorships, no bills, no public effort.
-
-BROKEN (-0.5) = Voted AGAINST their own promise, publicly abandoned it, or took opposite action.
-
-REVERSED (-0.3) = Achieved it then undid it.
-
-KEY DISTINCTIONS:
-- Voting yes on a related bill = IN_PROGRESS (supporting someone else's work)
-- Introducing their OWN bill = ADVANCING (taking initiative)
-- Introducing bills MULTIPLE times across sessions = PARTIAL (sustained fight)
-- Bill passes into law = FULFILLED
-
-PROMISE PRIORITY ORDER:
-Find 15-20 promises total, structured as:
-- First 6-10: CORE campaign promises. The headline commitments they are most known for. The reasons people voted for them. These get severity 4-5.
-- Next 5-10: Secondary promises. Important policy positions but not defining. These get severity 2-3.
-List the core promises FIRST in the response. A politician who made 50 promises — find the 6-10 that DEFINE them, then fill in with significant secondary ones. Do not pad with minor positions just to hit 20.
-
-Return ONLY the JSON array, no other text.`;
-
-  const userPrompt = `Research ${politicianName} (${party}, ${position}). Find their 15-20 most significant campaign promises from their entire career. For each one, trace what has actually happened — every bill, vote, executive order, and development with real dates. Be thorough and current through ${today}. Do not use Wikipedia or YouTube as sources.`;
+Find their 15-20 most significant promises from their entire career. For each, trace every bill introduced, vote cast, executive order, and development with real dates through ${today}.`;
+  }
 
   const text = await callPerplexity(systemPrompt, userPrompt, MODEL_RESEARCH);
 

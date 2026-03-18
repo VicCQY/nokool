@@ -120,6 +120,18 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // If user explicitly set a status on the card, apply it as the final status
+      const userStatus = p.status && VALID_STATUSES.has(String(p.status)) ? String(p.status) : null;
+      if (userStatus && userStatus !== lastAppliedStatus) {
+        await applyStatusChange({
+          promiseId: promise.id,
+          newStatus: userStatus as PromiseStatus,
+          eventDate: new Date(),
+          title: `Status set to ${userStatus} during import`,
+          createdBy: "human",
+        });
+      }
+
       created++;
     }
 
