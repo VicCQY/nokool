@@ -15,6 +15,9 @@ const INTERNAL_PHRASES = [
   "auto-applied",
   "ai_auto",
   "ai_flagged",
+  "during import",
+  "Status set to",
+  "Promise created",
 ];
 
 const INTERNAL_PATTERN = new RegExp(
