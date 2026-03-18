@@ -231,44 +231,26 @@ export default function ResearchPage() {
         body: JSON.stringify(body),
       });
 
-      const text = await res.text();
-      console.log("[Research] Raw response status:", res.status);
-      console.log("[Research] Raw response body (first 500):", text.slice(0, 500));
-
-      let data: Record<string, unknown>;
-      try {
-        data = JSON.parse(text);
-      } catch (parseErr) {
-        console.error("[Research] Failed to parse response as JSON:", parseErr);
-        setStatus("error");
-        setError("Server returned invalid JSON — check server logs");
-        return;
-      }
-
-      console.log("[Research] Parsed keys:", Object.keys(data));
-      console.log("[Research] promises field type:", typeof data.promises, "isArray:", Array.isArray(data.promises));
-      if (Array.isArray(data.promises)) {
-        console.log("[Research] promises count:", data.promises.length);
-        if (data.promises.length > 0) {
-          console.log("[Research] First promise keys:", Object.keys(data.promises[0]));
-        }
-      }
+      const data = await res.json();
 
       if (res.status === 503) {
         setApiConfigured(false);
         setStatus("error");
-        setError(String(data.error || "API not configured"));
+        setError(data.error || "API not configured");
         return;
       }
 
       if (!res.ok) {
         setStatus("error");
-        setError(String(data.error || "Research failed"));
+        setError(data.error || "Research failed");
         return;
       }
 
-      const results = (data.promises as ResearchedPromise[]) || [];
-      console.log("[Research] results.length:", results.length);
+      // Handle both { promises: [...] } and direct array responses
+      const results: ResearchedPromise[] = Array.isArray(data.promises)
+        ? data.promises
+        : Array.isArray(data) ? data : [];
+
       if (results.length === 0) {
         setStatus("error");
         setError("No promises found. The AI returned empty results — try again or use a different politician name.");
@@ -277,9 +259,9 @@ export default function ResearchPage() {
       setPromises(
         results.map((p: ResearchedPromise) => ({ ...p, selected: true })),
       );
-      console.log("[Research] setPromises called with", results.length, "items");
       setStatus("done");
     } catch (err) {
+      console.error("[Research] fetch error:", err);
       setStatus("error");
       setError(err instanceof Error ? err.message : "Network error — could not reach the server");
     }
