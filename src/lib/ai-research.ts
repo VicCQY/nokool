@@ -73,6 +73,17 @@ Format as JSON array:
 
 IMPORTANT: If a promise has executive actions or legislation in its timeline, its status CANNOT be NOT_STARTED. You MUST include a status_change event in the timeline reflecting the progress. For example, if an executive order was signed related to a promise, add a status_change event on that same date moving the status to at least IN_PROGRESS.
 
+STATUS FOR LEGISLATORS — EFFORT MATTERS:
+Legislators cannot unilaterally pass laws. They work within a system of 535 members. Judge them on what THEY did, not on what their colleagues blocked.
+
+- FULFILLED = the legislation passed and was signed into law, or the goal was achieved
+- PARTIAL = the legislator made serious, sustained effort — introduced bills, co-sponsored, pushed for votes, held hearings, attached amendments — but it didn't pass due to lack of support from colleagues. They did everything in their power. Example: Massie and Khanna pushing Epstein files legislation that colleagues won't support — that's PARTIAL. They kept their promise to fight for it.
+- IN_PROGRESS = recent effort in the current or last session. Bills introduced, actively being worked on.
+- NOT_STARTED = the legislator has done NOTHING on this promise. No bills, no co-sponsorships, no votes, no public effort whatsoever.
+- BROKEN = the legislator actively voted AGAINST their own promise or publicly abandoned it.
+
+The key question is: did the legislator do what was within THEIR power to keep this promise? If yes but it failed due to others, that's PARTIAL at minimum. If they did nothing, that's NOT_STARTED.
+
 Return ONLY the JSON array, no other text.`;
 
   const userPrompt = `Research ${politicianName} (${party}, ${position}). Find their 15-20 most significant campaign promises from their entire career. For each one, trace what has actually happened — every bill, vote, executive order, and development with real dates. Be thorough and current through ${today}. Do not use Wikipedia or YouTube as sources.`;
@@ -158,7 +169,11 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
   const rawSourceUrl = String(item.sourceUrl || "");
   const sourceUrl = sanitizeSourceUrl(rawSourceUrl, String(item.title || ""));
 
-  const dateMade = String(item.dateMade || new Date().toISOString().split("T")[0]);
+  // Date validation — fallback to today if AI returned an unparseable date
+  const rawDateMade = String(item.dateMade || "");
+  const dateMade = rawDateMade && !isNaN(new Date(rawDateMade).getTime())
+    ? rawDateMade
+    : new Date().toISOString().split("T")[0];
 
   // Process timeline
   const rawTimeline = Array.isArray(item.timeline) ? item.timeline : [];
