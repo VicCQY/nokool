@@ -180,6 +180,15 @@ Find their 15-20 most significant promises from their entire career. For each, t
       continue;
     }
 
+    // Treat empty array as a failed attempt — Perplexity sometimes returns [] with 1 token
+    if (parsed.length === 0) {
+      console.warn(`[Research] Attempt ${attempt}/${MAX_ATTEMPTS}: Perplexity returned empty array []`);
+      if (attempt === MAX_ATTEMPTS) {
+        throw new Error("Research failed — the AI returned no results after multiple attempts. Please try again.");
+      }
+      continue;
+    }
+
     // Success — break out of retry loop
     break;
   }
