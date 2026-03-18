@@ -347,25 +347,46 @@ function validateResearchQuality(results: ResearchedPromise[]): void {
   }
 }
 
+const STATUS_RANK: Record<string, number> = {
+  NOT_STARTED: 0, IN_PROGRESS: 1, ADVANCING: 2, PARTIAL: 3, FULFILLED: 4, BROKEN: -1, REVERSED: -2,
+};
+
 function inferStatusFromTimeline(results: ResearchedPromise[]): void {
   for (const p of results) {
-    if (p.status === "FULFILLED" || p.status === "BROKEN") continue;
+    // Never override terminal statuses
+    if (p.status === "FULFILLED" || p.status === "BROKEN" || p.status === "REVERSED") continue;
 
-    const hasExecAction = p.timeline.some((e) => e.type === "executive_action");
-    const hasLegislation = p.timeline.some((e) => e.type === "legislation");
-    const hasNews = p.timeline.some((e) => e.type === "news");
+    const legislationEvents = p.timeline.filter((e) => e.type === "legislation");
+    const execEvents = p.timeline.filter((e) => e.type === "executive_action");
+    const totalEvents = p.timeline.length;
 
-    if (p.status === "NOT_STARTED" && (hasExecAction || hasLegislation)) {
-      const oldStatus = p.status;
-      // Executive actions + news showing progress → PARTIAL; multiple actions → ADVANCING; otherwise IN_PROGRESS
-      if (hasExecAction && hasNews && p.timeline.length >= 3) {
-        p.status = "PARTIAL";
-      } else if ((hasExecAction || hasLegislation) && p.timeline.length >= 2) {
-        p.status = "ADVANCING";
-      } else {
-        p.status = "IN_PROGRESS";
+    // Determine minimum status from timeline evidence
+    let minStatus = "NOT_STARTED";
+
+    if (totalEvents > 0) {
+      // Any timeline events at all → at least IN_PROGRESS
+      minStatus = "IN_PROGRESS";
+    }
+
+    if (legislationEvents.length >= 2 || execEvents.length >= 2) {
+      // 2+ legislation or exec events → at least ADVANCING
+      minStatus = "ADVANCING";
+    }
+
+    if (legislationEvents.length >= 3) {
+      // 3+ legislation events across different years → PARTIAL
+      const years = new Set(legislationEvents.map((e) => new Date(e.date).getFullYear()));
+      if (years.size >= 2) {
+        minStatus = "PARTIAL";
       }
-      console.log(`[Status Inference] "${p.title}": ${oldStatus} → ${p.status} (has ${hasExecAction ? "executive_action" : ""}${hasExecAction && hasLegislation ? "+" : ""}${hasLegislation ? "legislation" : ""} events)`);
+    }
+
+    // Only upgrade, never downgrade
+    const currentRank = STATUS_RANK[p.status] ?? 0;
+    const minRank = STATUS_RANK[minStatus] ?? 0;
+    if (minRank > currentRank) {
+      console.log(`[Status Inference] "${p.title}": ${p.status} → ${minStatus} (${legislationEvents.length} legislation, ${execEvents.length} exec, ${totalEvents} total events)`);
+      p.status = minStatus;
     }
   }
 }
