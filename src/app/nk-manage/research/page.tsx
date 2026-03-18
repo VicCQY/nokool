@@ -322,13 +322,30 @@ export default function ResearchPage() {
     setPromises((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function deriveStatus(timeline: TimelineEvent[]): string {
+    const last = [...timeline].reverse().find((e) => e.type === "status_change" && e.newStatus);
+    return last?.newStatus || "NOT_STARTED";
+  }
+
   function removeTimelineEvent(promiseIndex: number, eventIndex: number) {
     setPromises((prev) =>
-      prev.map((p, i) =>
-        i === promiseIndex
-          ? { ...p, timeline: p.timeline.filter((_, ei) => ei !== eventIndex) }
-          : p,
-      ),
+      prev.map((p, i) => {
+        if (i !== promiseIndex) return p;
+        const newTimeline = p.timeline.filter((_, ei) => ei !== eventIndex);
+        return { ...p, timeline: newTimeline, status: deriveStatus(newTimeline) };
+      }),
+    );
+  }
+
+  function updateTimelineEventStatus(promiseIndex: number, eventIndex: number, newStatus: string) {
+    setPromises((prev) =>
+      prev.map((p, i) => {
+        if (i !== promiseIndex) return p;
+        const newTimeline = p.timeline.map((evt, ei) =>
+          ei === eventIndex ? { ...evt, newStatus } : evt,
+        );
+        return { ...p, timeline: newTimeline, status: deriveStatus(newTimeline) };
+      }),
     );
   }
 
@@ -784,7 +801,16 @@ export default function ResearchPage() {
                                           {evt.type.replace("_", " ")}
                                         </span>
                                         <span className="text-[11px] text-gray-400">{formatDate(evt.date)}</span>
-                                        {evt.newStatus && (
+                                        {evt.type === "status_change" && evt.newStatus && (
+                                          <select
+                                            value={evt.newStatus}
+                                            onChange={(e) => updateTimelineEventStatus(i, ei, e.target.value)}
+                                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium border-0 cursor-pointer ${STATUS_COLORS[evt.newStatus] || "bg-gray-100"}`}
+                                          >
+                                            {STATUSES.map((s) => <option key={s.value} value={s.value}>→ {s.label}</option>)}
+                                          </select>
+                                        )}
+                                        {evt.type !== "status_change" && evt.newStatus && (
                                           <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[evt.newStatus] || "bg-gray-100"}`}>
                                             → {evt.newStatus.replace("_", " ")}
                                           </span>
