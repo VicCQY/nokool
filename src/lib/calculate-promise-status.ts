@@ -26,7 +26,7 @@ function calculateLegislativeStatus(events: { eventType: string; title: string }
   );
   const introductions = events.filter((e) => e.eventType === "legislation");
   const passed = events.filter((e) =>
-    /\bsigned into law\b/i.test(e.title) || /\benacted\b/i.test(e.title) || /\bbecame law\b/i.test(e.title),
+    /\bsigned into law\b/i.test(e.title) || /\benacted\b/i.test(e.title) || /\bbecame law\b/i.test(e.title) || /\bpassed into law\b/i.test(e.title),
   );
 
   // Evaluated in this EXACT order — first match wins
@@ -64,7 +64,7 @@ function calculateExecutiveStatus(events: { eventType: string; title: string }[]
   const execActions = events.filter((e) => e.eventType === "executive_action");
   const votes = events.filter((e) => e.eventType === "bill_vote");
   const signedIntoLaw = events.filter((e) =>
-    /\bsigned into law\b/i.test(e.title) || /\benacted\b/i.test(e.title) || /\bbecame law\b/i.test(e.title),
+    /\bsigned into law\b/i.test(e.title) || /\benacted\b/i.test(e.title) || /\bbecame law\b/i.test(e.title) || /\bpassed into law\b/i.test(e.title),
   );
 
   // Evaluated in this EXACT order — first match wins

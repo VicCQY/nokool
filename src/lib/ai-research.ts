@@ -161,6 +161,7 @@ NOTES:
 - Timeline event type "executive_action" = executive orders, memorandums, proclamations, bills signed/vetoed
 - Bill VOTES are NOT returned by the AI — our bill matching system handles those separately. NEVER return a "bill_vote" type event.
 - Valid timeline event types: "legislation" (introductions) and "executive_action" ONLY
+- CRITICAL FOR PASSAGE EVENTS: When a bill the politician introduced/co-sponsored was SIGNED INTO LAW, the event title MUST contain the exact phrase "signed into law". Example: "2018 Farm Bill signed into law — hemp federally legal". Do NOT just say "Co-sponsored H.R. 2" — you must explicitly say "signed into law" in the title so our system can detect passage.
 - Name specific bill numbers (H.R. XXX, S. XXX) and EO numbers
 - NEVER use Wikipedia or YouTube as sources
 - First 6-10 promises = CORE (severity 4-5), next 5-10 = SECONDARY (severity 2-3)

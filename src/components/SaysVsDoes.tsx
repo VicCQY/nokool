@@ -139,7 +139,7 @@ function calculateStatusAfterEvent(
   return null;
 }
 
-const PASSAGE_PATTERN = /\bsigned into law\b|\benacted\b|\bbecame law\b/i;
+const PASSAGE_PATTERN = /\bsigned into law\b|\benacted\b|\bbecame law\b|\bpassed into law\b/i;
 
 function buildTimeline(promise: PromiseWithJourney, branch: string): TimelineEvent[] {
   const events: TimelineEvent[] = [];
