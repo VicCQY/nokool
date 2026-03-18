@@ -64,6 +64,7 @@ const ACTION_TYPE_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<PromiseStatus, string> = {
   FULFILLED: "Fulfilled",
   PARTIAL: "Partial",
+  ADVANCING: "Advancing",
   IN_PROGRESS: "In Progress",
   NOT_STARTED: "Not Started",
   BROKEN: "Broken",
@@ -392,6 +393,7 @@ function TimelineEventRow({
 const STATUS_DOT_COLORS: Record<PromiseStatus, string> = {
   FULFILLED: "bg-status-fulfilled",
   PARTIAL: "bg-status-partial",
+  ADVANCING: "bg-teal-500",
   IN_PROGRESS: "bg-status-in-progress",
   NOT_STARTED: "bg-status-not-started",
   BROKEN: "bg-status-broken",

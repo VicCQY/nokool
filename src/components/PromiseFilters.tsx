@@ -6,6 +6,7 @@ import { CATEGORIES } from "@/lib/countries";
 const STATUSES = [
   { value: "FULFILLED", label: "Fulfilled" },
   { value: "PARTIAL", label: "Partial" },
+  { value: "ADVANCING", label: "Advancing" },
   { value: "BROKEN", label: "Broken" },
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "NOT_STARTED", label: "Not Started" },

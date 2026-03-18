@@ -73,6 +73,9 @@ export function getTimeAdjustedStatusValue(
     case "PARTIAL":
       // Full effort, system blocked success — near full credit
       return 0.85;
+    case "ADVANCING":
+      // Moderate effort, supportive but not leading — fixed value
+      return 0.65;
     case "BROKEN":
       return -0.5;
     case "REVERSED":

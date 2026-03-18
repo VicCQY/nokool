@@ -82,6 +82,7 @@ function buildComparison(
   const statusCounts = {
     fulfilled: 0,
     partial: 0,
+    advancing: 0,
     inProgress: 0,
     notStarted: 0,
     broken: 0,
@@ -96,6 +97,7 @@ function buildComparison(
   for (const p of politician.promises) {
     if (p.status === "FULFILLED") statusCounts.fulfilled++;
     else if (p.status === "PARTIAL") statusCounts.partial++;
+    else if (p.status === "ADVANCING") statusCounts.advancing++;
     else if (p.status === "IN_PROGRESS") statusCounts.inProgress++;
     else if (p.status === "NOT_STARTED") statusCounts.notStarted++;
     else if (p.status === "BROKEN") statusCounts.broken++;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
+import type { PromiseStatus } from "@prisma/client";
 
 const VALID_COUNTRIES = ["US", "CA", "UK", "AU", "FR", "DE"];
 const VALID_CATEGORIES = [
@@ -19,6 +20,7 @@ const VALID_CATEGORIES = [
 const VALID_STATUSES = [
   "NOT_STARTED",
   "IN_PROGRESS",
+  "ADVANCING",
   "FULFILLED",
   "PARTIAL",
   "BROKEN",
@@ -495,7 +497,7 @@ export async function POST(request: NextRequest) {
           title: prom.title,
           description: prom.description,
           category: prom.category,
-          status: prom.status as "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "PARTIAL" | "BROKEN",
+          status: prom.status as PromiseStatus,
           dateMade: prom.dateMade,
           sourceUrl: prom.sourceUrl || null,
           weight: prom.weight,
@@ -537,7 +539,7 @@ export async function POST(request: NextRequest) {
         where: {
           promiseId,
           changedAt: sh.changedAt,
-          newStatus: sh.newStatus as "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "PARTIAL" | "BROKEN",
+          newStatus: sh.newStatus as PromiseStatus,
         },
       });
 
@@ -547,9 +549,9 @@ export async function POST(request: NextRequest) {
         data: {
           promiseId,
           oldStatus: sh.oldStatus
-            ? (sh.oldStatus as "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "PARTIAL" | "BROKEN")
+            ? (sh.oldStatus as PromiseStatus)
             : null,
-          newStatus: sh.newStatus as "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "PARTIAL" | "BROKEN",
+          newStatus: sh.newStatus as PromiseStatus,
           changedAt: sh.changedAt,
           note: sh.note || null,
         },

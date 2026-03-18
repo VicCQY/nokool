@@ -19,6 +19,7 @@ enum Country {
 enum PromiseStatus {
   NOT_STARTED
   IN_PROGRESS
+  ADVANCING
   FULFILLED
   PARTIAL
   BROKEN

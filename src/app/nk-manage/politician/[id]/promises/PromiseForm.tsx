@@ -199,6 +199,7 @@ export function PromiseForm({
         >
           <option value="NOT_STARTED">Not Started</option>
           <option value="IN_PROGRESS">In Progress</option>
+          <option value="ADVANCING">Advancing</option>
           <option value="FULFILLED">Fulfilled</option>
           <option value="PARTIAL">Partial</option>
           <option value="BROKEN">Broken</option>

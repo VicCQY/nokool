@@ -18,6 +18,12 @@ const STATUS_STAMP_CONFIG: Record<
     text: "text-amber-700",
     bg: "bg-amber-50",
   },
+  ADVANCING: {
+    label: "Advancing",
+    border: "border-teal-500",
+    text: "text-teal-700",
+    bg: "bg-teal-50",
+  },
   IN_PROGRESS: {
     label: "In Progress",
     border: "border-blue-500",

@@ -8,6 +8,7 @@ const STATUS_CONFIG: Record<
 > = {
   FULFILLED: { label: "Fulfilled", bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500" },
   PARTIAL: { label: "Partial", bg: "bg-yellow-50", text: "text-yellow-700", dot: "bg-yellow-500" },
+  ADVANCING: { label: "Advancing", bg: "bg-teal-50", text: "text-teal-700", dot: "bg-teal-500" },
   BROKEN: { label: "Broken", bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
   IN_PROGRESS: { label: "In Progress", bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
   NOT_STARTED: { label: "Not Started", bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },

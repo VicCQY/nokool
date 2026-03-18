@@ -54,6 +54,7 @@ const STATUS_COLORS: Record<
 > = {
   FULFILLED: { fill: "#22c55e", stroke: "#16a34a", label: "Fulfilled" },
   PARTIAL: { fill: "#eab308", stroke: "#ca8a04", label: "Partial" },
+  ADVANCING: { fill: "#14b8a6", stroke: "#0d9488", label: "Advancing" },
   IN_PROGRESS: { fill: "#3b82f6", stroke: "#2563eb", label: "In Progress" },
   NOT_STARTED: { fill: "#9ca3af", stroke: "#6b7280", label: "Not Started" },
   BROKEN: { fill: "#ef4444", stroke: "#dc2626", label: "Broken" },

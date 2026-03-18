@@ -84,7 +84,7 @@ For promises with no new developments:
 { "title": "exact promise title", "changed": false }
 
 NEVER use wikipedia.org, youtube.com, or youtu.be as a source URL. Every date must be the REAL date of the event, never today's date.
-Status options: FULFILLED, PARTIAL, IN_PROGRESS, NOT_STARTED, BROKEN, REVERSED
+Status options: FULFILLED, PARTIAL, ADVANCING, IN_PROGRESS, NOT_STARTED, BROKEN, REVERSED
 
 Return ONLY a JSON array.`;
 
@@ -105,7 +105,7 @@ Return a JSON array. For unchanged promises, just { "title": "...", "changed": f
     return { checked: promises.length, changed: 0, autoApplied: 0, flagged: 0 };
   }
 
-  const VALID = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
+  const VALID = ["NOT_STARTED", "IN_PROGRESS", "ADVANCING", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
   const VALID_TYPES = ["status_change", "executive_action", "legislation", "news"];
   const now = new Date();
   let changed = 0;

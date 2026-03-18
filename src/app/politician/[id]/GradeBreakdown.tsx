@@ -22,6 +22,7 @@ interface Props {
 const STATUS_LABELS: Record<string, string> = {
   FULFILLED: "Fulfilled",
   PARTIAL: "Partial",
+  ADVANCING: "Advancing",
   IN_PROGRESS: "In Progress",
   NOT_STARTED: "Not Started",
   BROKEN: "Broken",

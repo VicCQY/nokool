@@ -20,6 +20,7 @@ const SEGMENTS: {
 }[] = [
   { key: "fulfilled", label: "Fulfilled", color: "#22c55e" },
   { key: "partial", label: "Partial", color: "#eab308" },
+  { key: "advancing", label: "Advancing", color: "#14b8a6" },
   { key: "inProgress", label: "In Progress", color: "#3b82f6" },
   { key: "notStarted", label: "Not Started", color: "#9ca3af" },
   { key: "broken", label: "Broken", color: "#ef4444" },

@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     // If it's a status change, apply it
     if (event.eventType === "status_change" && event.newStatus) {
-      const VALID = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
+      const VALID = ["NOT_STARTED", "IN_PROGRESS", "ADVANCING", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
       if (VALID.includes(event.newStatus)) {
         await prisma.$transaction([
           prisma.promise.update({

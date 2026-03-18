@@ -51,8 +51,9 @@ export function calculateFulfillment(
   // Fallback: old flat formula (for cases where term info isn't available)
   const fulfilled = promises.filter((p) => p.status === "FULFILLED").length;
   const partial = promises.filter((p) => p.status === "PARTIAL").length;
+  const advancing = promises.filter((p) => p.status === "ADVANCING").length;
 
-  const score = ((fulfilled + partial * 0.5) / promises.length) * 100;
+  const score = ((fulfilled + partial * 0.5 + advancing * 0.35) / promises.length) * 100;
   const percentage = Math.round(score);
 
   let grade: string;

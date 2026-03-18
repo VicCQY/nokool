@@ -28,6 +28,7 @@ const GRADE_COLORS: Record<string, string> = {
 const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string }> = {
   FULFILLED: { bg: "bg-green-50", text: "text-green-700", label: "Fulfilled" },
   PARTIAL: { bg: "bg-yellow-50", text: "text-yellow-700", label: "Partial" },
+  ADVANCING: { bg: "bg-teal-50", text: "text-teal-700", label: "Advancing" },
   BROKEN: { bg: "bg-muted-red", text: "text-red-700", label: "Broken" },
   IN_PROGRESS: { bg: "bg-blue-50", text: "text-blue-700", label: "In Progress" },
   NOT_STARTED: { bg: "bg-gray-50", text: "text-gray-600", label: "Not Started" },

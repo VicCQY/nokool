@@ -6,6 +6,7 @@ export interface CategoryBreakdown {
   total: number;
   fulfilled: number;
   partial: number;
+  advancing: number;
   broken: number;
   inProgress: number;
   notStarted: number;
@@ -34,7 +35,7 @@ export function calculateCategoryBreakdown(
 ): CategoryBreakdown[] {
   const map: Record<
     string,
-    { total: number; fulfilled: number; partial: number; broken: number; inProgress: number; notStarted: number; promises: PromiseInput[] }
+    { total: number; fulfilled: number; partial: number; advancing: number; broken: number; inProgress: number; notStarted: number; promises: PromiseInput[] }
   > = {};
 
   for (const p of promises) {
@@ -43,6 +44,7 @@ export function calculateCategoryBreakdown(
         total: 0,
         fulfilled: 0,
         partial: 0,
+        advancing: 0,
         broken: 0,
         inProgress: 0,
         notStarted: 0,
@@ -54,6 +56,7 @@ export function calculateCategoryBreakdown(
     c.promises.push(p);
     if (p.status === "FULFILLED") c.fulfilled++;
     else if (p.status === "PARTIAL") c.partial++;
+    else if (p.status === "ADVANCING") c.advancing++;
     else if (p.status === "BROKEN") c.broken++;
     else if (p.status === "IN_PROGRESS") c.inProgress++;
     else if (p.status === "NOT_STARTED") c.notStarted++;
@@ -93,6 +96,7 @@ export function calculateCategoryBreakdown(
       total: data.total,
       fulfilled: data.fulfilled,
       partial: data.partial,
+      advancing: data.advancing,
       broken: data.broken,
       inProgress: data.inProgress,
       notStarted: data.notStarted,

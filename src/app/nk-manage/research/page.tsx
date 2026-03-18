@@ -57,6 +57,7 @@ const CATEGORIES = [
 const STATUSES = [
   { value: "NOT_STARTED", label: "Not Started", color: "bg-gray-300" },
   { value: "IN_PROGRESS", label: "In Progress", color: "bg-blue-500" },
+  { value: "ADVANCING", label: "Advancing", color: "bg-teal-500" },
   { value: "FULFILLED", label: "Fulfilled", color: "bg-green-500" },
   { value: "PARTIAL", label: "Partial", color: "bg-amber-500" },
   { value: "BROKEN", label: "Broken", color: "bg-red-500" },
@@ -66,6 +67,7 @@ const STATUSES = [
 const STATUS_COLORS: Record<string, string> = {
   FULFILLED: "bg-green-100 text-green-700",
   PARTIAL: "bg-amber-100 text-amber-700",
+  ADVANCING: "bg-teal-100 text-teal-700",
   IN_PROGRESS: "bg-blue-100 text-blue-700",
   NOT_STARTED: "bg-gray-100 text-gray-600",
   BROKEN: "bg-red-100 text-red-700",

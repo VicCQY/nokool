@@ -68,7 +68,7 @@ Format as JSON array:
     "title": "string (name specific bills, EO numbers, concrete actions)",
     "description": "string",
     "sourceUrl": "string",
-    "newStatus": "NOT_STARTED | IN_PROGRESS | PARTIAL | FULFILLED | BROKEN | REVERSED (only for status_change, null otherwise)"
+    "newStatus": "NOT_STARTED | IN_PROGRESS | ADVANCING | PARTIAL | FULFILLED | BROKEN | REVERSED (only for status_change, null otherwise)"
   }]
 }]
 
@@ -77,6 +77,7 @@ IMPORTANT: If a promise has executive actions or legislation in its timeline, it
 STATUS DEFINITIONS:
 - FULFILLED = Promise achieved. The goal was reached — bill signed into law, EO implemented, measurable outcome delivered.
 - PARTIAL = Full effort, system blocked success. The legislator did everything in their power — introduced bills, co-sponsored, voted, held hearings, pushed hard — but it didn't pass because colleagues wouldn't support it. They kept their promise, the system failed them. This is NOT half-done — it's full effort without success.
+- ADVANCING = Moderate effort. Co-sponsored bills, voted yes when it came up, publicly supported it, but did not lead the charge or introduce their own legislation. Supportive but not spearheading.
 - IN_PROGRESS = Some effort started. A bill introduced, some votes cast, early-stage work. Not yet a sustained full push.
 - NOT_STARTED = Zero effort. Nothing introduced, no votes, no public action of any kind.
 - BROKEN = Actively contradicted the promise. Voted against it, publicly abandoned it, or took opposite action.
@@ -187,9 +188,11 @@ function inferStatusFromTimeline(results: ResearchedPromise[]): void {
 
     if (p.status === "NOT_STARTED" && (hasExecAction || hasLegislation)) {
       const oldStatus = p.status;
-      // Executive actions + news showing progress → PARTIAL; otherwise IN_PROGRESS
+      // Executive actions + news showing progress → PARTIAL; multiple actions → ADVANCING; otherwise IN_PROGRESS
       if (hasExecAction && hasNews && p.timeline.length >= 3) {
         p.status = "PARTIAL";
+      } else if ((hasExecAction || hasLegislation) && p.timeline.length >= 2) {
+        p.status = "ADVANCING";
       } else {
         p.status = "IN_PROGRESS";
       }
@@ -199,7 +202,7 @@ function inferStatusFromTimeline(results: ResearchedPromise[]): void {
 }
 
 function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
-  const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
+  const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "ADVANCING", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
 
   // Source validation
   const rawSourceUrl = String(item.sourceUrl || "");

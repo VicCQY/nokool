@@ -4,7 +4,7 @@ import { PromiseStatus } from "@prisma/client";
 import { recordPromiseEvent, applyStatusChange } from "@/lib/promise-updates";
 
 const VALID_STATUSES: Set<string> = new Set([
-  "NOT_STARTED", "IN_PROGRESS", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED",
+  "NOT_STARTED", "IN_PROGRESS", "ADVANCING", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED",
 ]);
 
 const EVENT_TYPE_MAP: Record<string, string> = {

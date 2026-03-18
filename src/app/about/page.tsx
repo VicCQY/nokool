@@ -123,6 +123,43 @@ export default function AboutPage() {
             Severity &times; Issue Weight &times; Status Value, normalized to a{" "}
             <span className="font-data">0&ndash;100</span> scale.
           </p>
+
+          {/* Status Definitions */}
+          <div className="mt-10 rounded-lg border border-gray-200 bg-white p-6 max-w-3xl mx-auto">
+            <h3 className="text-base font-semibold text-brand-charcoal mb-4">
+              Promise Status Definitions
+            </h3>
+            <div className="space-y-3 text-sm text-slate">
+              <div className="flex gap-3">
+                <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 shrink-0">Fulfilled</span>
+                <p>Promise achieved. The goal was reached &mdash; bill signed into law, EO implemented, measurable outcome delivered.</p>
+              </div>
+              <div className="flex gap-3">
+                <span className="inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700 shrink-0">Partial</span>
+                <p>Full effort, system blocked success. They did everything in their power but it didn&apos;t pass due to external factors.</p>
+              </div>
+              <div className="flex gap-3">
+                <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-700 shrink-0">Advancing</span>
+                <p>Moderate effort. Co-sponsored bills, voted yes, publicly supported it, but didn&apos;t lead the charge or introduce their own legislation.</p>
+              </div>
+              <div className="flex gap-3">
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 shrink-0">In Progress</span>
+                <p>Some effort started. A bill introduced, some votes cast, early-stage work.</p>
+              </div>
+              <div className="flex gap-3">
+                <span className="inline-flex items-center rounded-full bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-600 shrink-0">Not Started</span>
+                <p>Zero effort. Nothing introduced, no votes, no public action.</p>
+              </div>
+              <div className="flex gap-3">
+                <span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 shrink-0">Broken</span>
+                <p>Actively contradicted the promise. Voted against it, publicly abandoned it, or took opposite action.</p>
+              </div>
+              <div className="flex gap-3">
+                <span className="inline-flex items-center rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-medium text-orange-700 shrink-0">Reversed</span>
+                <p>Initially fulfilled or progressed but then walked back or undone.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
