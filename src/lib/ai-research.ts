@@ -51,71 +51,140 @@ export async function researchPromises(
   const today = new Date().toISOString().split("T")[0];
   const { inOfficeSince, existingPromises = [] } = context;
 
-  const systemPrompt = `You are an expert political researcher. Find this politician's campaign promises and trace their complete history.
+  const systemPrompt = `You are an expert political researcher. Research this politician's campaign promises and return a JSON array.
 
-=== WHAT IS A PROMISE ===
-A promise has: a clear FIELD (policy area), a clear SUBJECT (specific thing), a clear DIRECTION (specific action), and optionally a TIMEFRAME.
-GOOD: 'Pardon January 6 defendants', 'Impose 10% tariff on imports', 'Abolish the Federal Reserve', 'Legalize industrial hemp'
-BAD (slogans, reject these): 'Fight for families', 'Strengthen defense', 'Support Ukraine', 'Cut spending'
+Here is a PERFECT example of the expected output for one politician. Match this format and quality exactly:
 
-=== PRIORITY ===
-First 6-10 promises: CORE — the things that DEFINE this politician. Severity 4-5.
-Next 5-10 promises: SECONDARY — important positions but not defining. Severity 2-3.
+[
+  {
+    "title": "Legalize industrial hemp farming nationwide",
+    "description": "Massie championed the legalization of industrial hemp, a major agricultural product for Kentucky farmers. He introduced the Industrial Hemp Farming Act multiple times starting in 2013. Success meant removing hemp from the Controlled Substances Act.",
+    "category": "Economy",
+    "dateMade": "2013-03-07",
+    "sourceUrl": "https://massie.house.gov/news/documentsingle.aspx?DocumentID=397775",
+    "severity": 4,
+    "expectedMonths": 72,
+    "billRelated": true,
+    "timeline": [
+      {
+        "date": "2013-03-07",
+        "type": "legislation",
+        "title": "Introduced H.R. 525 Industrial Hemp Farming Act",
+        "description": "First introduction of bill to legalize hemp farming at federal level.",
+        "sourceUrl": "https://www.congress.gov/bill/113th-congress/house-bill/525",
+        "newStatus": null
+      },
+      {
+        "date": "2015-01-08",
+        "type": "legislation",
+        "title": "Re-introduced H.R. 262 Industrial Hemp Farming Act",
+        "description": "Re-introduced hemp legalization bill in 114th Congress.",
+        "sourceUrl": "https://www.congress.gov/bill/114th-congress/house-bill/262",
+        "newStatus": null
+      },
+      {
+        "date": "2017-01-03",
+        "type": "legislation",
+        "title": "Re-introduced H.R. 3530 Industrial Hemp Farming Act",
+        "description": "Third introduction in 115th Congress, building bipartisan support.",
+        "sourceUrl": "https://www.congress.gov/bill/115th-congress/house-bill/3530",
+        "newStatus": null
+      },
+      {
+        "date": "2018-06-28",
+        "type": "status_change",
+        "title": "Hemp provision included in 2018 Farm Bill",
+        "description": "Hemp legalization included as amendment in Agriculture Improvement Act of 2018.",
+        "sourceUrl": "https://www.congress.gov/bill/115th-congress/house-bill/2",
+        "newStatus": "ADVANCING"
+      },
+      {
+        "date": "2018-12-20",
+        "type": "status_change",
+        "title": "2018 Farm Bill signed into law — hemp federally legal",
+        "description": "President Trump signed the Agriculture Improvement Act of 2018, removing hemp from Schedule I and legalizing production nationwide.",
+        "sourceUrl": "https://www.usda.gov/topics/hemp",
+        "newStatus": "FULFILLED"
+      }
+    ]
+  },
+  {
+    "title": "Force release of classified Jeffrey Epstein files",
+    "description": "Massie co-led bipartisan push with Ro Khanna to declassify federal files related to Jeffrey Epstein's associates and trafficking network. Success meant full public release of all federal documents.",
+    "category": "Justice",
+    "dateMade": "2023-05-15",
+    "sourceUrl": "https://massie.house.gov/news/documentsingle.aspx?DocumentID=404589",
+    "severity": 4,
+    "expectedMonths": 24,
+    "billRelated": true,
+    "timeline": [
+      {
+        "date": "2023-07-12",
+        "type": "legislation",
+        "title": "Co-sponsored bipartisan Epstein disclosure resolution",
+        "description": "Filed resolution with Rep. Ro Khanna demanding release of all federal Epstein documents.",
+        "sourceUrl": "https://khanna.house.gov/media/press-releases/khanna-massie-introduce-bipartisan-resolution-epstein",
+        "newStatus": null
+      },
+      {
+        "date": "2024-01-05",
+        "type": "status_change",
+        "title": "Partial document release by federal courts",
+        "description": "Federal court ordered release of Epstein-related documents, though many remain classified.",
+        "sourceUrl": "https://apnews.com/article/epstein-documents-release",
+        "newStatus": "PARTIAL"
+      }
+    ]
+  },
+  {
+    "title": "Abolish the Federal Reserve System",
+    "description": "Massie introduced legislation to end the Federal Reserve, an aspirational libertarian position unlikely to pass but reflecting core ideology. Success would be dissolution of the Fed, though realistically this demonstrates ideological commitment.",
+    "category": "Economy",
+    "dateMade": "2013-09-17",
+    "sourceUrl": "https://massie.house.gov/news/documentsingle.aspx?DocumentID=398001",
+    "severity": 2,
+    "expectedMonths": 120,
+    "billRelated": true,
+    "timeline": [
+      {
+        "date": "2013-09-17",
+        "type": "legislation",
+        "title": "Introduced H.R. 73 Federal Reserve Board Abolition Act",
+        "description": "First introduction of bill to abolish the Federal Reserve.",
+        "sourceUrl": "https://www.congress.gov/bill/113th-congress/house-bill/73",
+        "newStatus": null
+      },
+      {
+        "date": "2024-05-15",
+        "type": "status_change",
+        "title": "Re-introduced Federal Reserve Board Abolition Act in 118th Congress",
+        "description": "Continued multi-session effort with latest reintroduction.",
+        "sourceUrl": "https://massie.house.gov/news/documentsingle.aspx?DocumentID=405123",
+        "newStatus": "ADVANCING"
+      }
+    ]
+  }
+]
 
-=== STATUS CRITERIA ===
-FULFILLED = Goal achieved. Bill signed into law, EO implemented, outcome delivered.
-PARTIAL = Led the fight REPEATEDLY. Introduced the SAME bill across MULTIPLE sessions. Pushed for floor votes. Held hearings. Years of sustained leadership. The system blocked them, not lack of effort.
-ADVANCING = Introduced a bill OR led a concrete action. One bill introduction, organizing a hearing as chair, co-leading a major push. They took initiative beyond just voting.
-IN_PROGRESS = Voted correctly when it came up OR co-sponsored someone else's bill. Supportive but didn't lead.
-NOT_STARTED = ZERO action. No votes, no bills, no co-sponsorships, nothing.
-BROKEN = Voted AGAINST their own promise or publicly abandoned it.
-REVERSED = Did it then undid it.
+NOTES ON THE EXAMPLE:
+- Each promise has a SPECIFIC title (not a slogan)
+- dateMade is when the promise was FIRST made (2013, not 2024)
+- Timeline events name SPECIFIC bills (H.R. 525, H.R. 262)
+- Status changes have REAL dates when things actually happened
+- Hemp: multi-session bill introductions → ADVANCING → FULFILLED (signed into law)
+- Epstein: concrete action → PARTIAL (some success)
+- Fed: aspirational promise gets low severity (2) but credit for effort (ADVANCING)
+- Sources are real .gov, news, and official sites — never Wikipedia or YouTube
 
-KEY: Voting yes = IN_PROGRESS. Introducing own bill = ADVANCING. Introducing bills multiple sessions = PARTIAL. Passed into law = FULFILLED.
+STATUS RULES:
+- FULFILLED = Passed into law or goal achieved
+- PARTIAL = Introduced bills MULTIPLE sessions, fought hard, system blocked them
+- ADVANCING = Introduced a bill or led concrete action
+- IN_PROGRESS = Voted correctly or co-sponsored someone else's bill
+- NOT_STARTED = Did literally nothing
+- BROKEN = Voted against own promise
+- REVERSED = Did it then undid it
 
-=== ASPIRATIONAL vs ACHIEVABLE PROMISES ===
-Some promises are politically impossible given current reality (e.g., 'Abolish the Federal Reserve', 'End UN membership'). These are real promises but essentially aspirational — no single legislator can achieve them regardless of effort.
-
-For aspirational/impossible promises:
-- Lower severity to 1-2 (these aren't realistic campaign commitments, more like ideological positions)
-- Give MORE credit for effort: introducing a bill on an impossible topic = ADVANCING even though it will never pass. It shows conviction.
-- Do NOT mark these as NOT_STARTED just because the outcome is impossible. If they introduced a bill, that's ADVANCING. If they talk about it regularly and vote consistently, that's IN_PROGRESS.
-- The key question is: are they sincere about this position? Not: will it ever happen?
-
-=== TIMELINE RULES ===
-Every event must be CONCRETE and VERIFIABLE:
-GOOD: 'Jan 8, 2023 — Introduced H.R. 664 American Sovereignty Restoration Act'
-BAD: 'Elected to Congress', 'Established platform', 'Advocated for reform'
-Getting elected, joining committees, making speeches, and endorsing ideas are NOT timeline events.
-If no concrete action was taken, the timeline must be EMPTY and status must be NOT_STARTED.
-
-=== SOURCES ===
-NEVER use Wikipedia or YouTube. Each promise should have a unique source URL from: .gov sites, C-SPAN, AP, Reuters, NYT, WaPo, Politico, The Hill, CNN, Fox News, NPR, official campaign sites.
-
-=== NO DUPLICATES ===
-One promise per distinct policy action. Do not create overlapping promises.
-Each promise must have a UNIQUE dateMade — find when FIRST announced, not a recent repetition.
-
-=== FORMAT ===
-Return ONLY a JSON array:
-[{
-  "title": "string",
-  "description": "string (2-3 sentences: what was promised, context, what success looks like)",
-  "category": "Economy | Healthcare | Environment | Immigration | Education | Infrastructure | Foreign Policy | Justice | Housing | Technology | Other",
-  "dateMade": "YYYY-MM-DD (when FIRST promised)",
-  "sourceUrl": "string (not Wikipedia/YouTube)",
-  "severity": "number 1-5",
-  "expectedMonths": "number",
-  "billRelated": "boolean",
-  "timeline": [{
-    "date": "YYYY-MM-DD (real date, NEVER today)",
-    "type": "status_change | executive_action | legislation | news",
-    "title": "string (name specific bills, EO numbers)",
-    "description": "string",
-    "sourceUrl": "string",
-    "newStatus": "FULFILLED | PARTIAL | ADVANCING | IN_PROGRESS | NOT_STARTED | BROKEN | REVERSED (only for status_change, null otherwise)"
-  }]
-}]
 CRITICAL: Your response must be ONLY a raw JSON array starting with [ and ending with ]. No markdown, no code fences, no explanation, no preamble. If you write anything other than a JSON array, the request fails and costs money.`;
 
   // Build dynamic user prompt based on context
