@@ -90,10 +90,25 @@ Return ONLY the JSON array, no other text.`;
   const userPrompt = `Research ${politicianName} (${party}, ${position}). Find their 15-20 most significant campaign promises from their entire career. For each one, trace what has actually happened — every bill, vote, executive order, and development with real dates. Be thorough and current through ${today}. Do not use Wikipedia or YouTube as sources.`;
 
   const text = await callPerplexity(systemPrompt, userPrompt, MODEL_RESEARCH);
-  const parsed = parseJsonFromResponse(text);
+
+  // Check for refusal or non-JSON response before parsing
+  const trimmed = text.replace(/```(?:json)?\s*/gi, "").trim();
+  if (!trimmed.includes("[")) {
+    console.warn("[Research] AI returned non-JSON response:", text.slice(0, 500));
+    throw new Error("Research failed — please try again");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = parseJsonFromResponse(text);
+  } catch {
+    console.warn("[Research] Failed to parse response:", text.slice(0, 500));
+    throw new Error("Research failed — please try again");
+  }
 
   if (!Array.isArray(parsed)) {
-    throw new Error("Expected JSON array from research response");
+    console.warn("[Research] Response parsed but is not an array:", typeof parsed);
+    throw new Error("Research failed — please try again");
   }
 
   const results = parsed.map((item: Record<string, unknown>) => processResearchItem(item));

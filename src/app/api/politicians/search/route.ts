@@ -3,11 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q") ?? "";
+  const hasPromises = req.nextUrl.searchParams.get("hasPromises") === "true";
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: any = {};
+  if (q) where.name = { contains: q, mode: "insensitive" };
+  if (hasPromises) where.promises = { some: {} };
 
   const politicians = await prisma.politician.findMany({
-    where: q
-      ? { name: { contains: q, mode: "insensitive" } }
-      : undefined,
+    where: Object.keys(where).length > 0 ? where : undefined,
     select: {
       id: true,
       name: true,

@@ -140,6 +140,9 @@ export default function ResearchPage() {
   const [monitorError, setMonitorError] = useState("");
   const [monitorProgress, setMonitorProgress] = useState("");
   const [allPoliticians, setAllPoliticians] = useState<Politician[]>([]);
+  const [monitorSearch, setMonitorSearch] = useState("");
+  const [monitorSearchResults, setMonitorSearchResults] = useState<Politician[]>([]);
+  const [monitorSearchOpen, setMonitorSearchOpen] = useState(false);
 
   // Debounced search for politicians
   useEffect(() => {
@@ -179,11 +182,11 @@ export default function ResearchPage() {
     })();
   }, [selectedPolId]);
 
-  // Load all politicians for monitor
+  // Load all politicians with promises for monitor
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/politicians/search?q=");
+        const res = await fetch("/api/politicians/search?q=&hasPromises=true");
         const data = await res.json();
         setAllPoliticians(data || []);
       } catch {
@@ -191,6 +194,24 @@ export default function ResearchPage() {
       }
     })();
   }, []);
+
+  // Monitor search with debounce
+  useEffect(() => {
+    if (!monitorSearch.trim()) {
+      setMonitorSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/politicians/search?q=${encodeURIComponent(monitorSearch)}&hasPromises=true`);
+        const data = await res.json();
+        setMonitorSearchResults(data || []);
+      } catch {
+        setMonitorSearchResults([]);
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [monitorSearch]);
 
   async function handleResearch() {
     setStatus("researching");
@@ -986,23 +1007,46 @@ export default function ResearchPage() {
           </div>
         )}
 
-        {allPoliticians.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-gray-700">Monitor Individual</h3>
-            <div className="flex flex-wrap gap-2">
-              {allPoliticians.map((pol) => (
-                <button
-                  key={pol.id}
-                  onClick={() => handleMonitorOne(pol.id, pol.name)}
-                  disabled={monitorStatus === "running" || !apiConfigured}
-                  className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
-                >
-                  Monitor {pol.name}
-                </button>
-              ))}
-            </div>
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-gray-700">Monitor Individual</h3>
+          <div className="relative max-w-sm">
+            <input
+              type="text"
+              placeholder="Search politician to monitor..."
+              value={monitorSearch}
+              onChange={(e) => {
+                setMonitorSearch(e.target.value);
+                setMonitorSearchOpen(true);
+              }}
+              onFocus={() => setMonitorSearchOpen(true)}
+              disabled={monitorStatus === "running" || !apiConfigured}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-400 focus:ring-1 focus:ring-gray-400 focus:outline-none disabled:opacity-40"
+            />
+            {monitorSearchOpen && monitorSearch.trim() && monitorSearchResults.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
+                {monitorSearchResults.map((pol) => (
+                  <button
+                    key={pol.id}
+                    onClick={() => {
+                      setMonitorSearch("");
+                      setMonitorSearchOpen(false);
+                      handleMonitorOne(pol.id, pol.name);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  >
+                    <span className="font-medium text-gray-900">{pol.name}</span>
+                    <span className="text-xs text-gray-400">{pol.party}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {monitorSearchOpen && monitorSearch.trim() && monitorSearchResults.length === 0 && (
+              <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg px-3 py-2 text-sm text-gray-400">
+                No politicians with promises found
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
