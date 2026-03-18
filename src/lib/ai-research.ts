@@ -72,18 +72,35 @@ Format as JSON array:
   }]
 }]
 
-IMPORTANT: If a promise has executive actions or legislation in its timeline, its status CANNOT be NOT_STARTED. You MUST include a status_change event in the timeline reflecting the progress. For example, if an executive order was signed related to a promise, add a status_change event on that same date moving the status to at least IN_PROGRESS.
+IMPORTANT: If a promise has executive actions or legislation in its timeline, its status CANNOT be NOT_STARTED. You MUST include a status_change event in the timeline reflecting the progress.
 
-STATUS DEFINITIONS:
-- FULFILLED = Promise achieved. The goal was reached — bill signed into law, EO implemented, measurable outcome delivered.
-- PARTIAL = Full effort, system blocked success. The legislator did everything in their power — introduced bills, co-sponsored, voted, held hearings, pushed hard — but it didn't pass because colleagues wouldn't support it. They kept their promise, the system failed them. This is NOT half-done — it's full effort without success.
-- ADVANCING = Moderate effort. Co-sponsored bills, voted yes when it came up, publicly supported it, but did not lead the charge or introduce their own legislation. Supportive but not spearheading.
-- IN_PROGRESS = Some effort started. A bill introduced, some votes cast, early-stage work. Not yet a sustained full push.
-- NOT_STARTED = Zero effort. Nothing introduced, no votes, no public action of any kind.
-- BROKEN = Actively contradicted the promise. Voted against it, publicly abandoned it, or took opposite action.
-- REVERSED = Initially fulfilled or progressed but then walked back or undone.
+STATUS DEFINITIONS — USE THESE EXACT CRITERIA:
 
-For legislators: they cannot unilaterally pass laws. Judge them on what THEY did, not on what colleagues blocked. Did they do what was within THEIR power? If yes but it failed due to others, that's PARTIAL at minimum.
+FULFILLED (1.0) = Goal achieved. Bill signed into law, EO fully implemented, measurable outcome delivered.
+
+PARTIAL (0.9) = Led the fight repeatedly. Introduced MULTIPLE bills on this topic across MULTIPLE sessions. Pushed for floor votes. Held hearings. Whipped colleagues. Kept reintroducing after failures. Years of sustained leadership on this issue. Example: introducing the same bill 3+ times over multiple congresses.
+
+ADVANCING (0.8→0.6) = Introduced a bill OR led a concrete legislative action. One bill introduction counts. Co-leading a major push counts. Organized a hearing as chair/ranking member counts. More than just voting — they took initiative.
+
+IN_PROGRESS (0.5→0.3) = Voted correctly on related legislation when it came up, OR co-sponsored someone else's bill. They support it but haven't taken the lead. Voting yes on someone else's bill = IN_PROGRESS, not ADVANCING.
+
+NOT_STARTED (0.1→-0.2) = Zero action. No votes, no co-sponsorships, no bills, no public effort.
+
+BROKEN (-0.5) = Voted AGAINST their own promise, publicly abandoned it, or took opposite action.
+
+REVERSED (-0.3) = Achieved it then undid it.
+
+KEY DISTINCTIONS:
+- Voting yes on a related bill = IN_PROGRESS (supporting someone else's work)
+- Introducing their OWN bill = ADVANCING (taking initiative)
+- Introducing bills MULTIPLE times across sessions = PARTIAL (sustained fight)
+- Bill passes into law = FULFILLED
+
+PROMISE PRIORITY ORDER:
+Find 15-20 promises total, structured as:
+- First 6-10: CORE campaign promises. The headline commitments they are most known for. The reasons people voted for them. These get severity 4-5.
+- Next 5-10: Secondary promises. Important policy positions but not defining. These get severity 2-3.
+List the core promises FIRST in the response. A politician who made 50 promises — find the 6-10 that DEFINE them, then fill in with significant secondary ones. Do not pad with minor positions just to hit 20.
 
 Return ONLY the JSON array, no other text.`;
 

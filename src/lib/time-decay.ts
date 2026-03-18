@@ -71,20 +71,20 @@ export function getTimeAdjustedStatusValue(
     case "FULFILLED":
       return 1.0;
     case "PARTIAL":
-      // Full effort, system blocked success — near full credit
-      return 0.85;
+      // Led the fight repeatedly across multiple sessions
+      return 0.9;
     case "ADVANCING":
-      // Moderate effort, supportive but not leading — fixed value
-      return 0.65;
+      // 0.8 early → 0.6 late (took initiative but could escalate further)
+      return 0.8 - 0.2 * termProgress;
     case "BROKEN":
       return -0.5;
     case "REVERSED":
       return -0.3;
     case "IN_PROGRESS":
-      // 0.5 early → 0.3 late (some effort, decays as time runs out)
+      // 0.5 early → 0.3 late (supporting but not leading)
       return 0.5 - 0.2 * termProgress;
     case "NOT_STARTED":
-      // 0.1 early → -0.2 late (nearly neutral at start, mild penalty late)
+      // 0.1 early → -0.2 late (no action, increasing penalty)
       return 0.1 - 0.3 * termProgress;
     default:
       return 0;
