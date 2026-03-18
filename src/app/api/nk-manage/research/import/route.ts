@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PromiseStatus } from "@prisma/client";
-import { recordPromiseEvent, applyStatusChange } from "@/lib/promise-updates";
-
-const VALID_STATUSES: Set<string> = new Set([
-  "NOT_STARTED", "IN_PROGRESS", "ADVANCING", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED",
-]);
+import { recordPromiseEvent } from "@/lib/promise-updates";
+import { recalculatePromiseStatus } from "@/lib/calculate-promise-status";
 
 const EVENT_TYPE_MAP: Record<string, string> = {
-  status_change: "status_change",
   executive_action: "executive_action",
-  legislation: "bill_vote",
-  news: "news",
+  legislation: "legislation",
 };
 
 export async function POST(request: NextRequest) {
@@ -39,7 +34,7 @@ export async function POST(request: NextRequest) {
       const weight = Math.max(1, Math.min(5, Number(p.weight || p.severity) || 3));
       const expectedMonths = p.expectedMonths ? Math.max(1, Number(p.expectedMonths)) : null;
 
-      // Create the promise with NOT_STARTED initially
+      // Create the promise with NOT_STARTED initially — status will be calculated
       const promise = await prisma.promise.create({
         data: {
           politicianId,
@@ -55,16 +50,6 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Create initial PromiseStatusChange (backward compat)
-      await prisma.promiseStatusChange.create({
-        data: {
-          promiseId: promise.id,
-          oldStatus: null,
-          newStatus: "NOT_STARTED" as PromiseStatus,
-          note: "Promise created",
-        },
-      });
-
       // Create "promise_made" event
       await recordPromiseEvent({
         promiseId: promise.id,
@@ -77,9 +62,8 @@ export async function POST(request: NextRequest) {
         approved: true,
       });
 
-      // Process timeline events
+      // Process timeline events — only legislation and executive_action
       const timeline = Array.isArray(p.timeline) ? p.timeline : [];
-      let lastAppliedStatus: string = "NOT_STARTED";
 
       for (const evt of timeline) {
         if (!evt || typeof evt !== "object") continue;
@@ -87,50 +71,24 @@ export async function POST(request: NextRequest) {
         const evtDate = String(evt.date || "");
         if (!evtDate || isNaN(new Date(evtDate).getTime())) continue;
 
-        const evtType = String(evt.type || "news");
+        const evtType = String(evt.type || "legislation");
+        const mappedType = EVENT_TYPE_MAP[evtType] || "legislation";
 
-        if (evtType === "status_change" && evt.newStatus && VALID_STATUSES.has(String(evt.newStatus))) {
-          const newStatus = String(evt.newStatus);
-          if (newStatus === lastAppliedStatus) continue;
-
-          await applyStatusChange({
-            promiseId: promise.id,
-            newStatus: newStatus as PromiseStatus,
-            eventDate: new Date(evtDate),
-            title: String(evt.title || `Status changed to ${newStatus}`),
-            description: String(evt.description || "") || undefined,
-            sourceUrl: String(evt.sourceUrl || "") || undefined,
-            createdBy: "human",
-          });
-          lastAppliedStatus = newStatus;
-        } else {
-          // Non-status events
-          const mappedType = EVENT_TYPE_MAP[evtType] || "news";
-          await recordPromiseEvent({
-            promiseId: promise.id,
-            eventType: mappedType,
-            eventDate: new Date(evtDate),
-            title: String(evt.title || ""),
-            description: String(evt.description || "") || undefined,
-            sourceUrl: String(evt.sourceUrl || "") || undefined,
-            createdBy: "human",
-            reviewed: true,
-            approved: true,
-          });
-        }
-      }
-
-      // If user explicitly set a status on the card, apply it as the final status
-      const userStatus = p.status && VALID_STATUSES.has(String(p.status)) ? String(p.status) : null;
-      if (userStatus && userStatus !== lastAppliedStatus) {
-        await applyStatusChange({
+        await recordPromiseEvent({
           promiseId: promise.id,
-          newStatus: userStatus as PromiseStatus,
-          eventDate: new Date(),
-          title: `Status set to ${userStatus} during import`,
+          eventType: mappedType,
+          eventDate: new Date(evtDate),
+          title: String(evt.title || ""),
+          description: String(evt.description || "") || undefined,
+          sourceUrl: String(evt.sourceUrl || "") || undefined,
           createdBy: "human",
+          reviewed: true,
+          approved: true,
         });
       }
+
+      // Calculate status from events
+      await recalculatePromiseStatus(promise.id);
 
       created++;
     }

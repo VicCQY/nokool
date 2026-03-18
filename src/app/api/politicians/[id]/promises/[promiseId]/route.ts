@@ -1,20 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { PromiseStatus } from "@prisma/client";
-import { applyStatusChange } from "@/lib/promise-updates";
+import { recalculatePromiseStatus } from "@/lib/calculate-promise-status";
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string; promiseId: string } },
 ) {
   const body = await req.json();
-  const newStatus = body.status as PromiseStatus;
-
-  // Fetch current status to detect changes
-  const current = await prisma.promise.findUnique({
-    where: { id: params.promiseId },
-    select: { status: true },
-  });
 
   const weight = body.weight !== undefined
     ? Math.min(5, Math.max(1, Number(body.weight) || 3))
@@ -23,7 +16,11 @@ export async function PUT(
     ? (body.expectedMonths != null ? Math.max(1, Math.round(Number(body.expectedMonths))) : null)
     : undefined;
 
-  // Update non-status fields
+  // Handle statusOverride — null clears the override, a valid status sets it
+  const statusOverride = body.statusOverride !== undefined
+    ? (body.statusOverride || null)
+    : undefined;
+
   const promise = await prisma.promise.update({
     where: { id: params.promiseId },
     data: {
@@ -34,20 +31,13 @@ export async function PUT(
       sourceUrl: body.sourceUrl || null,
       ...(weight !== undefined && { weight }),
       ...(expectedMonths !== undefined && { expectedMonths }),
+      ...(statusOverride !== undefined && { statusOverride: statusOverride as PromiseStatus | null }),
       reviewedAt: new Date(),
     },
   });
 
-  // Handle status change through the rules engine (human override)
-  if (current && current.status !== newStatus) {
-    await applyStatusChange({
-      promiseId: params.promiseId,
-      newStatus,
-      eventDate: new Date(),
-      title: body.statusNote || `Status manually changed to ${newStatus}`,
-      createdBy: "human",
-    });
-  }
+  // Recalculate status (respects statusOverride if set)
+  await recalculatePromiseStatus(params.promiseId);
 
   return NextResponse.json(promise);
 }

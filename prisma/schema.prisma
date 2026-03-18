@@ -108,6 +108,7 @@ model Promise {
   dateMade        DateTime
   sourceUrl       String?
   status          PromiseStatus         @default(NOT_STARTED)
+  statusOverride  PromiseStatus?
   weight          Int                   @default(3)
   expectedMonths  Int?
   billRelated     Boolean               @default(false)

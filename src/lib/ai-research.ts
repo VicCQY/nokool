@@ -12,18 +12,16 @@ const MODEL_MATCHING = "sonar-pro";
 
 export interface TimelineEvent {
   date: string;
-  type: "status_change" | "executive_action" | "legislation" | "news";
+  type: "executive_action" | "legislation";
   title: string;
   description: string;
   sourceUrl: string;
-  newStatus: string | null;
 }
 
 export interface ResearchedPromise {
   title: string;
   description: string;
   category: string;
-  status: string;
   dateMade: string;
   sourceUrl: string;
   severity: number;
@@ -51,14 +49,25 @@ export async function researchPromises(
   const today = new Date().toISOString().split("T")[0];
   const { inOfficeSince, existingPromises = [] } = context;
 
-  const systemPrompt = `You are an expert political researcher. Research this politician's campaign promises and return a JSON array.
+  const systemPrompt = `You are an expert political researcher. Find this politician's campaign promises, and for each one, find what BILLS they INTRODUCED or CO-SPONSORED and what EXECUTIVE ACTIONS they took.
 
-Here is a PERFECT example of the expected output for one politician. Match this format and quality exactly:
+You do NOT determine statuses — that is calculated automatically from the events you provide.
+
+Your PRIMARY job is finding BILL INTRODUCTIONS and BILL PASSAGES for each promise. Search thoroughly for:
+- Every bill this politician INTRODUCED (they are the sponsor)
+- Every bill this politician CO-SPONSORED that directly relates to the promise
+- Every bill that PASSED INTO LAW that they introduced or co-sponsored
+
+A bill counts ONLY if the politician was the SPONSOR or CO-SPONSOR. Random bills they voted on do NOT count — our bill matching system handles votes separately.
+
+For bill passages: only mark as "signed into law" if the politician INTRODUCED or CO-SPONSORED the bill that passed. A bill passing that they merely voted for is a vote, not their legislation.
+
+Here is a PERFECT example:
 
 [
   {
     "title": "Legalize industrial hemp farming nationwide",
-    "description": "Massie championed the legalization of industrial hemp, a major agricultural product for Kentucky farmers. He introduced the Industrial Hemp Farming Act multiple times starting in 2013. Success meant removing hemp from the Controlled Substances Act.",
+    "description": "Championed legalization of industrial hemp for Kentucky farmers. Introduced the Industrial Hemp Farming Act multiple times. Success means removing hemp from the Controlled Substances Act.",
     "category": "Economy",
     "dateMade": "2013-03-07",
     "sourceUrl": "https://massie.house.gov/news/documentsingle.aspx?DocumentID=397775",
@@ -70,47 +79,35 @@ Here is a PERFECT example of the expected output for one politician. Match this 
         "date": "2013-03-07",
         "type": "legislation",
         "title": "Introduced H.R. 525 Industrial Hemp Farming Act",
-        "description": "First introduction of bill to legalize hemp farming at federal level.",
-        "sourceUrl": "https://www.congress.gov/bill/113th-congress/house-bill/525",
-        "newStatus": null
+        "description": "First introduction of bill to legalize hemp farming.",
+        "sourceUrl": "https://www.congress.gov/bill/113th-congress/house-bill/525"
       },
       {
         "date": "2015-01-08",
         "type": "legislation",
         "title": "Re-introduced H.R. 262 Industrial Hemp Farming Act",
-        "description": "Re-introduced hemp legalization bill in 114th Congress.",
-        "sourceUrl": "https://www.congress.gov/bill/114th-congress/house-bill/262",
-        "newStatus": null
+        "description": "Second introduction in 114th Congress.",
+        "sourceUrl": "https://www.congress.gov/bill/114th-congress/house-bill/262"
       },
       {
         "date": "2017-01-03",
         "type": "legislation",
         "title": "Re-introduced H.R. 3530 Industrial Hemp Farming Act",
-        "description": "Third introduction in 115th Congress, building bipartisan support.",
-        "sourceUrl": "https://www.congress.gov/bill/115th-congress/house-bill/3530",
-        "newStatus": null
-      },
-      {
-        "date": "2018-06-28",
-        "type": "status_change",
-        "title": "Hemp provision included in 2018 Farm Bill",
-        "description": "Hemp legalization included as amendment in Agriculture Improvement Act of 2018.",
-        "sourceUrl": "https://www.congress.gov/bill/115th-congress/house-bill/2",
-        "newStatus": "ADVANCING"
+        "description": "Third introduction in 115th Congress.",
+        "sourceUrl": "https://www.congress.gov/bill/115th-congress/house-bill/3530"
       },
       {
         "date": "2018-12-20",
-        "type": "status_change",
+        "type": "legislation",
         "title": "2018 Farm Bill signed into law — hemp federally legal",
-        "description": "President Trump signed the Agriculture Improvement Act of 2018, removing hemp from Schedule I and legalizing production nationwide.",
-        "sourceUrl": "https://www.usda.gov/topics/hemp",
-        "newStatus": "FULFILLED"
+        "description": "Agriculture Improvement Act of 2018 signed, removing hemp from Schedule I.",
+        "sourceUrl": "https://www.congress.gov/bill/115th-congress/house-bill/2"
       }
     ]
   },
   {
     "title": "Force release of classified Jeffrey Epstein files",
-    "description": "Massie co-led bipartisan push with Ro Khanna to declassify federal files related to Jeffrey Epstein's associates and trafficking network. Success meant full public release of all federal documents.",
+    "description": "Co-led bipartisan push with Ro Khanna to declassify Epstein files. Success means full public release.",
     "category": "Justice",
     "dateMade": "2023-05-15",
     "sourceUrl": "https://massie.house.gov/news/documentsingle.aspx?DocumentID=404589",
@@ -121,24 +118,15 @@ Here is a PERFECT example of the expected output for one politician. Match this 
       {
         "date": "2023-07-12",
         "type": "legislation",
-        "title": "Co-sponsored bipartisan Epstein disclosure resolution",
-        "description": "Filed resolution with Rep. Ro Khanna demanding release of all federal Epstein documents.",
-        "sourceUrl": "https://khanna.house.gov/media/press-releases/khanna-massie-introduce-bipartisan-resolution-epstein",
-        "newStatus": null
-      },
-      {
-        "date": "2024-01-05",
-        "type": "status_change",
-        "title": "Partial document release by federal courts",
-        "description": "Federal court ordered release of Epstein-related documents, though many remain classified.",
-        "sourceUrl": "https://apnews.com/article/epstein-documents-release",
-        "newStatus": "PARTIAL"
+        "title": "Co-sponsored bipartisan Epstein disclosure resolution with Rep. Khanna",
+        "description": "Filed resolution demanding release of all federal Epstein documents.",
+        "sourceUrl": "https://khanna.house.gov/media/press-releases/khanna-massie-introduce-bipartisan-resolution-epstein"
       }
     ]
   },
   {
     "title": "Abolish the Federal Reserve System",
-    "description": "Massie introduced legislation to end the Federal Reserve, an aspirational libertarian position unlikely to pass but reflecting core ideology. Success would be dissolution of the Fed, though realistically this demonstrates ideological commitment.",
+    "description": "Introduced legislation to end the Federal Reserve. Aspirational libertarian position unlikely to pass but shows ideological commitment.",
     "category": "Economy",
     "dateMade": "2013-09-17",
     "sourceUrl": "https://massie.house.gov/news/documentsingle.aspx?DocumentID=398001",
@@ -150,42 +138,36 @@ Here is a PERFECT example of the expected output for one politician. Match this 
         "date": "2013-09-17",
         "type": "legislation",
         "title": "Introduced H.R. 73 Federal Reserve Board Abolition Act",
-        "description": "First introduction of bill to abolish the Federal Reserve.",
-        "sourceUrl": "https://www.congress.gov/bill/113th-congress/house-bill/73",
-        "newStatus": null
+        "description": "First introduction of bill to abolish the Fed.",
+        "sourceUrl": "https://www.congress.gov/bill/113th-congress/house-bill/73"
       },
       {
         "date": "2024-05-15",
-        "type": "status_change",
+        "type": "legislation",
         "title": "Re-introduced Federal Reserve Board Abolition Act in 118th Congress",
-        "description": "Continued multi-session effort with latest reintroduction.",
-        "sourceUrl": "https://massie.house.gov/news/documentsingle.aspx?DocumentID=405123",
-        "newStatus": "ADVANCING"
+        "description": "Continued multi-session effort.",
+        "sourceUrl": "https://www.congress.gov/bill/118th-congress/house-bill/8421"
       }
     ]
   }
 ]
 
-NOTES ON THE EXAMPLE:
-- Each promise has a SPECIFIC title (not a slogan)
-- dateMade is when the promise was FIRST made (2013, not 2024)
-- Timeline events name SPECIFIC bills (H.R. 525, H.R. 262)
-- Status changes have REAL dates when things actually happened
-- Hemp: multi-session bill introductions → ADVANCING → FULFILLED (signed into law)
-- Epstein: concrete action → PARTIAL (some success)
-- Fed: aspirational promise gets low severity (2) but credit for effort (ADVANCING)
-- Sources are real .gov, news, and official sites — never Wikipedia or YouTube
+NOTES:
+- Promises must be SPECIFIC (not slogans). Must have: clear field, clear subject, clear action.
+- GOOD: 'Legalize industrial hemp', 'Abolish the Federal Reserve', 'Ban TikTok'
+- BAD: 'Fight for families', 'Strengthen defense', 'Support freedom'
+- dateMade = when FIRST promised, not recent repetition
+- Timeline event type "legislation" = bill INTRODUCTIONS and SPONSORSHIPS only (when the politician introduced or co-sponsored a bill)
+- Timeline event type "executive_action" = executive orders, memorandums, proclamations, bills signed/vetoed
+- Bill VOTES are NOT returned by the AI — our bill matching system handles those separately. NEVER return a "bill_vote" type event.
+- Valid timeline event types: "legislation" (introductions) and "executive_action" ONLY
+- Name specific bill numbers (H.R. XXX, S. XXX) and EO numbers
+- NEVER use Wikipedia or YouTube as sources
+- First 6-10 promises = CORE (severity 4-5), next 5-10 = SECONDARY (severity 2-3)
+- Aspirational/impossible promises get low severity (1-2) but still track the effort
+- No duplicates, unique dates, unique sources where possible
 
-STATUS RULES:
-- FULFILLED = Passed into law or goal achieved
-- PARTIAL = Introduced bills MULTIPLE sessions, fought hard, system blocked them
-- ADVANCING = Introduced a bill or led concrete action
-- IN_PROGRESS = Voted correctly or co-sponsored someone else's bill
-- NOT_STARTED = Did literally nothing
-- BROKEN = Voted against own promise
-- REVERSED = Did it then undid it
-
-CRITICAL: Your response must be ONLY a raw JSON array starting with [ and ending with ]. No markdown, no code fences, no explanation, no preamble. If you write anything other than a JSON array, the request fails and costs money.`;
+CRITICAL: Return ONLY a raw JSON array starting with [ and ending with ]. No markdown, no code fences, no explanation.`;
 
   // Build dynamic user prompt based on context
   const yearsServed = inOfficeSince
@@ -205,14 +187,14 @@ CRITICAL: Your response must be ONLY a raw JSON array starting with [ and ending
 
 They have ${existingPromises.length} tracked promises on: ${categories}. Find ADDITIONAL significant promises we're missing. Do not duplicate: ${existingTitles}.
 
-For each new promise, trace what has happened through ${today}.`;
+For each new promise, find related bill introductions and executive actions through ${today}.`;
   } else {
     // Initial research
     userPrompt = `Research ${politicianName} (${party}, ${position}${officeInfo}).
 
 What are the 6-10 things this politician is MOST known for fighting for or against? What defines them politically? What specific bills have they introduced or led? What distinguishes them from other ${party} members?
 
-Find their 15-20 most significant promises from their entire career. For each, trace every bill introduced, vote cast, executive order, and development with real dates through ${today}.`;
+Find their 15-20 most significant promises. For each, find every bill they introduced and every executive action they took related to it, with real dates and bill/EO numbers through ${today}.`;
   }
 
   // Retry with fallback: try sonar-pro 3 times, then sonar 3 times
@@ -273,8 +255,7 @@ Find their 15-20 most significant promises from their entire career. For each, t
   // Detect and warn about lazy AI output
   validateResearchQuality(deduped);
 
-  // Infer status from timeline when AI forgot to add status_change events
-  inferStatusFromTimeline(deduped);
+  // Status is now calculated from events by calculate-promise-status.ts — no inference needed here
 
   // Flag possible slogans
   flagSlogans(deduped);
@@ -347,50 +328,6 @@ function validateResearchQuality(results: ResearchedPromise[]): void {
   }
 }
 
-const STATUS_RANK: Record<string, number> = {
-  NOT_STARTED: 0, IN_PROGRESS: 1, ADVANCING: 2, PARTIAL: 3, FULFILLED: 4, BROKEN: -1, REVERSED: -2,
-};
-
-function inferStatusFromTimeline(results: ResearchedPromise[]): void {
-  for (const p of results) {
-    // Never override terminal statuses
-    if (p.status === "FULFILLED" || p.status === "BROKEN" || p.status === "REVERSED") continue;
-
-    const legislationEvents = p.timeline.filter((e) => e.type === "legislation");
-    const execEvents = p.timeline.filter((e) => e.type === "executive_action");
-    const totalEvents = p.timeline.length;
-
-    // Determine minimum status from timeline evidence
-    let minStatus = "NOT_STARTED";
-
-    if (totalEvents > 0) {
-      // Any timeline events at all → at least IN_PROGRESS
-      minStatus = "IN_PROGRESS";
-    }
-
-    if (legislationEvents.length >= 2 || execEvents.length >= 2) {
-      // 2+ legislation or exec events → at least ADVANCING
-      minStatus = "ADVANCING";
-    }
-
-    if (legislationEvents.length >= 3) {
-      // 3+ legislation events across different years → PARTIAL
-      const years = new Set(legislationEvents.map((e) => new Date(e.date).getFullYear()));
-      if (years.size >= 2) {
-        minStatus = "PARTIAL";
-      }
-    }
-
-    // Only upgrade, never downgrade
-    const currentRank = STATUS_RANK[p.status] ?? 0;
-    const minRank = STATUS_RANK[minStatus] ?? 0;
-    if (minRank > currentRank) {
-      console.log(`[Status Inference] "${p.title}": ${p.status} → ${minStatus} (${legislationEvents.length} legislation, ${execEvents.length} exec, ${totalEvents} total events)`);
-      p.status = minStatus;
-    }
-  }
-}
-
 const VALID_CATEGORIES = new Set([
   "Economy", "Healthcare", "Environment", "Immigration", "Education",
   "Infrastructure", "Foreign Policy", "Justice", "Housing", "Technology", "Other",
@@ -423,8 +360,6 @@ function normalizeCategory(raw: string): string {
 }
 
 function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
-  const VALID_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "ADVANCING", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
-
   // Source validation
   const rawSourceUrl = String(item.sourceUrl || "");
   const sourceUrl = sanitizeSourceUrl(rawSourceUrl, String(item.title || ""));
@@ -435,7 +370,7 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
     ? rawDateMade
     : new Date().toISOString().split("T")[0];
 
-  // Process timeline
+  // Process timeline — only legislation and executive_action events
   const rawTimeline = Array.isArray(item.timeline) ? item.timeline : [];
   const now = new Date();
   const timeline: TimelineEvent[] = [];
@@ -448,17 +383,12 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
     const evtDateObj = new Date(evtDate);
     if (!evtDate || isNaN(evtDateObj.getTime()) || evtDateObj > now) continue;
 
-    const evtType = String(evtObj.type || "news");
-    const validTypes = ["status_change", "executive_action", "legislation", "news"];
-    const type = validTypes.includes(evtType) ? evtType : "news";
+    const evtType = String(evtObj.type || "legislation");
+    // Only keep legislation and executive_action events
+    const validTypes = ["executive_action", "legislation"];
+    const type = validTypes.includes(evtType) ? evtType : "legislation";
 
     const evtSourceUrl = sanitizeSourceUrl(String(evtObj.sourceUrl || ""), String(evtObj.title || ""));
-
-    let newStatus: string | null = null;
-    if (type === "status_change" && evtObj.newStatus) {
-      const s = String(evtObj.newStatus);
-      if (VALID_STATUSES.includes(s)) newStatus = s;
-    }
 
     timeline.push({
       date: evtDate,
@@ -466,24 +396,17 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
       title: stripCitations(String(evtObj.title || "")),
       description: stripCitations(String(evtObj.description || "")),
       sourceUrl: evtSourceUrl,
-      newStatus,
     });
   }
 
   // Sort chronologically
   timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Determine current status from last status_change event
-  const lastStatusEvent = [...timeline].reverse().find((e) => e.type === "status_change" && e.newStatus);
-  const status = lastStatusEvent?.newStatus && VALID_STATUSES.includes(lastStatusEvent.newStatus)
-    ? lastStatusEvent.newStatus
-    : (VALID_STATUSES.includes(String(item.status || "")) ? String(item.status) : "NOT_STARTED");
-
+  // No status — it's calculated from events by calculate-promise-status.ts
   return {
     title: stripCitations(String(item.title || "")),
     description: stripCitations(String(item.description || "")),
     category: normalizeCategory(String(item.category || "Other")),
-    status,
     dateMade,
     sourceUrl,
     severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),

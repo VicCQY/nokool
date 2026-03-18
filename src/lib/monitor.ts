@@ -1,8 +1,8 @@
 import { prisma } from "./prisma";
 import { callPerplexity, parseJsonFromResponse } from "./perplexity-api";
 import { sanitizeSourceUrl, validateSource } from "./source-validator";
-import { applyStatusChange, recordPromiseEvent } from "./promise-updates";
-import { PromiseStatus } from "@prisma/client";
+import { recordPromiseEvent } from "./promise-updates";
+import { recalculatePromiseStatus } from "./calculate-promise-status";
 
 const MODEL_MONITOR = "sonar-pro";
 
@@ -71,11 +71,10 @@ For each promise with new developments, return:
   "events": [
     {
       "date": "YYYY-MM-DD",
-      "type": "status_change" | "executive_action" | "legislation" | "news",
+      "type": "executive_action" | "legislation",
       "title": "what happened",
       "description": "details",
-      "sourceUrl": "proof URL",
-      "newStatus": "STATUS" (only for status_change type, null for others)
+      "sourceUrl": "proof URL"
     }
   ]
 }
@@ -83,8 +82,8 @@ For each promise with new developments, return:
 For promises with no new developments:
 { "title": "exact promise title", "changed": false }
 
+Only report CONCRETE actions: bill introductions, votes, executive orders, laws signed/vetoed. Do NOT report news articles, speeches, or opinions.
 NEVER use wikipedia.org, youtube.com, or youtu.be as a source URL. Every date must be the REAL date of the event, never today's date.
-Status options: FULFILLED, PARTIAL, ADVANCING, IN_PROGRESS, NOT_STARTED, BROKEN, REVERSED
 
 Return ONLY a JSON array.`;
 
@@ -105,12 +104,12 @@ Return a JSON array. For unchanged promises, just { "title": "...", "changed": f
     return { checked: promises.length, changed: 0, autoApplied: 0, flagged: 0 };
   }
 
-  const VALID = ["NOT_STARTED", "IN_PROGRESS", "ADVANCING", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
-  const VALID_TYPES = ["status_change", "executive_action", "legislation", "news"];
+  const VALID_TYPES = ["executive_action", "legislation"];
   const now = new Date();
   let changed = 0;
   let autoApplied = 0;
-  let flagged = 0;
+  const flagged = 0;
+  const promisesWithNewEvents = new Set<string>();
 
   for (const item of parsed) {
     if (!item || item.changed !== true || !Array.isArray(item.events)) continue;
@@ -129,8 +128,8 @@ Return a JSON array. For unchanged promises, just { "title": "...", "changed": f
       const eventDateObj = new Date(eventDate);
       if (!eventDate || isNaN(eventDateObj.getTime()) || eventDateObj > now) continue;
 
-      const evtType = String(evt.type || "news");
-      const type = VALID_TYPES.includes(evtType) ? evtType : "news";
+      const evtType = String(evt.type || "legislation");
+      const type = VALID_TYPES.includes(evtType) ? evtType : "legislation";
 
       // Source validation
       const rawUrl = String(evt.sourceUrl || "");
@@ -143,44 +142,32 @@ Return a JSON array. For unchanged promises, just { "title": "...", "changed": f
       else if (srcVal.trusted === false) confidence = "medium";
       else if (srcVal.trusted === true) confidence = "high";
 
-      if (type === "status_change" && evt.newStatus) {
-        const newStatus = String(evt.newStatus);
-        if (!VALID.includes(newStatus) || newStatus === promise.status) continue;
+      const eventTypeMap: Record<string, string> = {
+        executive_action: "executive_action",
+        legislation: "legislation",
+      };
+      await recordPromiseEvent({
+        promiseId: promise.id,
+        eventType: eventTypeMap[type] || "legislation",
+        eventDate: new Date(eventDate),
+        title: String(evt.title || ""),
+        description: String(evt.description || ""),
+        sourceUrl: sourceUrl || undefined,
+        createdBy: confidence === "low" ? "ai_flagged" : "ai_auto",
+        confidence,
+        reviewed: false,
+        approved: true,
+      });
 
-        const result = await applyStatusChange({
-          promiseId: promise.id,
-          newStatus: newStatus as PromiseStatus,
-          eventDate: new Date(eventDate),
-          title: String(evt.title || `Status updated to ${newStatus}`),
-          description: String(evt.description || ""),
-          sourceUrl: sourceUrl || undefined,
-          createdBy: confidence === "low" ? "ai_flagged" : "ai_auto",
-          confidence,
-        });
-
-        if (result.applied) autoApplied++;
-        if (result.flagged) flagged++;
-      } else {
-        // Non-status events
-        const eventTypeMap: Record<string, string> = {
-          executive_action: "executive_action",
-          legislation: "bill_vote",
-          news: "news",
-        };
-        await recordPromiseEvent({
-          promiseId: promise.id,
-          eventType: eventTypeMap[type] || "news",
-          eventDate: new Date(eventDate),
-          title: String(evt.title || ""),
-          description: String(evt.description || ""),
-          sourceUrl: sourceUrl || undefined,
-          createdBy: confidence === "low" ? "ai_flagged" : "ai_auto",
-          confidence,
-          reviewed: false,
-          approved: true,
-        });
-      }
+      promisesWithNewEvents.add(promise.id);
     }
+  }
+
+  // Recalculate status for all promises that got new events
+  for (const pid of Array.from(promisesWithNewEvents)) {
+    const oldPromise = await prisma.promise.findUnique({ where: { id: pid }, select: { status: true } });
+    const newStatus = await recalculatePromiseStatus(pid);
+    if (oldPromise && oldPromise.status !== newStatus) autoApplied++;
   }
 
   // Update lastMonitoredAt

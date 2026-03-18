@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { PromiseStatus } from "@prisma/client";
+import { recalculatePromiseStatus } from "@/lib/calculate-promise-status";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,27 +24,8 @@ export async function POST(request: NextRequest) {
       data: { reviewed: true, approved: true },
     });
 
-    // If it's a status change, apply it
-    if (event.eventType === "status_change" && event.newStatus) {
-      const VALID = ["NOT_STARTED", "IN_PROGRESS", "ADVANCING", "FULFILLED", "PARTIAL", "BROKEN", "REVERSED"];
-      if (VALID.includes(event.newStatus)) {
-        await prisma.$transaction([
-          prisma.promise.update({
-            where: { id: event.promiseId },
-            data: { status: event.newStatus as PromiseStatus, reviewedAt: new Date() },
-          }),
-          prisma.promiseStatusChange.create({
-            data: {
-              promiseId: event.promiseId,
-              oldStatus: event.oldStatus as PromiseStatus | null,
-              newStatus: event.newStatus as PromiseStatus,
-              changedAt: event.eventDate,
-              note: event.title,
-            },
-          }),
-        ]);
-      }
-    }
+    // Recalculate status — the newly approved event may change it
+    await recalculatePromiseStatus(event.promiseId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

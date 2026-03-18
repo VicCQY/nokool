@@ -17,6 +17,7 @@ const INTERNAL_PHRASES = [
   "ai_flagged",
   "during import",
   "Status set to",
+  "set to",
   "Promise created",
 ];
 

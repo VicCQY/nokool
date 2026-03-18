@@ -19,18 +19,16 @@ interface ExistingPromise {
 
 interface TimelineEvent {
   date: string;
-  type: "status_change" | "executive_action" | "legislation" | "news";
+  type: "executive_action" | "legislation";
   title: string;
   description: string;
   sourceUrl: string;
-  newStatus: string | null;
 }
 
 interface ResearchedPromise {
   title: string;
   description: string;
   category: string;
-  status: string;
   dateMade: string;
   sourceUrl: string;
   severity: number;
@@ -54,31 +52,10 @@ const CATEGORIES = [
   "Infrastructure", "Foreign Policy", "Justice", "Housing", "Technology", "Other",
 ];
 
-const STATUSES = [
-  { value: "NOT_STARTED", label: "Not Started", color: "bg-gray-300" },
-  { value: "IN_PROGRESS", label: "In Progress", color: "bg-blue-500" },
-  { value: "ADVANCING", label: "Advancing", color: "bg-teal-500" },
-  { value: "FULFILLED", label: "Fulfilled", color: "bg-green-500" },
-  { value: "PARTIAL", label: "Partial", color: "bg-amber-500" },
-  { value: "BROKEN", label: "Broken", color: "bg-red-500" },
-  { value: "REVERSED", label: "Reversed", color: "bg-orange-500" },
-];
-
-const STATUS_COLORS: Record<string, string> = {
-  FULFILLED: "bg-green-100 text-green-700",
-  PARTIAL: "bg-amber-100 text-amber-700",
-  ADVANCING: "bg-teal-100 text-teal-700",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
-  NOT_STARTED: "bg-gray-100 text-gray-600",
-  BROKEN: "bg-red-100 text-red-700",
-  REVERSED: "bg-orange-100 text-orange-700",
-};
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  status_change: "bg-purple-100 text-purple-700",
   executive_action: "bg-indigo-100 text-indigo-700",
   legislation: "bg-blue-100 text-blue-700",
-  news: "bg-gray-100 text-gray-600",
 };
 
 const STOP_WORDS = new Set(["the", "a", "an", "to", "of", "and", "in", "on", "for", "with", "is", "it", "by", "as", "at", "or", "from", "that", "this", "be", "will", "all", "their", "his", "her"]);
@@ -321,7 +298,6 @@ export default function ResearchPage() {
             title: p.title,
             description: p.description,
             category: p.category,
-            status: p.status,
             severity: p.severity,
             expectedMonths: p.expectedMonths,
             billRelated: p.billRelated,
@@ -358,29 +334,11 @@ export default function ResearchPage() {
     setPromises((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function deriveStatus(timeline: TimelineEvent[]): string {
-    const last = [...timeline].reverse().find((e) => e.type === "status_change" && e.newStatus);
-    return last?.newStatus || "NOT_STARTED";
-  }
-
   function removeTimelineEvent(promiseIndex: number, eventIndex: number) {
     setPromises((prev) =>
       prev.map((p, i) => {
         if (i !== promiseIndex) return p;
-        const newTimeline = p.timeline.filter((_, ei) => ei !== eventIndex);
-        return { ...p, timeline: newTimeline, status: deriveStatus(newTimeline) };
-      }),
-    );
-  }
-
-  function updateTimelineEventStatus(promiseIndex: number, eventIndex: number, newStatus: string) {
-    setPromises((prev) =>
-      prev.map((p, i) => {
-        if (i !== promiseIndex) return p;
-        const newTimeline = p.timeline.map((evt, ei) =>
-          ei === eventIndex ? { ...evt, newStatus } : evt,
-        );
-        return { ...p, timeline: newTimeline, status: deriveStatus(newTimeline) };
+        return { ...p, timeline: p.timeline.filter((_, ei) => ei !== eventIndex) };
       }),
     );
   }
@@ -676,7 +634,6 @@ export default function ResearchPage() {
             {promises.map((p, i) => {
               const dupMatch = findDuplicateMatch(p.title, existingPromises);
               const isExpanded = expandedPromises.has(i);
-              const statusInfo = STATUSES.find((s) => s.value === p.status);
               return (
                 <div
                   key={i}
@@ -707,9 +664,11 @@ export default function ResearchPage() {
                             onChange={(e) => updatePromise(i, "title", e.target.value)}
                             className="flex-1 text-sm font-semibold text-gray-900 border-b border-transparent hover:border-gray-200 focus:border-gray-900 focus:outline-none min-w-[200px]"
                           />
-                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[p.status] || "bg-gray-100 text-gray-600"}`}>
-                            {statusInfo?.label || p.status}
-                          </span>
+                          {p.timeline.length > 0 && (
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700">
+                              {p.timeline.length} event{p.timeline.length !== 1 ? "s" : ""}
+                            </span>
+                          )}
                           <button
                             onClick={() => updatePromise(i, "billRelated", !p.billRelated)}
                             className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
@@ -781,14 +740,15 @@ export default function ResearchPage() {
                             </select>
                           </div>
                           <div>
-                            <label className="block text-xs text-gray-400 mb-0.5">Status</label>
-                            <select
-                              value={p.status}
-                              onChange={(e) => updatePromise(i, "status", e.target.value)}
+                            <label className="block text-xs text-gray-400 mb-0.5">Expected Months</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={p.expectedMonths || ""}
+                              onChange={(e) => updatePromise(i, "expectedMonths", e.target.value ? Number(e.target.value) : null)}
+                              placeholder="—"
                               className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-900"
-                            >
-                              {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                            </select>
+                            />
                           </div>
                           <div>
                             <label className="block text-xs text-gray-400 mb-0.5">Date Made</label>
@@ -842,20 +802,6 @@ export default function ResearchPage() {
                                           {evt.type.replace("_", " ")}
                                         </span>
                                         <span className="text-[11px] text-gray-400">{formatDate(evt.date)}</span>
-                                        {evt.type === "status_change" && evt.newStatus && (
-                                          <select
-                                            value={evt.newStatus}
-                                            onChange={(e) => updateTimelineEventStatus(i, ei, e.target.value)}
-                                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium border-0 cursor-pointer ${STATUS_COLORS[evt.newStatus] || "bg-gray-100"}`}
-                                          >
-                                            {STATUSES.map((s) => <option key={s.value} value={s.value}>→ {s.label}</option>)}
-                                          </select>
-                                        )}
-                                        {evt.type !== "status_change" && evt.newStatus && (
-                                          <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[evt.newStatus] || "bg-gray-100"}`}>
-                                            → {evt.newStatus.replace("_", " ")}
-                                          </span>
-                                        )}
                                       </div>
                                       <p className="text-xs text-gray-700 mt-0.5">{evt.title}</p>
                                       {evt.description && (
@@ -883,7 +829,7 @@ export default function ResearchPage() {
                           </div>
                         )}
                         {p.timeline.length === 0 && (
-                          <p className="text-xs text-gray-400 italic">No timeline events — status is {p.status}</p>
+                          <p className="text-xs text-gray-400 italic">No timeline events — status will be calculated after import</p>
                         )}
                       </div>
                     )}
