@@ -116,7 +116,7 @@ Return ONLY a JSON array:
     "newStatus": "FULFILLED | PARTIAL | ADVANCING | IN_PROGRESS | NOT_STARTED | BROKEN | REVERSED (only for status_change, null otherwise)"
   }]
 }]
-No markdown, no explanation, ONLY the JSON array.`;
+CRITICAL: Your response must be ONLY a raw JSON array starting with [ and ending with ]. No markdown, no code fences, no explanation, no preamble. If you write anything other than a JSON array, the request fails and costs money.`;
 
   // Build dynamic user prompt based on context
   const yearsServed = inOfficeSince
@@ -146,55 +146,54 @@ What are the 6-10 things this politician is MOST known for fighting for or again
 Find their 15-20 most significant promises from their entire career. For each, trace every bill introduced, vote cast, executive order, and development with real dates through ${today}.`;
   }
 
-  // Retry up to 2 times if Perplexity returns non-JSON (narrative text, refusals)
-  const MAX_ATTEMPTS = 3;
+  // Retry with fallback: try sonar-pro 3 times, then sonar 3 times
+  const MODEL_FALLBACK = "sonar";
+  const ATTEMPTS_PER_MODEL = 3;
+  const models = [MODEL_RESEARCH, MODEL_FALLBACK];
   let parsed: unknown;
+  let succeeded = false;
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const text = await callPerplexity(systemPrompt, userPrompt, MODEL_RESEARCH);
+  for (const model of models) {
+    if (succeeded) break;
 
-    const trimmed = text.replace(/```(?:json)?\s*/gi, "").trim();
-    if (!trimmed.includes("[")) {
-      console.warn(`[Research] Attempt ${attempt}/${MAX_ATTEMPTS}: AI returned non-JSON response:`, text.slice(0, 300));
-      if (attempt === MAX_ATTEMPTS) {
-        throw new Error("Research failed after multiple attempts — the AI kept returning non-JSON. Please try again.");
+    for (let attempt = 1; attempt <= ATTEMPTS_PER_MODEL; attempt++) {
+      const label = `[Research] ${model} attempt ${attempt}/${ATTEMPTS_PER_MODEL}`;
+      const text = await callPerplexity(systemPrompt, userPrompt, model);
+
+      const trimmed = text.replace(/```(?:json)?\s*/gi, "").trim();
+      if (!trimmed.includes("[")) {
+        console.warn(`${label}: AI returned non-JSON response:`, text.slice(0, 300));
+        continue;
       }
-      continue;
-    }
 
-    try {
-      parsed = parseJsonFromResponse(text);
-    } catch {
-      console.warn(`[Research] Attempt ${attempt}/${MAX_ATTEMPTS}: Failed to parse response:`, text.slice(0, 300));
-      if (attempt === MAX_ATTEMPTS) {
-        throw new Error("Research failed after multiple attempts — could not parse AI response. Please try again.");
+      try {
+        parsed = parseJsonFromResponse(text);
+      } catch {
+        console.warn(`${label}: Failed to parse response:`, text.slice(0, 300));
+        continue;
       }
-      continue;
-    }
 
-    if (!Array.isArray(parsed)) {
-      console.warn(`[Research] Attempt ${attempt}/${MAX_ATTEMPTS}: Response is not an array:`, typeof parsed);
-      if (attempt === MAX_ATTEMPTS) {
-        throw new Error("Research failed after multiple attempts. Please try again.");
+      if (!Array.isArray(parsed)) {
+        console.warn(`${label}: Response is not an array:`, typeof parsed);
+        continue;
       }
-      continue;
-    }
 
-    // Treat empty array as a failed attempt — Perplexity sometimes returns [] with 1 token
-    if (parsed.length === 0) {
-      console.warn(`[Research] Attempt ${attempt}/${MAX_ATTEMPTS}: Perplexity returned empty array []`);
-      if (attempt === MAX_ATTEMPTS) {
-        throw new Error("Research failed — the AI returned no results after multiple attempts. Please try again.");
+      if (parsed.length === 0) {
+        console.warn(`${label}: Perplexity returned empty array []`);
+        continue;
       }
-      continue;
-    }
 
-    // Success — break out of retry loop
-    break;
+      // Success
+      if (model === MODEL_FALLBACK) {
+        console.log(`[Research] Succeeded with fallback model ${MODEL_FALLBACK} on attempt ${attempt}`);
+      }
+      succeeded = true;
+      break;
+    }
   }
 
-  if (!Array.isArray(parsed)) {
-    throw new Error("Research failed — please try again");
+  if (!succeeded || !Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error("Research failed after multiple attempts with both models. Please try again.");
   }
 
   const results = parsed.map((item: Record<string, unknown>) => processResearchItem(item));

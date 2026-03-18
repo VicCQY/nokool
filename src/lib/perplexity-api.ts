@@ -35,7 +35,7 @@ export async function callPerplexity(
     body: JSON.stringify({
       model,
       messages,
-      temperature: 0.1,
+      temperature: 0.0,
     }),
   });
 
