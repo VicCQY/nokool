@@ -291,15 +291,17 @@ model PromiseEvent {
   promiseId      String
   promise        Promise  @relation(fields: [promiseId], references: [id], onDelete: Cascade)
 
-  eventType      String   // "status_change" | "bill_vote" | "executive_action" | "news" | "promise_made" | "research_note"
+  eventType      String   // "announcement" | "news" | "legislation"
   eventDate      DateTime // when it actually happened (NOT when the AI ran)
   relevanceScore Float    @default(1.0)
 
-  oldStatus   String?  // previous status (null for initial)
-  newStatus   String?  // new status (null if not a status change)
+  oldStatus     String?  // previous status (null for initial)
+  newStatus     String?  // new status (null if not a status change)
+  statusChange  String?  // status set at this event, e.g. "FIGHTING" — ties status to evidence
 
   title       String   // short description of the event
-  description String?  // longer explanation
+  description String?  // 1-line summary shown on timeline
+  details     String?  // 3-4 sentences with full context, shown on expand
   sourceUrl   String?  // link to evidence
 
   createdBy   String   // "human" | "ai_auto" | "ai_flagged"

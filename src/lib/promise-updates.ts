@@ -59,7 +59,7 @@ export async function applyStatusChange(
       prisma.promiseEvent.create({
         data: {
           promiseId: input.promiseId,
-          eventType: "status_change",
+          eventType: "news",
           eventDate: input.eventDate,
           oldStatus,
           newStatus,
@@ -98,7 +98,7 @@ export async function applyStatusChange(
     const event = await prisma.promiseEvent.create({
       data: {
         promiseId: input.promiseId,
-        eventType: "status_change",
+        eventType: "news",
         eventDate: input.eventDate,
         oldStatus,
         newStatus,
@@ -133,7 +133,7 @@ export async function applyStatusChange(
     prisma.promiseEvent.create({
       data: {
         promiseId: input.promiseId,
-        eventType: "status_change",
+        eventType: "news",
         eventDate: input.eventDate,
         oldStatus,
         newStatus,
@@ -169,11 +169,13 @@ export async function recordPromiseEvent(input: {
   eventDate: Date;
   title: string;
   description?: string;
+  details?: string;
   sourceUrl?: string;
   createdBy: "human" | "ai_auto" | "ai_flagged";
   confidence?: "high" | "medium" | "low" | null;
   reviewed?: boolean;
   approved?: boolean;
+  statusChange?: string;
 }): Promise<string> {
   const event = await prisma.promiseEvent.create({
     data: {
@@ -182,7 +184,9 @@ export async function recordPromiseEvent(input: {
       eventDate: input.eventDate,
       title: input.title,
       description: input.description,
+      details: input.details,
       sourceUrl: input.sourceUrl,
+      statusChange: input.statusChange,
       createdBy: input.createdBy,
       confidence: input.confidence,
       reviewed: input.reviewed ?? false,

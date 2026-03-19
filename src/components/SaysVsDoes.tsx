@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { PromiseStatus, VotePosition } from "@prisma/client";
 import { StatusStamp } from "./StatusStamp";
 import { getVoteAlignment, getAlignmentExplanation } from "@/lib/promise-bill-matcher";
@@ -47,6 +47,8 @@ interface PromiseEventData {
   eventDate: string;
   title: string;
   description: string | null;
+  details: string | null;
+  statusChange: string | null;
   sourceUrl: string | null;
 }
 
@@ -87,8 +89,9 @@ type TimelineEvent = {
   date: string;
   sortDate: number;
 } & (
-  | { type: "promise_made"; sourceUrl: string }
-  | { type: "legislation"; title: string; description: string | null; sourceUrl: string | null; isPassage: boolean }
+  | { type: "announcement"; title: string; description: string | null; details: string | null; sourceUrl: string | null; statusChange: string | null }
+  | { type: "news"; title: string; description: string | null; details: string | null; sourceUrl: string | null; statusChange: string | null }
+  | { type: "legislation"; title: string; description: string | null; details: string | null; sourceUrl: string | null; isPassage: boolean; statusChange: string | null }
   | { type: "bill_link"; bill: BillLinkData["bill"]; alignment: string; votePosition?: VotePosition | null }
   | { type: "action_link"; action: ActionLinkData["action"]; alignment: string }
 );
@@ -96,26 +99,53 @@ type TimelineEvent = {
 function buildTimeline(promise: PromiseWithJourney): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
+  // Add the promise-made event as an announcement
   events.push({
-    type: "promise_made",
+    type: "announcement",
     date: promise.dateMade,
     sortDate: new Date(promise.dateMade).getTime(),
+    title: "Promise Made",
+    description: null,
+    details: null,
     sourceUrl: promise.sourceUrl,
+    statusChange: null,
   });
 
   for (const evt of promise.events) {
-    if (evt.eventType === "legislation" || evt.eventType === "executive_action") {
-      if (evt.eventType === "legislation") {
-        events.push({
-          type: "legislation",
-          date: evt.eventDate,
-          sortDate: new Date(evt.eventDate).getTime(),
-          title: evt.title,
-          description: evt.description,
-          sourceUrl: evt.sourceUrl,
-          isPassage: PASSAGE_PATTERN.test(evt.title),
-        });
-      }
+    if (evt.eventType === "announcement") {
+      events.push({
+        type: "announcement",
+        date: evt.eventDate,
+        sortDate: new Date(evt.eventDate).getTime(),
+        title: evt.title,
+        description: evt.description,
+        details: evt.details,
+        sourceUrl: evt.sourceUrl,
+        statusChange: evt.statusChange,
+      });
+    } else if (evt.eventType === "news") {
+      events.push({
+        type: "news",
+        date: evt.eventDate,
+        sortDate: new Date(evt.eventDate).getTime(),
+        title: evt.title,
+        description: evt.description,
+        details: evt.details,
+        sourceUrl: evt.sourceUrl,
+        statusChange: evt.statusChange,
+      });
+    } else if (evt.eventType === "legislation") {
+      events.push({
+        type: "legislation",
+        date: evt.eventDate,
+        sortDate: new Date(evt.eventDate).getTime(),
+        title: evt.title,
+        description: evt.description,
+        details: evt.details,
+        sourceUrl: evt.sourceUrl,
+        isPassage: PASSAGE_PATTERN.test(evt.title),
+        statusChange: evt.statusChange,
+      });
     }
   }
 
@@ -250,17 +280,78 @@ function PromiseJourneyCard({ promise }: { promise: PromiseWithJourney }) {
   );
 }
 
+function StatusChangeBadge({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    KEPT: "bg-green-100 text-green-700",
+    FIGHTING: "bg-blue-100 text-blue-700",
+    STALLED: "bg-amber-100 text-amber-700",
+    NOTHING: "bg-gray-100 text-gray-600",
+    BROKE: "bg-red-100 text-red-700",
+  };
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${colors[status] || "bg-gray-100 text-gray-600"}`}>
+      → {status}
+    </span>
+  );
+}
+
+function ExpandableDetails({ details }: { details: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(!open)} className="text-[11px] text-brand-red hover:underline mt-0.5">
+        {open ? "Show less" : "See more"}
+      </button>
+      {open && <p className="text-[11px] text-slate mt-1 leading-relaxed">{details}</p>}
+    </>
+  );
+}
+
 function TimelineEventRow({ event }: { event: TimelineEvent }) {
-  if (event.type === "promise_made") {
+  if (event.type === "announcement") {
     return (
       <div className="relative py-2">
-        <div className="absolute -left-[27px] top-3 h-3.5 w-3.5 rounded-full border-2 border-gray-400 bg-white" />
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-gray-700">Promise Made</span>
-          <span className="text-xs text-slate">{formatDate(event.date)}</span>
+        <div className="absolute -left-[27px] top-3 h-3.5 w-3.5 rounded-full border-2 border-blue-400 bg-blue-100" />
+        <div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+              Announcement
+            </span>
+            <span className="text-xs text-slate">{formatDate(event.date)}</span>
+            {event.statusChange && <StatusChangeBadge status={event.statusChange} />}
+          </div>
+          <p className="text-xs text-brand-charcoal mt-1">{event.title}</p>
+          {event.description && <p className="text-[11px] text-slate mt-0.5">{event.description}</p>}
+          {event.details && <ExpandableDetails details={event.details} />}
           {event.sourceUrl && (
             <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-0.5 text-[11px] text-brand-red hover:underline">
+              className="inline-flex items-center gap-0.5 text-[11px] text-brand-red hover:underline mt-0.5">
+              Source <ExternalIcon />
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (event.type === "news") {
+    return (
+      <div className="relative py-2">
+        <div className="absolute -left-[27px] top-3 h-3.5 w-3.5 rounded-sm bg-purple-500 border border-purple-600" />
+        <div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700">
+              News
+            </span>
+            <span className="text-xs text-slate">{formatDate(event.date)}</span>
+            {event.statusChange && <StatusChangeBadge status={event.statusChange} />}
+          </div>
+          <p className="text-xs text-brand-charcoal mt-1">{event.title}</p>
+          {event.description && <p className="text-[11px] text-slate mt-0.5">{event.description}</p>}
+          {event.details && <ExpandableDetails details={event.details} />}
+          {event.sourceUrl && (
+            <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 text-[11px] text-brand-red hover:underline mt-0.5">
               Source <ExternalIcon />
             </a>
           )}
@@ -287,6 +378,7 @@ function TimelineEventRow({ event }: { event: TimelineEvent }) {
               </span>
             )}
             <span className="text-xs text-slate">{formatDate(event.date)}</span>
+            {event.statusChange && <StatusChangeBadge status={event.statusChange} />}
           </div>
           <p className={`text-xs mt-1 ${isPassage ? "font-semibold text-green-800" : "text-brand-charcoal"}`}>
             {event.title}
@@ -294,6 +386,7 @@ function TimelineEventRow({ event }: { event: TimelineEvent }) {
           {event.description && (
             <p className="text-[11px] text-slate mt-0.5">{event.description}</p>
           )}
+          {event.details && <ExpandableDetails details={event.details} />}
           {event.sourceUrl && (
             <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-0.5 text-[11px] text-brand-red hover:underline mt-0.5">

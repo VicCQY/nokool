@@ -19,9 +19,10 @@ interface ExistingPromise {
 
 interface TimelineEvent {
   date: string;
-  type: "executive_action" | "legislation";
+  type: "announcement" | "news" | "legislation";
   title: string;
   description: string;
+  details?: string;
   sourceUrl: string;
 }
 
@@ -55,8 +56,9 @@ const CATEGORIES = [
 
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  executive_action: "bg-indigo-100 text-indigo-700",
-  legislation: "bg-blue-100 text-blue-700",
+  announcement: "bg-blue-100 text-blue-700",
+  news: "bg-purple-100 text-purple-700",
+  legislation: "bg-teal-100 text-teal-700",
 };
 
 const STOP_WORDS = new Set(["the", "a", "an", "to", "of", "and", "in", "on", "for", "with", "is", "it", "by", "as", "at", "or", "from", "that", "this", "be", "will", "all", "their", "his", "her"]);

@@ -34,12 +34,9 @@ const CONFIDENCE_COLORS: Record<string, string> = {
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
-  status_change: "Status Change",
-  bill_vote: "Bill Vote",
-  executive_action: "Executive Action",
+  announcement: "Announcement",
   news: "News",
-  promise_made: "Promise Made",
-  research_note: "Research Note",
+  legislation: "Legislation",
 };
 
 function formatDate(dateStr: string) {
@@ -183,7 +180,7 @@ export default function ReviewPage() {
                 </span>
               </div>
 
-              {event.eventType === "status_change" && event.oldStatus && event.newStatus && (
+              {event.oldStatus && event.newStatus && (
                 <p className="text-sm text-gray-800 mb-1">
                   <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{event.oldStatus}</span>
                   {" → "}

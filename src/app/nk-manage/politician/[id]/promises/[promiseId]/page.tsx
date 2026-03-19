@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PromiseForm } from "../PromiseForm";
 import { BillLinksManager } from "./BillLinksManager";
 import { ExecutiveActionLinksManager } from "./ExecutiveActionLinksManager";
+import { EventEditor } from "./EventEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,7 @@ export default async function EditPromisePage({
           expectedMonths: promise.expectedMonths,
         }}
       />
+      <EventEditor promiseId={promise.id} />
       {isExecutive ? (
         <ExecutiveActionLinksManager
           promiseId={promise.id}

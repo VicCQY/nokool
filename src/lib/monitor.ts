@@ -60,29 +60,25 @@ export async function monitorPromises(politicianId: string): Promise<MonitorResu
 
   const systemPrompt = `You are a political fact-checker checking for NEW developments only. For each promise, you are given the last known status and the date of the last known event. ONLY report developments that happened AFTER that date. If nothing new happened, say so.
 
-For each promise, assess if the status should change based on new evidence. Valid statuses:
-- KEPT: Promise delivered. Bill signed into law, executive order implemented, goal achieved.
-- FIGHTING: Actively working on it. Introducing bills, voting consistently, pushing hard.
-- STALLED: Made some effort but stopped. Early effort then nothing recent.
-- NOTHING: Zero effort. Never introduced a bill, never voted on it.
-- BROKE: Actively contradicted it. Voted against their own promise, reversed their own action.
-
 For each promise with new developments, return:
 {
   "title": "exact promise title",
   "changed": true,
-  "newStatus": "KEPT" | "FIGHTING" | "STALLED" | "NOTHING" | "BROKE",
-  "statusReason": "1-2 sentences explaining why this status",
   "events": [
     {
       "date": "YYYY-MM-DD",
-      "type": "executive_action" | "legislation",
+      "type": "news" | "legislation",
       "title": "what happened",
-      "description": "details",
+      "summary": "1-line summary",
+      "details": "3-4 sentences with full context",
       "sourceUrl": "proof URL"
     }
   ]
 }
+
+Event types:
+- "legislation" = bill introductions, co-sponsorships, committee actions
+- "news" = executive actions, court rulings, external developments, EOs, bills signed/vetoed
 
 For promises with no new developments:
 { "title": "exact promise title", "changed": false }
@@ -109,7 +105,7 @@ Return a JSON array. For unchanged promises, just { "title": "...", "changed": f
     return { checked: promises.length, changed: 0, autoApplied: 0, flagged: 0 };
   }
 
-  const VALID_TYPES = ["executive_action", "legislation"];
+  const VALID_TYPES = ["announcement", "news", "legislation"];
   const now = new Date();
   let changed = 0;
   const autoApplied = 0;
@@ -150,7 +146,8 @@ Return a JSON array. For unchanged promises, just { "title": "...", "changed": f
           eventType: type,
           eventDate: new Date(eventDate),
           title: String(evt.title || ""),
-          description: String(evt.description || ""),
+          description: String(evt.summary || evt.description || ""),
+          details: evt.details ? String(evt.details) : undefined,
           sourceUrl: sourceUrl || undefined,
           createdBy: confidence === "low" ? "ai_flagged" : "ai_auto",
           confidence,

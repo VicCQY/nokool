@@ -140,7 +140,7 @@ export default async function PoliticianPage({
           events: {
             where: {
               approved: true,
-              eventType: { in: ["legislation", "executive_action", "bill_vote"] },
+              eventType: { in: ["announcement", "news", "legislation"] },
             },
             select: {
               id: true,
@@ -148,6 +148,8 @@ export default async function PoliticianPage({
               eventDate: true,
               title: true,
               description: true,
+              details: true,
+              statusChange: true,
               sourceUrl: true,
             },
             orderBy: { eventDate: "asc" },
@@ -704,6 +706,8 @@ export default async function PoliticianPage({
                   eventDate: e.eventDate.toISOString(),
                   title: e.title,
                   description: e.description,
+                  details: e.details,
+                  statusChange: e.statusChange,
                   sourceUrl: e.sourceUrl,
                 })),
                 billLinks: (p.billLinks || []).map((link) => ({

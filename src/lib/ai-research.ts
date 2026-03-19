@@ -12,9 +12,10 @@ const MODEL_MATCHING = "sonar-pro";
 
 export interface TimelineEvent {
   date: string;
-  type: "executive_action" | "legislation";
+  type: "announcement" | "news" | "legislation";
   title: string;
   description: string;
+  details?: string;
   sourceUrl: string;
 }
 
@@ -77,28 +78,32 @@ Here is a PERFECT example:
         "date": "2013-03-07",
         "type": "legislation",
         "title": "Introduced H.R. 525 Industrial Hemp Farming Act",
-        "description": "First introduction of bill to legalize hemp farming.",
+        "summary": "First introduction of bill to legalize hemp farming.",
+        "details": "Rep. Massie introduced H.R. 525, the Industrial Hemp Farming Act, to amend the Controlled Substances Act to exclude industrial hemp from the definition of marijuana. The bill would allow states to regulate hemp cultivation independently. This was the first major legislative push for hemp legalization in Congress.",
         "sourceUrl": "https://www.congress.gov/bill/113th-congress/house-bill/525"
       },
       {
         "date": "2015-01-08",
         "type": "legislation",
         "title": "Re-introduced H.R. 262 Industrial Hemp Farming Act",
-        "description": "Second introduction in 114th Congress.",
+        "summary": "Second introduction in 114th Congress.",
+        "details": "Massie re-introduced the Industrial Hemp Farming Act as H.R. 262 in the 114th Congress, continuing his multi-session effort. The bill gained additional co-sponsors compared to the first introduction, showing growing bipartisan support for hemp legalization.",
         "sourceUrl": "https://www.congress.gov/bill/114th-congress/house-bill/262"
       },
       {
         "date": "2017-01-03",
         "type": "legislation",
         "title": "Re-introduced H.R. 3530 Industrial Hemp Farming Act",
-        "description": "Third introduction in 115th Congress.",
+        "summary": "Third introduction in 115th Congress.",
+        "details": "Third introduction of the Industrial Hemp Farming Act in the 115th Congress. By this point the bill had significant momentum with hemp pilot programs already running in several states under the 2014 Farm Bill provisions.",
         "sourceUrl": "https://www.congress.gov/bill/115th-congress/house-bill/3530"
       },
       {
         "date": "2018-12-20",
         "type": "legislation",
         "title": "2018 Farm Bill signed into law — hemp federally legal",
-        "description": "Agriculture Improvement Act of 2018 signed, removing hemp from Schedule I.",
+        "summary": "Agriculture Improvement Act of 2018 signed, removing hemp from Schedule I.",
+        "details": "The Agriculture Improvement Act of 2018 (Farm Bill) was signed into law by President Trump, permanently removing hemp from the Controlled Substances Act. This was the culmination of Massie's multi-year legislative effort. Hemp with less than 0.3% THC became federally legal for cultivation, processing, and sale.",
         "sourceUrl": "https://www.congress.gov/bill/115th-congress/house-bill/2"
       }
     ]
@@ -117,7 +122,8 @@ Here is a PERFECT example:
         "date": "2023-07-12",
         "type": "legislation",
         "title": "Co-sponsored bipartisan Epstein disclosure resolution with Rep. Khanna",
-        "description": "Filed resolution demanding release of all federal Epstein documents.",
+        "summary": "Filed resolution demanding release of all federal Epstein documents.",
+        "details": "Massie and Rep. Ro Khanna introduced a bipartisan resolution demanding the release of all federal documents related to Jeffrey Epstein. The resolution called on the DOJ, FBI, and other agencies to declassify and publicly release all records. This was part of a broader bipartisan push for transparency.",
         "sourceUrl": "https://khanna.house.gov/media/press-releases/khanna-massie-introduce-bipartisan-resolution-epstein"
       }
     ]
@@ -136,14 +142,16 @@ Here is a PERFECT example:
         "date": "2013-09-17",
         "type": "legislation",
         "title": "Introduced H.R. 73 Federal Reserve Board Abolition Act",
-        "description": "First introduction of bill to abolish the Fed.",
+        "summary": "First introduction of bill to abolish the Fed.",
+        "details": "Massie introduced H.R. 73, the Federal Reserve Board Abolition Act, which would dissolve the Board of Governors of the Federal Reserve and repeal the Federal Reserve Act. This is an aspirational libertarian position with minimal chance of passage but demonstrates consistent ideological commitment.",
         "sourceUrl": "https://www.congress.gov/bill/113th-congress/house-bill/73"
       },
       {
         "date": "2024-05-15",
         "type": "legislation",
         "title": "Re-introduced Federal Reserve Board Abolition Act in 118th Congress",
-        "description": "Continued multi-session effort.",
+        "summary": "Continued multi-session effort.",
+        "details": "Massie re-introduced the Federal Reserve Board Abolition Act in the 118th Congress as H.R. 8421, continuing his decade-long legislative effort. The bill maintains the same core provisions to end the Federal Reserve System.",
         "sourceUrl": "https://www.congress.gov/bill/118th-congress/house-bill/8421"
       }
     ]
@@ -155,10 +163,11 @@ NOTES:
 - GOOD: 'Legalize industrial hemp', 'Abolish the Federal Reserve', 'Ban TikTok'
 - BAD: 'Fight for families', 'Strengthen defense', 'Support freedom'
 - dateMade = when FIRST promised, not recent repetition
-- Timeline event type "legislation" = bill INTRODUCTIONS and SPONSORSHIPS only (when the politician introduced or co-sponsored a bill)
-- Timeline event type "executive_action" = executive orders, memorandums, proclamations, bills signed/vetoed
-- Bill VOTES are NOT returned by the AI — our bill matching system handles those separately. NEVER return a "bill_vote" type event.
-- Valid timeline event types: "legislation" (introductions) and "executive_action" ONLY
+- Timeline event type "announcement" = promises made, campaign statements, policy platform releases
+- Timeline event type "news" = news articles, court rulings, external developments, executive actions, EOs, memorandums, bills signed/vetoed
+- Timeline event type "legislation" = bill introductions, co-sponsorships, committee actions
+- Valid timeline event types: "announcement", "news", and "legislation" ONLY
+- Each event has "summary" (1 line shown on timeline) and "details" (3-4 sentences with full context)
 - CRITICAL FOR PASSAGE EVENTS: When a bill the politician introduced/co-sponsored was SIGNED INTO LAW, the event title MUST contain the exact phrase "signed into law". Example: "2018 Farm Bill signed into law — hemp federally legal". Do NOT just say "Co-sponsored H.R. 2" — you must explicitly say "signed into law" in the title so our system can detect passage.
 - Name specific bill numbers (H.R. XXX, S. XXX) and EO numbers
 - NEVER use Wikipedia or YouTube as sources
@@ -367,10 +376,17 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
     ? rawDateMade
     : new Date().toISOString().split("T")[0];
 
-  // Process timeline — only legislation and executive_action events
+  // Process timeline — announcement, news, and legislation events
   const rawTimeline = Array.isArray(item.timeline) ? item.timeline : [];
   const now = new Date();
   const timeline: TimelineEvent[] = [];
+
+  // Map old types to new types
+  const TYPE_MAP: Record<string, string> = {
+    executive_action: "news",
+    promise_made: "announcement",
+    bill_vote: "legislation",
+  };
 
   for (const evt of rawTimeline) {
     if (!evt || typeof evt !== "object") continue;
@@ -380,18 +396,22 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
     const evtDateObj = new Date(evtDate);
     if (!evtDate || isNaN(evtDateObj.getTime()) || evtDateObj > now) continue;
 
-    const evtType = String(evtObj.type || "legislation");
-    // Only keep legislation and executive_action events
-    const validTypes = ["executive_action", "legislation"];
-    const type = validTypes.includes(evtType) ? evtType : "legislation";
+    const rawType = String(evtObj.type || "legislation");
+    const validTypes = ["announcement", "news", "legislation"];
+    const type = validTypes.includes(rawType) ? rawType : (TYPE_MAP[rawType] || "legislation");
 
     const evtSourceUrl = sanitizeSourceUrl(String(evtObj.sourceUrl || ""), String(evtObj.title || ""));
+
+    // Support both "summary"/"description" field names from AI
+    const summary = String(evtObj.summary || evtObj.description || "");
+    const details = evtObj.details ? stripCitations(String(evtObj.details)) : undefined;
 
     timeline.push({
       date: evtDate,
       type: type as TimelineEvent["type"],
       title: stripCitations(String(evtObj.title || "")),
-      description: stripCitations(String(evtObj.description || "")),
+      description: stripCitations(summary),
+      details,
       sourceUrl: evtSourceUrl,
     });
   }

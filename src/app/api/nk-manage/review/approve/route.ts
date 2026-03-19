@@ -23,11 +23,12 @@ export async function POST(request: NextRequest) {
       data: { reviewed: true, approved: true },
     });
 
-    // If this is a status change event, apply the status
-    if (event.eventType === "status_change" && event.newStatus) {
+    // If this event has a status change, apply it
+    if (event.statusChange || event.newStatus) {
+      const newStatus = event.statusChange || event.newStatus;
       await prisma.promise.update({
         where: { id: event.promiseId },
-        data: { status: event.newStatus as never },
+        data: { status: newStatus as never },
       });
     }
 

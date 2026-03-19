@@ -6,12 +6,9 @@ import { DeleteButton } from "./DeleteButton";
 export const dynamic = "force-dynamic";
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
-  status_change: "Status Change",
-  bill_vote: "Bill Vote",
-  executive_action: "Executive Action",
+  announcement: "Announcement",
   news: "News",
-  promise_made: "Promise Made",
-  research_note: "Research Note",
+  legislation: "Legislation",
 };
 
 const CONFIDENCE_COLORS: Record<string, string> = {
@@ -170,7 +167,11 @@ export default async function AdminPage() {
                     <td className="px-4 py-2.5 text-sm text-gray-900 max-w-[200px] truncate">{e.promise.title}</td>
                     <td className="px-4 py-2.5 text-sm text-gray-600">{e.promise.politician.name}</td>
                     <td className="px-4 py-2.5">
-                      {e.eventType === "status_change" && e.oldStatus && e.newStatus ? (
+                      {e.statusChange ? (
+                        <span className="text-xs font-mono font-semibold">
+                          → {e.statusChange}
+                        </span>
+                      ) : e.oldStatus && e.newStatus ? (
                         <span className="text-xs font-mono">
                           {e.oldStatus} → {e.newStatus}
                         </span>

@@ -4,8 +4,11 @@ import { PromiseStatus } from "@prisma/client";
 import { recordPromiseEvent } from "@/lib/promise-updates";
 
 const EVENT_TYPE_MAP: Record<string, string> = {
-  executive_action: "executive_action",
+  announcement: "announcement",
+  news: "news",
   legislation: "legislation",
+  executive_action: "news",
+  promise_made: "announcement",
 };
 
 const VALID_STATUSES = new Set(["KEPT", "FIGHTING", "STALLED", "NOTHING", "BROKE"]);
@@ -54,10 +57,10 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Create "promise_made" event
+      // Create "announcement" event for promise creation
       await recordPromiseEvent({
         promiseId: promise.id,
-        eventType: "promise_made",
+        eventType: "announcement",
         eventDate: new Date(p.dateMade || Date.now()),
         title: `Promise made: ${String(p.title || "").slice(0, 200)}`,
         sourceUrl: p.sourceUrl || undefined,
@@ -66,7 +69,7 @@ export async function POST(request: NextRequest) {
         approved: true,
       });
 
-      // Process timeline events — only legislation and executive_action
+      // Process timeline events
       const timeline = Array.isArray(p.timeline) ? p.timeline : [];
 
       for (const evt of timeline) {
@@ -84,6 +87,7 @@ export async function POST(request: NextRequest) {
           eventDate: new Date(evtDate),
           title: String(evt.title || ""),
           description: String(evt.description || "") || undefined,
+          details: evt.details ? String(evt.details) : undefined,
           sourceUrl: String(evt.sourceUrl || "") || undefined,
           createdBy: "human",
           reviewed: true,
