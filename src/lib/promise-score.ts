@@ -89,7 +89,6 @@ export async function calculatePromiseScore(promiseId: string): Promise<PromiseS
   if (!promise) return { score: 0, label: "NOT_STARTED", events: [] };
 
   const scoredEvents: ScoredEvent[] = [];
-  const isExecutive = promise.politician.branch === "executive";
 
   // ── Check for INSTANT 100: passage in legislation events ──
   const passageEvent = promise.events.find(
