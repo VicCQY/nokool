@@ -192,17 +192,28 @@ export function PromiseForm({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Status
         </label>
-        <select
-          className={inputClass}
-          value={form.status}
-          onChange={(e) => setForm({ ...form, status: e.target.value })}
-        >
-          <option value="KEPT">Kept</option>
-          <option value="FIGHTING">Fighting</option>
-          <option value="STALLED">Stalled</option>
-          <option value="NOTHING">Nothing</option>
-          <option value="BROKE">Broke</option>
-        </select>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: "KEPT", label: "KEPT", color: "bg-green-600 hover:bg-green-700 text-white", ring: "ring-green-600" },
+            { value: "FIGHTING", label: "FIGHTING", color: "bg-blue-600 hover:bg-blue-700 text-white", ring: "ring-blue-600" },
+            { value: "STALLED", label: "STALLED", color: "bg-amber-500 hover:bg-amber-600 text-white", ring: "ring-amber-500" },
+            { value: "NOTHING", label: "NOTHING", color: "bg-gray-500 hover:bg-gray-600 text-white", ring: "ring-gray-500" },
+            { value: "BROKE", label: "BROKE", color: "bg-red-600 hover:bg-red-700 text-white", ring: "ring-red-600" },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setForm({ ...form, status: opt.value })}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+                form.status === opt.value
+                  ? `${opt.color} ring-2 ${opt.ring} ring-offset-2`
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">

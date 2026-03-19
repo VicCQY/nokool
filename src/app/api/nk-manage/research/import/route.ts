@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       const weight = Math.max(1, Math.min(5, Number(p.weight || p.severity) || 3));
       const expectedMonths = p.expectedMonths ? Math.max(1, Number(p.expectedMonths)) : null;
 
-      // Use AI's status directly, default to NOTHING
+      // Use human-set status, default to NOTHING
       const aiStatus = String(p.status || "NOTHING").toUpperCase();
       const status = VALID_STATUSES.has(aiStatus) ? aiStatus : "NOTHING";
 

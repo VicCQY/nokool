@@ -29,8 +29,6 @@ interface ResearchedPromise {
   title: string;
   description: string;
   category: string;
-  status: string;
-  statusReason?: string;
   dateMade: string;
   sourceUrl: string;
   severity: number;
@@ -39,6 +37,7 @@ interface ResearchedPromise {
   timeline: TimelineEvent[];
   selected: boolean;
   sloganWarning?: boolean;
+  humanStatus: string;
 }
 
 interface NewsArticle {
@@ -236,7 +235,7 @@ export default function ResearchPage() {
         return;
       }
       setPromises(
-        results.map((p: ResearchedPromise) => ({ ...p, selected: true })),
+        results.map((p: ResearchedPromise) => ({ ...p, selected: true, humanStatus: p.humanStatus || "NOTHING" })),
       );
       setStatus("done");
     } catch (err) {
@@ -300,7 +299,7 @@ export default function ResearchPage() {
             title: p.title,
             description: p.description,
             category: p.category,
-            status: p.status,
+            status: p.humanStatus,
             severity: p.severity,
             expectedMonths: p.expectedMonths,
             billRelated: p.billRelated,
@@ -627,9 +626,22 @@ export default function ResearchPage() {
             <h2 className="text-base font-bold text-gray-900">
               Step 2: Review Results ({promises.length} promises found)
             </h2>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
               <button onClick={() => toggleAll(true)} className="text-xs text-blue-600 hover:underline">Select All</button>
               <button onClick={() => toggleAll(false)} className="text-xs text-blue-600 hover:underline">Deselect All</button>
+              <span className="text-gray-300">|</span>
+              <button
+                onClick={() => setPromises((prev) => prev.map((p) => ({ ...p, humanStatus: "FIGHTING" })))}
+                className="rounded-md bg-blue-600 px-3 py-1 text-xs font-bold text-white hover:bg-blue-700 transition-colors"
+              >
+                Set All to FIGHTING
+              </button>
+              <button
+                onClick={() => setPromises((prev) => prev.map((p) => ({ ...p, humanStatus: "NOTHING" })))}
+                className="rounded-md bg-gray-500 px-3 py-1 text-xs font-bold text-white hover:bg-gray-600 transition-colors"
+              >
+                Set All to NOTHING
+              </button>
             </div>
           </div>
 
@@ -699,6 +711,29 @@ export default function ResearchPage() {
                               <span className="text-blue-600">{p.timeline.length} timeline events</span>
                             </>
                           )}
+                        </div>
+
+                        {/* Status buttons */}
+                        <div className="flex flex-wrap gap-1.5 my-2">
+                          {[
+                            { value: "KEPT", label: "KEPT", color: "bg-green-600 text-white", ring: "ring-green-600" },
+                            { value: "FIGHTING", label: "FIGHTING", color: "bg-blue-600 text-white", ring: "ring-blue-600" },
+                            { value: "STALLED", label: "STALLED", color: "bg-amber-500 text-white", ring: "ring-amber-500" },
+                            { value: "NOTHING", label: "NOTHING", color: "bg-gray-500 text-white", ring: "ring-gray-500" },
+                            { value: "BROKE", label: "BROKE", color: "bg-red-600 text-white", ring: "ring-red-600" },
+                          ].map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() => updatePromise(i, "humanStatus", opt.value)}
+                              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                                p.humanStatus === opt.value
+                                  ? `${opt.color} ring-2 ${opt.ring} ring-offset-1`
+                                  : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
                         </div>
 
                         {/* Expand/collapse */}
@@ -832,7 +867,7 @@ export default function ResearchPage() {
                           </div>
                         )}
                         {p.timeline.length === 0 && (
-                          <p className="text-xs text-gray-400 italic">No timeline events — status will be calculated after import</p>
+                          <p className="text-xs text-gray-400 italic">No timeline events found</p>
                         )}
                       </div>
                     )}
@@ -908,7 +943,7 @@ export default function ResearchPage() {
       <div className="mt-12 pt-8 border-t border-gray-200">
         <h2 className="text-xl font-bold text-gray-900 mb-1">AI Promise Monitor</h2>
         <p className="text-sm text-gray-500 mb-6">
-          Check active promises for NEW developments since their last known event. High-confidence changes are auto-applied; others go to the Review Queue.
+          Check active promises for NEW developments since their last known event. New events are recorded for review — no status changes are auto-applied.
         </p>
 
         <div className="flex flex-wrap items-center gap-3 mb-6">

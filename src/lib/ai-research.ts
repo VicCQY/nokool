@@ -22,8 +22,6 @@ export interface ResearchedPromise {
   title: string;
   description: string;
   category: string;
-  status: string;
-  statusReason?: string;
   dateMade: string;
   sourceUrl: string;
   severity: number;
@@ -52,13 +50,6 @@ export async function researchPromises(
   const { inOfficeSince, existingPromises = [] } = context;
 
   const systemPrompt = `You are an expert political researcher. Find this politician's campaign promises, and for each one, find what BILLS they INTRODUCED or CO-SPONSORED and what EXECUTIVE ACTIONS they took.
-
-For each promise, assess the current status using ONLY these values:
-- KEPT: Promise delivered. Bill signed into law, executive order implemented, goal achieved.
-- FIGHTING: Actively working on it. Introducing bills, voting consistently, pushing hard.
-- STALLED: Made some effort but stopped. Early effort then nothing recent.
-- NOTHING: Zero effort. Never introduced a bill, never voted on it.
-- BROKE: Actively contradicted it. Voted against their own promise, reversed their own action.
 
 Your PRIMARY job is finding BILL INTRODUCTIONS and BILL PASSAGES for each promise. Search thoroughly for:
 - Every bill this politician INTRODUCED (they are the sponsor)
@@ -408,17 +399,11 @@ function processResearchItem(item: Record<string, unknown>): ResearchedPromise {
   // Sort chronologically
   timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const VALID_STATUSES = new Set(["KEPT", "FIGHTING", "STALLED", "NOTHING", "BROKE"]);
-  const rawStatus = String(item.status || "NOTHING").toUpperCase();
-  const status = VALID_STATUSES.has(rawStatus) ? rawStatus : "NOTHING";
-
   return {
     title: stripCitations(String(item.title || "")),
     description: stripCitations(String(item.description || "")),
     category: normalizeCategory(String(item.category || "Other")),
     dateMade,
-    status,
-    statusReason: item.statusReason ? stripCitations(String(item.statusReason)) : undefined,
     sourceUrl,
     severity: Math.max(1, Math.min(5, Number(item.severity) || 3)),
     expectedMonths: Math.max(1, Number(item.expectedMonths) || 12),

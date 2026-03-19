@@ -2,11 +2,7 @@ import { prisma } from "./prisma";
 import { callPerplexity, parseJsonFromResponse } from "./perplexity-api";
 import { sanitizeSourceUrl, validateSource } from "./source-validator";
 import { recordPromiseEvent } from "./promise-updates";
-import { PromiseStatus } from "@prisma/client";
-
 const MODEL_MONITOR = "sonar-pro";
-
-const VALID_STATUSES = new Set(["KEPT", "FIGHTING", "STALLED", "NOTHING", "BROKE"]);
 
 interface MonitorResult {
   checked: number;
@@ -116,7 +112,7 @@ Return a JSON array. For unchanged promises, just { "title": "...", "changed": f
   const VALID_TYPES = ["executive_action", "legislation"];
   const now = new Date();
   let changed = 0;
-  let autoApplied = 0;
+  const autoApplied = 0;
   const flagged = 0;
 
   for (const item of parsed) {
@@ -164,15 +160,8 @@ Return a JSON array. For unchanged promises, just { "title": "...", "changed": f
       }
     }
 
-    // Apply status change if AI suggests one
-    const newStatus = String(item.newStatus || "").toUpperCase();
-    if (VALID_STATUSES.has(newStatus) && newStatus !== promise.status) {
-      await prisma.promise.update({
-        where: { id: promise.id },
-        data: { status: newStatus as PromiseStatus },
-      });
-      autoApplied++;
-    }
+    // Flag for human review — no auto status changes
+    // Events are recorded above for the admin to review
   }
 
   await prisma.promise.updateMany({
