@@ -8,7 +8,7 @@ import {
 import type { PromiseStatus } from "@prisma/client";
 
 interface Props {
-  promises: { category: string; status: PromiseStatus; score?: number; weight?: number }[];
+  promises: { category: string; status: PromiseStatus; weight?: number }[];
   issueWeights?: Record<string, number>;
 }
 
@@ -173,7 +173,6 @@ export function CategoryRadarChart({ promises, issueWeights }: Props) {
         {breakdown.map((cat, i) => {
           const angle = i * angleStep;
           const [lx, ly] = polarToXY(cx, cy, labelR, angle);
-          // Determine text-anchor based on position
           const normalizedAngle = ((angle - Math.PI / 2) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
           let anchor: "middle" | "start" | "end" = "middle";
           if (normalizedAngle > 0.1 && normalizedAngle < Math.PI - 0.1)
@@ -224,10 +223,10 @@ export function CategoryRadarChart({ promises, issueWeights }: Props) {
             score
           </p>
           <div className="flex gap-2 mt-1 text-[10px] text-gray-400">
-            <span className="text-green-600">{tooltip.data.fulfilled} done</span>
-            <span className="text-yellow-600">{tooltip.data.partial} partial</span>
-            <span className="text-red-600">{tooltip.data.broken} broken</span>
-            <span className="text-blue-600">{tooltip.data.inProgress} active</span>
+            <span className="text-green-600">{tooltip.data.kept} kept</span>
+            <span className="text-blue-600">{tooltip.data.fighting} fighting</span>
+            <span className="text-amber-600">{tooltip.data.stalled} stalled</span>
+            <span className="text-red-600">{tooltip.data.broke} broke</span>
           </div>
         </div>
       )}

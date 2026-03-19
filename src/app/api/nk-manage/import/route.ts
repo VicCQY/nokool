@@ -18,13 +18,11 @@ const VALID_CATEGORIES = [
   "Other",
 ];
 const VALID_STATUSES = [
-  "NOT_STARTED",
-  "IN_PROGRESS",
-  "ADVANCING",
-  "FULFILLED",
-  "PARTIAL",
-  "BROKEN",
-  "REVERSED",
+  "KEPT",
+  "FIGHTING",
+  "STALLED",
+  "NOTHING",
+  "BROKE",
 ];
 
 function parseDate(value: unknown): Date | null {

@@ -22,11 +22,11 @@ export async function generateMetadata({
   const [polA, polB] = await Promise.all([
     prisma.politician.findUnique({
       where: { id: searchParams.a },
-      select: { name: true, promises: { select: { status: true, category: true, weight: true, dateMade: true, score: true } }, termStart: true, termEnd: true, branch: true, chamber: true },
+      select: { name: true, promises: { select: { status: true, category: true, weight: true, dateMade: true } }, termStart: true, termEnd: true, branch: true, chamber: true },
     }),
     prisma.politician.findUnique({
       where: { id: searchParams.b },
-      select: { name: true, promises: { select: { status: true, category: true, weight: true, dateMade: true, score: true } }, termStart: true, termEnd: true, branch: true, chamber: true },
+      select: { name: true, promises: { select: { status: true, category: true, weight: true, dateMade: true } }, termStart: true, termEnd: true, branch: true, chamber: true },
     }),
   ]);
 
@@ -58,11 +58,11 @@ export interface PoliticianComparison {
   grade: string;
   percentage: number;
   totalPromises: number;
-  fulfilled: number;
-  partial: number;
-  inProgress: number;
-  notStarted: number;
-  broken: number;
+  kept: number;
+  fighting: number;
+  stalled: number;
+  nothing: number;
+  broke: number;
   categories: Record<string, { count: number; percentage: number }>;
 }
 
@@ -80,44 +80,37 @@ function buildComparison(
   const countryInfo = COUNTRIES[politician.country as keyof typeof COUNTRIES];
 
   const statusCounts = {
-    fulfilled: 0,
-    partial: 0,
-    advancing: 0,
-    inProgress: 0,
-    notStarted: 0,
-    broken: 0,
-    reversed: 0,
+    kept: 0,
+    fighting: 0,
+    stalled: 0,
+    nothing: 0,
+    broke: 0,
   };
 
   const categoryMap: Record<
     string,
-    { total: number; fulfilled: number; partial: number }
+    { total: number; kept: number }
   > = {};
 
   for (const p of politician.promises) {
-    if (p.status === "FULFILLED") statusCounts.fulfilled++;
-    else if (p.status === "PARTIAL") statusCounts.partial++;
-    else if (p.status === "ADVANCING") statusCounts.advancing++;
-    else if (p.status === "IN_PROGRESS") statusCounts.inProgress++;
-    else if (p.status === "NOT_STARTED") statusCounts.notStarted++;
-    else if (p.status === "BROKEN") statusCounts.broken++;
-    else if (p.status === "REVERSED") statusCounts.reversed++;
+    if (p.status === "KEPT") statusCounts.kept++;
+    else if (p.status === "FIGHTING") statusCounts.fighting++;
+    else if (p.status === "STALLED") statusCounts.stalled++;
+    else if (p.status === "NOTHING") statusCounts.nothing++;
+    else if (p.status === "BROKE") statusCounts.broke++;
 
     if (!categoryMap[p.category]) {
-      categoryMap[p.category] = { total: 0, fulfilled: 0, partial: 0 };
+      categoryMap[p.category] = { total: 0, kept: 0 };
     }
     categoryMap[p.category].total++;
-    if (p.status === "FULFILLED") categoryMap[p.category].fulfilled++;
-    if (p.status === "PARTIAL") categoryMap[p.category].partial++;
+    if (p.status === "KEPT") categoryMap[p.category].kept++;
   }
 
   const categories: Record<string, { count: number; percentage: number }> = {};
   for (const [cat, data] of Object.entries(categoryMap)) {
     const pct =
       data.total > 0
-        ? Math.round(
-            ((data.fulfilled + data.partial * 0.5) / data.total) * 100,
-          )
+        ? Math.round((data.kept / data.total) * 100)
         : 0;
     categories[cat] = { count: data.total, percentage: pct };
   }

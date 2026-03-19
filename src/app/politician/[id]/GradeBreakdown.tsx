@@ -1,29 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { SEVERITY_LABELS, ISSUE_WEIGHTS } from "@/lib/issue-weights";
+import { SEVERITY_LABELS, ISSUE_WEIGHTS, STATUS_VALUES, STATUS_LABELS } from "@/lib/issue-weights";
 
 interface Props {
   promises: Array<{
     title: string;
     category: string;
     status: string;
-    score: number;
     weight: number;
   }>;
   issueWeights: Record<string, number>;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  FULFILLED: "Fulfilled",
-  PARTIAL: "Partial",
-  ADVANCING: "Advancing",
-  IN_PROGRESS: "In Progress",
-  MINIMAL_EFFORT: "Minimal",
-  NOT_STARTED: "Not Started",
-  BROKEN: "Broken",
-  REVERSED: "Reversed",
-};
 
 export function GradeBreakdown({ promises, issueWeights }: Props) {
   const [open, setOpen] = useState(false);
@@ -36,7 +24,8 @@ export function GradeBreakdown({ promises, issueWeights }: Props) {
     const severity = p.weight || 3;
     const issueWeight = weights[p.category] || 1.0;
     const combinedWeight = severity * issueWeight;
-    const weighted = p.score * combinedWeight;
+    const statusValue = STATUS_VALUES[p.status] ?? 0;
+    const weighted = statusValue * combinedWeight;
     const max = 100 * combinedWeight;
 
     totalWeighted += weighted;
@@ -50,7 +39,7 @@ export function GradeBreakdown({ promises, issueWeights }: Props) {
       category: p.category,
       status: p.status,
       statusLabel: STATUS_LABELS[p.status] || p.status,
-      score: p.score,
+      statusValue,
       weighted: Math.round(weighted),
       max: Math.round(max),
     };
@@ -81,13 +70,13 @@ export function GradeBreakdown({ promises, issueWeights }: Props) {
       {open && (
         <div className="border-t border-gray-100 px-5 py-4 space-y-4">
           <p className="text-sm text-gray-600">
-            Each promise earns a <strong>Promise Effort Score</strong> (0-100)
-            based on legislation introduced, votes cast, and executive actions taken.
-            The overall grade weights each score by promise severity and issue priority.
+            Each promise gets a status: <strong>Kept</strong> (100), <strong>Fighting</strong> (80),
+            {" "}<strong>Stalled</strong> (30), <strong>Nothing</strong> (0), or <strong>Broke</strong> (-150).
+            The grade weights each by severity and issue priority.
           </p>
 
           <p className="text-xs text-gray-400">
-            Score = (sum of score &times; severity &times; issue weight) / (sum of 100 &times; severity &times; issue weight) &times; 100
+            Grade = (sum of status value &times; severity &times; issue weight) / (sum of 100 &times; severity &times; issue weight) &times; 100
           </p>
 
           {/* Breakdown table */}
@@ -99,7 +88,6 @@ export function GradeBreakdown({ promises, issueWeights }: Props) {
                   <th className="py-2 pr-3 font-medium whitespace-nowrap">Severity</th>
                   <th className="py-2 pr-3 font-medium whitespace-nowrap">Issue Wt</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
-                  <th className="py-2 pr-3 font-medium text-right">PES</th>
                   <th className="py-2 font-medium text-right">Weighted</th>
                 </tr>
               </thead>
@@ -116,9 +104,6 @@ export function GradeBreakdown({ promises, issueWeights }: Props) {
                       {row.issueWeight.toFixed(1)} ({row.category})
                     </td>
                     <td className="py-2 pr-3 text-gray-500">{row.statusLabel}</td>
-                    <td className="py-2 pr-3 text-right font-mono text-brand-charcoal">
-                      {row.score}
-                    </td>
                     <td className="py-2 text-right font-mono text-brand-charcoal">
                       {row.weighted}/{row.max}
                     </td>
@@ -127,7 +112,7 @@ export function GradeBreakdown({ promises, issueWeights }: Props) {
               </tbody>
               <tfoot>
                 <tr className="border-t border-gray-200">
-                  <td colSpan={5} className="py-2 pr-3 font-mono font-semibold text-brand-charcoal">
+                  <td colSpan={4} className="py-2 pr-3 font-mono font-semibold text-brand-charcoal">
                     Total: {Math.round(totalWeighted)} / {Math.round(totalMax)}
                   </td>
                   <td className="py-2 text-right font-mono font-semibold text-brand-charcoal">

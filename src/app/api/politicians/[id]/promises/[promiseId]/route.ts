@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { PromiseStatus } from "@prisma/client";
-import { recalculatePromiseScore } from "@/lib/promise-score";
 
 export async function PUT(
   req: NextRequest,
@@ -16,10 +15,8 @@ export async function PUT(
     ? (body.expectedMonths != null ? Math.max(1, Math.round(Number(body.expectedMonths))) : null)
     : undefined;
 
-  // Handle statusOverride — null clears the override, a valid status sets it
-  const statusOverride = body.statusOverride !== undefined
-    ? (body.statusOverride || null)
-    : undefined;
+  // Handle status — direct update
+  const status = body.status !== undefined ? body.status : undefined;
 
   const promise = await prisma.promise.update({
     where: { id: params.promiseId },
@@ -31,13 +28,10 @@ export async function PUT(
       sourceUrl: body.sourceUrl || null,
       ...(weight !== undefined && { weight }),
       ...(expectedMonths !== undefined && { expectedMonths }),
-      ...(statusOverride !== undefined && { statusOverride: statusOverride as PromiseStatus | null }),
+      ...(status !== undefined && { status: status as PromiseStatus }),
       reviewedAt: new Date(),
     },
   });
-
-  // Recalculate score (respects statusOverride if set)
-  await recalculatePromiseScore(params.promiseId);
 
   return NextResponse.json(promise);
 }

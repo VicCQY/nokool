@@ -6,14 +6,11 @@ const STATUS_CONFIG: Record<
   PromiseStatus,
   { label: string; bg: string; text: string; dot: string }
 > = {
-  FULFILLED: { label: "Fulfilled", bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500" },
-  PARTIAL: { label: "Partial", bg: "bg-yellow-50", text: "text-yellow-700", dot: "bg-yellow-500" },
-  ADVANCING: { label: "Advancing", bg: "bg-teal-50", text: "text-teal-700", dot: "bg-teal-500" },
-  BROKEN: { label: "Broken", bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
-  IN_PROGRESS: { label: "In Progress", bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
-  MINIMAL_EFFORT: { label: "Minimal", bg: "bg-gray-50", text: "text-gray-500", dot: "bg-gray-400" },
-  NOT_STARTED: { label: "Not Started", bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
-  REVERSED: { label: "Reversed", bg: "bg-orange-50", text: "text-orange-700", dot: "bg-orange-500" },
+  KEPT: { label: "Kept", bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500" },
+  FIGHTING: { label: "Fighting", bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
+  STALLED: { label: "Stalled", bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
+  NOTHING: { label: "Nothing", bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" },
+  BROKE: { label: "Broke", bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
 };
 
 export function StatusBadge({ status }: { status: PromiseStatus }) {

@@ -101,19 +101,18 @@ export default function AboutPage() {
               <div className="flex items-center gap-3 mb-4">
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-ink text-sm font-bold text-white">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </span>
                 <h3 className="text-base font-semibold text-brand-charcoal">
-                  Time Decay
+                  Status Value
                 </h3>
               </div>
               <p className="text-sm text-slate leading-relaxed">
-                We don&apos;t punish a politician for not completing everything on
-                Day 1. Early in a term, unfinished promises are expected. But as the
-                clock runs out, those same unfinished promises increasingly hurt the
-                grade. Break a promise? That&apos;s a full penalty regardless of
-                timing.
+                Each promise gets one of five statuses: Kept (100), Fighting (80),
+                Stalled (30), Nothing (0), or Broke (&minus;150). The status reflects
+                what the politician has actually done &mdash; not what they said
+                they&apos;d do.
               </p>
             </div>
           </div>
@@ -131,32 +130,24 @@ export default function AboutPage() {
             </h3>
             <div className="space-y-3 text-sm text-slate">
               <div className="flex gap-3">
-                <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 shrink-0">Fulfilled</span>
-                <p>Promise achieved. The goal was reached &mdash; bill signed into law, EO implemented, measurable outcome delivered.</p>
+                <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 shrink-0">Kept</span>
+                <p>Promise delivered. Bill signed into law, executive order implemented, goal achieved.</p>
               </div>
               <div className="flex gap-3">
-                <span className="inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700 shrink-0">Partial</span>
-                <p>Full effort, system blocked success. They did everything in their power but it didn&apos;t pass due to external factors.</p>
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 shrink-0">Fighting</span>
+                <p>Actively working on it. Introducing bills, voting consistently, pushing hard.</p>
               </div>
               <div className="flex gap-3">
-                <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-700 shrink-0">Advancing</span>
-                <p>Moderate effort. Co-sponsored bills, voted yes, publicly supported it, but didn&apos;t lead the charge or introduce their own legislation.</p>
+                <span className="inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700 shrink-0">Stalled</span>
+                <p>Made some effort but stopped. Early effort then nothing recent.</p>
               </div>
               <div className="flex gap-3">
-                <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 shrink-0">In Progress</span>
-                <p>Some effort started. A bill introduced, some votes cast, early-stage work.</p>
+                <span className="inline-flex items-center rounded-full bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-600 shrink-0">Nothing</span>
+                <p>Zero effort. Never introduced a bill, never voted on it, no public action.</p>
               </div>
               <div className="flex gap-3">
-                <span className="inline-flex items-center rounded-full bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-600 shrink-0">Not Started</span>
-                <p>Zero effort. Nothing introduced, no votes, no public action.</p>
-              </div>
-              <div className="flex gap-3">
-                <span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 shrink-0">Broken</span>
-                <p>Actively contradicted the promise. Voted against it, publicly abandoned it, or took opposite action.</p>
-              </div>
-              <div className="flex gap-3">
-                <span className="inline-flex items-center rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-medium text-orange-700 shrink-0">Reversed</span>
-                <p>Initially fulfilled or progressed but then walked back or undone.</p>
+                <span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 shrink-0">Broke</span>
+                <p>Actively contradicted the promise. Voted against their own promise, reversed their own action.</p>
               </div>
             </div>
           </div>

@@ -48,7 +48,7 @@ export function PromiseForm({
       category: CATEGORIES[0],
       dateMade: "",
       sourceUrl: "",
-      status: "NOT_STARTED",
+      status: "NOTHING",
       weight: 3,
       expectedMonths: null,
     },
@@ -197,14 +197,11 @@ export function PromiseForm({
           value={form.status}
           onChange={(e) => setForm({ ...form, status: e.target.value })}
         >
-          <option value="NOT_STARTED">Not Started</option>
-          <option value="MINIMAL_EFFORT">Minimal Effort</option>
-          <option value="IN_PROGRESS">In Progress</option>
-          <option value="ADVANCING">Advancing</option>
-          <option value="FULFILLED">Fulfilled</option>
-          <option value="PARTIAL">Partial</option>
-          <option value="BROKEN">Broken</option>
-          <option value="REVERSED">Reversed</option>
+          <option value="KEPT">Kept</option>
+          <option value="FIGHTING">Fighting</option>
+          <option value="STALLED">Stalled</option>
+          <option value="NOTHING">Nothing</option>
+          <option value="BROKE">Broke</option>
         </select>
       </div>
       <div>

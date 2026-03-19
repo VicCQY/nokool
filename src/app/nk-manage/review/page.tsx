@@ -7,7 +7,7 @@ interface PendingEvent {
   promiseId: string;
   promiseTitle: string;
   promiseStatus: string;
-  promiseScore: number;
+  promiseScore?: number;
   politicianName: string;
   eventType: string;
   eventDate: string;
@@ -165,7 +165,7 @@ export default function ReviewPage() {
                 <span className="text-gray-300">&middot;</span>
                 <span className="text-sm text-gray-600">{event.promiseTitle}</span>
                 <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
-                  PES {event.promiseScore}/100
+                  {event.promiseStatus}
                 </span>
               </div>
 

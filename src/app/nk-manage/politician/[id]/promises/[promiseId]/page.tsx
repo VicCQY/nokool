@@ -61,9 +61,8 @@ export default async function EditPromisePage({
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Edit Promise</h1>
       <div className="flex items-center gap-4 mb-2">
-        <span className="text-sm text-gray-500">PES Score:</span>
-        <span className="font-mono font-bold text-lg text-gray-900">{promise.score}/100</span>
-        <span className="text-xs text-gray-400">(Status: {promise.status})</span>
+        <span className="text-sm text-gray-500">Status:</span>
+        <span className="font-mono font-bold text-lg text-gray-900">{promise.status}</span>
       </div>
       <PromiseForm
         politicianId={params.id}

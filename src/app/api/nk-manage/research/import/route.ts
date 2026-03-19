@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PromiseStatus } from "@prisma/client";
 import { recordPromiseEvent } from "@/lib/promise-updates";
-import { recalculatePromiseScore } from "@/lib/promise-score";
 
 const EVENT_TYPE_MAP: Record<string, string> = {
   executive_action: "executive_action",
   legislation: "legislation",
 };
+
+const VALID_STATUSES = new Set(["KEPT", "FIGHTING", "STALLED", "NOTHING", "BROKE"]);
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,14 +35,17 @@ export async function POST(request: NextRequest) {
       const weight = Math.max(1, Math.min(5, Number(p.weight || p.severity) || 3));
       const expectedMonths = p.expectedMonths ? Math.max(1, Number(p.expectedMonths)) : null;
 
-      // Create the promise with NOT_STARTED initially — status will be calculated
+      // Use AI's status directly, default to NOTHING
+      const aiStatus = String(p.status || "NOTHING").toUpperCase();
+      const status = VALID_STATUSES.has(aiStatus) ? aiStatus : "NOTHING";
+
       const promise = await prisma.promise.create({
         data: {
           politicianId,
           title: String(p.title || "").slice(0, 500),
           description: String(p.description || ""),
           category: String(p.category || "Other"),
-          status: "NOT_STARTED" as PromiseStatus,
+          status: status as PromiseStatus,
           weight,
           expectedMonths,
           billRelated: p.billRelated === true,
@@ -86,9 +90,6 @@ export async function POST(request: NextRequest) {
           approved: true,
         });
       }
-
-      // Calculate score from events
-      await recalculatePromiseScore(promise.id);
 
       created++;
     }

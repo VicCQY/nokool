@@ -6,53 +6,35 @@ const STATUS_STAMP_CONFIG: Record<
   PromiseStatus,
   { label: string; border: string; text: string; bg: string }
 > = {
-  FULFILLED: {
-    label: "Fulfilled",
+  KEPT: {
+    label: "Kept",
     border: "border-green-600",
     text: "text-green-700",
     bg: "bg-green-50",
   },
-  PARTIAL: {
-    label: "Partial",
-    border: "border-amber-500",
-    text: "text-amber-700",
-    bg: "bg-amber-50",
-  },
-  ADVANCING: {
-    label: "Advancing",
-    border: "border-teal-500",
-    text: "text-teal-700",
-    bg: "bg-teal-50",
-  },
-  IN_PROGRESS: {
-    label: "In Progress",
+  FIGHTING: {
+    label: "Fighting",
     border: "border-blue-500",
     text: "text-blue-700",
     bg: "bg-blue-50",
   },
-  MINIMAL_EFFORT: {
-    label: "Minimal",
-    border: "border-gray-400",
-    text: "text-gray-500",
-    bg: "bg-gray-100",
+  STALLED: {
+    label: "Stalled",
+    border: "border-amber-500",
+    text: "text-amber-700",
+    bg: "bg-amber-50",
   },
-  NOT_STARTED: {
-    label: "Not Started",
+  NOTHING: {
+    label: "Nothing",
     border: "border-gray-400",
     text: "text-gray-500",
     bg: "bg-gray-50",
   },
-  BROKEN: {
-    label: "Broken",
+  BROKE: {
+    label: "Broke",
     border: "border-red-600",
     text: "text-red-700",
     bg: "bg-red-50",
-  },
-  REVERSED: {
-    label: "Reversed",
-    border: "border-orange-500",
-    text: "text-orange-700",
-    bg: "bg-orange-50",
   },
 };
 
@@ -84,12 +66,12 @@ export function StatusStamp({
 }) {
   const config = STATUS_STAMP_CONFIG[status];
   const rotation = getRotation(status + id);
-  const isBroken = status === "BROKEN";
+  const isBroke = status === "BROKE";
 
   return (
     <span
       className={`inline-flex items-center uppercase font-bold tracking-wider border-2 ${
-        isBroken ? "border-double border-[3px]" : "border-dashed"
+        isBroke ? "border-double border-[3px]" : "border-dashed"
       } ${config.border} ${config.text} ${config.bg} ${SIZE_CLASSES[size]}`}
       style={{ transform: `rotate(${rotation}deg)` }}
     >

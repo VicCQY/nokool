@@ -26,13 +26,11 @@ const GRADE_COLORS: Record<string, string> = {
 };
 
 const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string }> = {
-  FULFILLED: { bg: "bg-green-50", text: "text-green-700", label: "Fulfilled" },
-  PARTIAL: { bg: "bg-yellow-50", text: "text-yellow-700", label: "Partial" },
-  ADVANCING: { bg: "bg-teal-50", text: "text-teal-700", label: "Advancing" },
-  BROKEN: { bg: "bg-muted-red", text: "text-red-700", label: "Broken" },
-  IN_PROGRESS: { bg: "bg-blue-50", text: "text-blue-700", label: "In Progress" },
-  NOT_STARTED: { bg: "bg-gray-50", text: "text-gray-600", label: "Not Started" },
-  REVERSED: { bg: "bg-orange-50", text: "text-orange-700", label: "Reversed" },
+  KEPT: { bg: "bg-green-50", text: "text-green-700", label: "Kept" },
+  FIGHTING: { bg: "bg-blue-50", text: "text-blue-700", label: "Fighting" },
+  STALLED: { bg: "bg-yellow-50", text: "text-yellow-700", label: "Stalled" },
+  NOTHING: { bg: "bg-gray-50", text: "text-gray-600", label: "Nothing" },
+  BROKE: { bg: "bg-red-50", text: "text-red-700", label: "Broke" },
 };
 
 const DONOR_TYPE_LABELS: Record<string, string> = {
@@ -86,7 +84,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
           { party: { contains: q, mode: "insensitive" } },
         ],
       },
-      include: { promises: { select: { status: true, score: true } } },
+      include: { promises: { select: { status: true, weight: true, category: true } } },
     }),
     prisma.promise.findMany({
       where: {

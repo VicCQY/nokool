@@ -35,7 +35,7 @@ async function main() {
           "Biden pledged to administer 100 million COVID-19 vaccine doses within his first 100 days in office.",
         category: "Healthcare",
         dateMade: new Date("2020-12-08"),
-        status: PromiseStatus.FULFILLED,
+        status: PromiseStatus.KEPT,
         sourceUrl: "https://www.bbc.com/news/world-us-canada-56173953",
       },
     }),
@@ -47,7 +47,7 @@ async function main() {
           "Committed to rejoining the Paris Climate Agreement on day one of his presidency.",
         category: "Environment",
         dateMade: new Date("2020-07-14"),
-        status: PromiseStatus.FULFILLED,
+        status: PromiseStatus.KEPT,
         sourceUrl:
           "https://www.whitehouse.gov/briefing-room/statements-releases/2021/01/20/paris-climate-agreement/",
       },
@@ -60,7 +60,7 @@ async function main() {
           "Promised to raise the federal minimum wage to $15 per hour.",
         category: "Economy",
         dateMade: new Date("2020-03-15"),
-        status: PromiseStatus.BROKEN,
+        status: PromiseStatus.BROKE,
       },
     }),
     prisma.promise.create({
@@ -71,7 +71,7 @@ async function main() {
           "Pledged to cancel $10,000 of student loan debt for each borrower.",
         category: "Education",
         dateMade: new Date("2020-03-15"),
-        status: PromiseStatus.PARTIAL,
+        status: PromiseStatus.FIGHTING,
       },
     }),
     prisma.promise.create({
@@ -82,7 +82,7 @@ async function main() {
           "Promised to send an immigration reform bill to Congress in first 100 days.",
         category: "Immigration",
         dateMade: new Date("2020-07-20"),
-        status: PromiseStatus.IN_PROGRESS,
+        status: PromiseStatus.FIGHTING,
       },
     }),
   ]);
@@ -94,27 +94,27 @@ async function main() {
   await prisma.promiseStatusChange.createMany({
     data: [
       // Vaccine: quick progression NOT_STARTED -> IN_PROGRESS -> FULFILLED
-      { promiseId: bidenVax.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2021-01-20") },
-      { promiseId: bidenVax.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2021-01-21"), note: "Vaccination rollout begins" },
-      { promiseId: bidenVax.id, oldStatus: "IN_PROGRESS", newStatus: "FULFILLED", changedAt: new Date("2021-03-19"), note: "100 million doses administered ahead of schedule" },
+      { promiseId: bidenVax.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2021-01-20") },
+      { promiseId: bidenVax.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2021-01-21"), note: "Vaccination rollout begins" },
+      { promiseId: bidenVax.id, oldStatus: "FIGHTING", newStatus: "KEPT", changedAt: new Date("2021-03-19"), note: "100 million doses administered ahead of schedule" },
 
       // Paris: immediate fulfillment
-      { promiseId: bidenParis.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2021-01-20") },
-      { promiseId: bidenParis.id, oldStatus: "NOT_STARTED", newStatus: "FULFILLED", changedAt: new Date("2021-01-20"), note: "Executive order signed on day one" },
+      { promiseId: bidenParis.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2021-01-20") },
+      { promiseId: bidenParis.id, oldStatus: "NOTHING", newStatus: "KEPT", changedAt: new Date("2021-01-20"), note: "Executive order signed on day one" },
 
       // $15 minimum wage: stalled and eventually broken
-      { promiseId: bidenWage.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2021-01-20") },
-      { promiseId: bidenWage.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2021-02-15"), note: "Included in COVID relief proposal" },
-      { promiseId: bidenWage.id, oldStatus: "IN_PROGRESS", newStatus: "BROKEN", changedAt: new Date("2022-12-01"), note: "Provision removed from reconciliation bill, no path forward" },
+      { promiseId: bidenWage.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2021-01-20") },
+      { promiseId: bidenWage.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2021-02-15"), note: "Included in COVID relief proposal" },
+      { promiseId: bidenWage.id, oldStatus: "FIGHTING", newStatus: "BROKE", changedAt: new Date("2022-12-01"), note: "Provision removed from reconciliation bill, no path forward" },
 
       // Student debt: slow partial
-      { promiseId: bidenDebt.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2021-01-20") },
-      { promiseId: bidenDebt.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2022-08-24"), note: "Announced broad student debt relief plan" },
-      { promiseId: bidenDebt.id, oldStatus: "IN_PROGRESS", newStatus: "PARTIAL", changedAt: new Date("2023-06-30"), note: "Supreme Court struck down broad plan; alternative SAVE plan launched" },
+      { promiseId: bidenDebt.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2021-01-20") },
+      { promiseId: bidenDebt.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2022-08-24"), note: "Announced broad student debt relief plan" },
+      { promiseId: bidenDebt.id, oldStatus: "FIGHTING", newStatus: "FIGHTING", changedAt: new Date("2023-06-30"), note: "Supreme Court struck down broad plan; alternative SAVE plan launched" },
 
       // Immigration: still in progress
-      { promiseId: bidenImmigration.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2021-01-20") },
-      { promiseId: bidenImmigration.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2021-02-18"), note: "Immigration reform bill sent to Congress" },
+      { promiseId: bidenImmigration.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2021-01-20") },
+      { promiseId: bidenImmigration.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2021-02-18"), note: "Immigration reform bill sent to Congress" },
     ],
   });
 
@@ -140,7 +140,7 @@ async function main() {
           "Committed to planting 2 billion trees over 10 years as part of climate plan.",
         category: "Environment",
         dateMade: new Date("2021-08-15"),
-        status: PromiseStatus.IN_PROGRESS,
+        status: PromiseStatus.FIGHTING,
       },
     }),
     prisma.promise.create({
@@ -151,7 +151,7 @@ async function main() {
           "Promised to create a national $10-a-day childcare program.",
         category: "Social Policy",
         dateMade: new Date("2021-08-15"),
-        status: PromiseStatus.FULFILLED,
+        status: PromiseStatus.KEPT,
       },
     }),
     prisma.promise.create({
@@ -162,7 +162,7 @@ async function main() {
           "Pledged to implement a mandatory buyback program for assault-style firearms.",
         category: "Social Policy",
         dateMade: new Date("2021-08-20"),
-        status: PromiseStatus.PARTIAL,
+        status: PromiseStatus.FIGHTING,
       },
     }),
     prisma.promise.create({
@@ -173,7 +173,7 @@ async function main() {
           "Promised to build, preserve, or repair 1.4 million homes over 4 years.",
         category: "Infrastructure",
         dateMade: new Date("2021-09-01"),
-        status: PromiseStatus.NOT_STARTED,
+        status: PromiseStatus.NOTHING,
       },
     }),
   ]);
@@ -184,21 +184,21 @@ async function main() {
   await prisma.promiseStatusChange.createMany({
     data: [
       // Trees: slow start
-      { promiseId: trudeauTrees.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2021-11-22") },
-      { promiseId: trudeauTrees.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2022-06-01"), note: "Program launched with initial funding" },
+      { promiseId: trudeauTrees.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2021-11-22") },
+      { promiseId: trudeauTrees.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2022-06-01"), note: "Program launched with initial funding" },
 
       // Childcare: gradual fulfillment
-      { promiseId: trudeauChildcare.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2021-11-22") },
-      { promiseId: trudeauChildcare.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2022-03-01"), note: "Provincial agreements signed" },
-      { promiseId: trudeauChildcare.id, oldStatus: "IN_PROGRESS", newStatus: "FULFILLED", changedAt: new Date("2024-04-01"), note: "All provinces at or near $10/day target" },
+      { promiseId: trudeauChildcare.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2021-11-22") },
+      { promiseId: trudeauChildcare.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2022-03-01"), note: "Provincial agreements signed" },
+      { promiseId: trudeauChildcare.id, oldStatus: "FIGHTING", newStatus: "KEPT", changedAt: new Date("2024-04-01"), note: "All provinces at or near $10/day target" },
 
       // Firearms: partial
-      { promiseId: trudeauGuns.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2021-11-22") },
-      { promiseId: trudeauGuns.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2022-05-30"), note: "Handgun freeze introduced via Bill C-21" },
-      { promiseId: trudeauGuns.id, oldStatus: "IN_PROGRESS", newStatus: "PARTIAL", changedAt: new Date("2023-12-15"), note: "Bill passed but mandatory buyback not yet implemented" },
+      { promiseId: trudeauGuns.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2021-11-22") },
+      { promiseId: trudeauGuns.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2022-05-30"), note: "Handgun freeze introduced via Bill C-21" },
+      { promiseId: trudeauGuns.id, oldStatus: "FIGHTING", newStatus: "FIGHTING", changedAt: new Date("2023-12-15"), note: "Bill passed but mandatory buyback not yet implemented" },
 
       // Homes: no action (NOT_STARTED stays)
-      { promiseId: trudeauHomes.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2021-11-22") },
+      { promiseId: trudeauHomes.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2021-11-22") },
     ],
   });
 
@@ -223,7 +223,7 @@ async function main() {
           "Create a publicly owned clean energy company to cut bills and boost energy security.",
         category: "Environment",
         dateMade: new Date("2024-06-13"),
-        status: PromiseStatus.IN_PROGRESS,
+        status: PromiseStatus.FIGHTING,
       },
     }),
     prisma.promise.create({
@@ -234,7 +234,7 @@ async function main() {
           "Fund 6,500 new expert teachers in key subjects across England.",
         category: "Education",
         dateMade: new Date("2024-06-13"),
-        status: PromiseStatus.NOT_STARTED,
+        status: PromiseStatus.NOTHING,
       },
     }),
     prisma.promise.create({
@@ -245,7 +245,7 @@ async function main() {
           "Provide 40,000 more appointments per week to cut NHS waiting lists.",
         category: "Healthcare",
         dateMade: new Date("2024-06-13"),
-        status: PromiseStatus.IN_PROGRESS,
+        status: PromiseStatus.FIGHTING,
       },
     }),
     prisma.promise.create({
@@ -256,7 +256,7 @@ async function main() {
           "Create a new Border Security, Asylum and Immigration Command with counter-terror powers.",
         category: "Immigration",
         dateMade: new Date("2024-06-13"),
-        status: PromiseStatus.FULFILLED,
+        status: PromiseStatus.KEPT,
       },
     }),
   ]);
@@ -267,20 +267,20 @@ async function main() {
   await prisma.promiseStatusChange.createMany({
     data: [
       // Energy: fairly quick start
-      { promiseId: starmerEnergy.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2024-07-05") },
-      { promiseId: starmerEnergy.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2024-07-25"), note: "Great British Energy bill introduced to Parliament" },
+      { promiseId: starmerEnergy.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2024-07-05") },
+      { promiseId: starmerEnergy.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2024-07-25"), note: "Great British Energy bill introduced to Parliament" },
 
       // Teachers: no action yet
-      { promiseId: starmerTeachers.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2024-07-05") },
+      { promiseId: starmerTeachers.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2024-07-05") },
 
       // NHS: started
-      { promiseId: starmerNHS.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2024-07-05") },
-      { promiseId: starmerNHS.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2024-09-01"), note: "Additional NHS funding announced in autumn budget" },
+      { promiseId: starmerNHS.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2024-07-05") },
+      { promiseId: starmerNHS.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2024-09-01"), note: "Additional NHS funding announced in autumn budget" },
 
       // Border: quick fulfillment
-      { promiseId: starmerBorder.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2024-07-05") },
-      { promiseId: starmerBorder.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2024-07-08"), note: "Border Security Command established" },
-      { promiseId: starmerBorder.id, oldStatus: "IN_PROGRESS", newStatus: "FULFILLED", changedAt: new Date("2024-09-15"), note: "Fully operational with counter-terror powers" },
+      { promiseId: starmerBorder.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2024-07-05") },
+      { promiseId: starmerBorder.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2024-07-08"), note: "Border Security Command established" },
+      { promiseId: starmerBorder.id, oldStatus: "FIGHTING", newStatus: "KEPT", changedAt: new Date("2024-09-15"), note: "Fully operational with counter-terror powers" },
     ],
   });
 
@@ -305,7 +305,7 @@ async function main() {
           "Pledged to seal the southern border and end illegal immigration on day one.",
         category: "Immigration",
         dateMade: new Date("2024-07-18"),
-        status: PromiseStatus.IN_PROGRESS,
+        status: PromiseStatus.FIGHTING,
       },
     }),
     prisma.promise.create({
@@ -316,7 +316,7 @@ async function main() {
           "Promised to rapidly bring down inflation and reduce costs for American families.",
         category: "Economy",
         dateMade: new Date("2024-07-18"),
-        status: PromiseStatus.NOT_STARTED,
+        status: PromiseStatus.NOTHING,
       },
     }),
     prisma.promise.create({
@@ -327,7 +327,7 @@ async function main() {
           "Pledged to unleash American energy production including oil, gas, and nuclear.",
         category: "Environment",
         dateMade: new Date("2024-07-18"),
-        status: PromiseStatus.IN_PROGRESS,
+        status: PromiseStatus.FIGHTING,
       },
     }),
     prisma.promise.create({
@@ -338,7 +338,7 @@ async function main() {
           "Promised to eliminate federal taxes on tips for service workers.",
         category: "Tax Policy",
         dateMade: new Date("2024-06-09"),
-        status: PromiseStatus.NOT_STARTED,
+        status: PromiseStatus.NOTHING,
       },
     }),
   ]);
@@ -348,18 +348,18 @@ async function main() {
   await prisma.promiseStatusChange.createMany({
     data: [
       // Border: started immediately
-      { promiseId: trumpBorder.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2025-01-20") },
-      { promiseId: trumpBorder.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2025-01-20"), note: "Executive orders on border security signed day one" },
+      { promiseId: trumpBorder.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2025-01-20") },
+      { promiseId: trumpBorder.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2025-01-20"), note: "Executive orders on border security signed day one" },
 
       // Inflation: no concrete action
-      { promiseId: trumpInflation.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2025-01-20") },
+      { promiseId: trumpInflation.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2025-01-20") },
 
       // Energy: started
-      { promiseId: trumpEnergy.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2025-01-20") },
-      { promiseId: trumpEnergy.id, oldStatus: "NOT_STARTED", newStatus: "IN_PROGRESS", changedAt: new Date("2025-01-23"), note: "National energy emergency declared" },
+      { promiseId: trumpEnergy.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2025-01-20") },
+      { promiseId: trumpEnergy.id, oldStatus: "NOTHING", newStatus: "FIGHTING", changedAt: new Date("2025-01-23"), note: "National energy emergency declared" },
 
       // Tips: no action yet
-      { promiseId: trumpTips.id, oldStatus: null, newStatus: "NOT_STARTED", changedAt: new Date("2025-01-20") },
+      { promiseId: trumpTips.id, oldStatus: null, newStatus: "NOTHING", changedAt: new Date("2025-01-20") },
     ],
   });
 

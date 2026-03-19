@@ -20,7 +20,7 @@ export async function POST(
   { params }: { params: { id: string } },
 ) {
   const body = await req.json();
-  const initialStatus = (body.status as PromiseStatus) || "NOT_STARTED";
+  const initialStatus = (body.status as PromiseStatus) || "NOTHING";
 
   const weight = Math.min(5, Math.max(1, Number(body.weight) || 3));
   const expectedMonths = body.expectedMonths != null

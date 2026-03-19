@@ -17,14 +17,11 @@ enum Country {
 }
 
 enum PromiseStatus {
-  NOT_STARTED
-  MINIMAL_EFFORT
-  IN_PROGRESS
-  ADVANCING
-  FULFILLED
-  PARTIAL
-  BROKEN
-  REVERSED
+  KEPT
+  FIGHTING
+  STALLED
+  NOTHING
+  BROKE
 }
 
 enum VotePosition {
@@ -108,7 +105,7 @@ model Promise {
   category        String
   dateMade        DateTime
   sourceUrl       String?
-  status          PromiseStatus         @default(NOT_STARTED)
+  status          PromiseStatus         @default(NOTHING)
   statusOverride  PromiseStatus?
   score           Int                   @default(0)
   weight          Int                   @default(3)

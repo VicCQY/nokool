@@ -24,7 +24,7 @@ import { CategoryBreakdownSection } from "@/components/CategoryBreakdownSection"
 import { getIssueWeights } from "@/lib/issue-weights-cache";
 import { SEVERITY_LABELS } from "@/lib/issue-weights";
 import { GradeBreakdown } from "./GradeBreakdown";
-import { getTermProgress } from "@/lib/time-decay";
+import { STANDARD_TERM_LENGTHS } from "@/lib/issue-weights";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,7 @@ export async function generateMetadata({
     select: {
       name: true,
       party: true,
-      promises: { select: { status: true, score: true, category: true, weight: true, dateMade: true } },
+      promises: { select: { status: true, category: true, weight: true } },
       termStart: true,
       termEnd: true,
       branch: true,
@@ -117,12 +117,11 @@ const STATUS_STAT_CONFIG: {
   label: string;
   topBorder: string;
 }[] = [
-  { key: "FULFILLED", label: "Fulfilled", topBorder: "border-t-status-fulfilled" },
-  { key: "PARTIAL", label: "Partial", topBorder: "border-t-status-partial" },
-  { key: "IN_PROGRESS", label: "In Progress", topBorder: "border-t-status-in-progress" },
-  { key: "NOT_STARTED", label: "Not Started", topBorder: "border-t-status-not-started" },
-  { key: "BROKEN", label: "Broken", topBorder: "border-t-status-broken" },
-  { key: "REVERSED", label: "Reversed", topBorder: "border-t-status-reversed" },
+  { key: "KEPT", label: "Kept", topBorder: "border-t-green-500" },
+  { key: "FIGHTING", label: "Fighting", topBorder: "border-t-blue-500" },
+  { key: "STALLED", label: "Stalled", topBorder: "border-t-amber-500" },
+  { key: "NOTHING", label: "Nothing", topBorder: "border-t-gray-400" },
+  { key: "BROKE", label: "Broke", topBorder: "border-t-red-500" },
 ];
 
 export default async function PoliticianPage({
@@ -211,7 +210,12 @@ export default async function PoliticianPage({
     undefined,
     issueWeights,
   );
-  const termProgress = getTermProgress(politician.termStart, politician.termEnd, politician.branch, politician.chamber);
+  // Calculate term progress inline
+  const termLengthYears = STANDARD_TERM_LENGTHS[politician.chamber || politician.branch] || 4;
+  const termEndDate = politician.termEnd || new Date(politician.termStart.getTime() + termLengthYears * 365.25 * 24 * 60 * 60 * 1000);
+  const totalMs = termEndDate.getTime() - politician.termStart.getTime();
+  const elapsedMs = Date.now() - politician.termStart.getTime();
+  const termProgress = Math.max(0, Math.min(1, elapsedMs / totalMs));
   const countryInfo = COUNTRIES[politician.country as keyof typeof COUNTRIES];
 
   // Promise filtering
@@ -510,7 +514,6 @@ export default async function PoliticianPage({
             promises={politician.promises.map((p) => ({
               category: p.category,
               status: p.status,
-              score: p.score,
               weight: p.weight,
             }))}
             issueWeights={issueWeights}
@@ -526,7 +529,6 @@ export default async function PoliticianPage({
               title: p.title,
               category: p.category,
               status: p.status,
-              score: p.score,
               weight: p.weight,
             }))}
             issueWeights={issueWeights}
@@ -686,7 +688,6 @@ export default async function PoliticianPage({
                 title: p.title,
                 category: p.category,
                 status: p.status,
-                score: p.score,
                 weight: p.weight,
                 dateMade: p.dateMade.toISOString(),
                 sourceUrl: p.sourceUrl || "",

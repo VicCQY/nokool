@@ -21,11 +21,19 @@ export const SEVERITY_LABELS: Record<number, string> = {
 };
 
 export const STATUS_VALUES: Record<string, number> = {
-  "FULFILLED": 1.0,
-  "PARTIAL": 0.5,
-  "IN_PROGRESS": 0.25,
-  "NOT_STARTED": 0,
-  "BROKEN": -1.0,
+  "KEPT": 100,
+  "FIGHTING": 80,
+  "STALLED": 30,
+  "NOTHING": 0,
+  "BROKE": -150,
+};
+
+export const STATUS_LABELS: Record<string, string> = {
+  "KEPT": "Kept",
+  "FIGHTING": "Fighting",
+  "STALLED": "Stalled",
+  "NOTHING": "Nothing",
+  "BROKE": "Broke",
 };
 
 export const STANDARD_TERM_LENGTHS: Record<string, number> = {

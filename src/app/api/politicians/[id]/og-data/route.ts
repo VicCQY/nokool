@@ -19,7 +19,7 @@ export async function GET(
       termStart: true,
       termEnd: true,
       promises: {
-        select: { status: true, category: true, weight: true, dateMade: true, score: true },
+        select: { status: true, category: true, weight: true, dateMade: true },
       },
     },
   });

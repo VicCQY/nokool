@@ -95,9 +95,15 @@ export async function researchPromises(
   country: string,
   party: string,
 ): Promise<ResearchedPromise[]> {
-  const system = `You are a political research assistant. Search for and compile a comprehensive list of campaign promises, policy positions, and public commitments made by the specified politician. For each promise, provide: title (short), description (2-3 sentences), category (one of: Economy, Healthcare, Environment, Immigration, Education, Infrastructure, Foreign Policy, Justice, Housing, Technology, Other), a suggested status (NOT_STARTED, IN_PROGRESS, FULFILLED, PARTIAL, BROKEN), the approximate date it was made (YYYY-MM-DD), a source URL, and a suggested weight (1-5 where 5 is a cornerstone campaign promise). Return ONLY a JSON array with no other text.`;
+  const system = `You are a political research assistant. Search for and compile a comprehensive list of campaign promises, policy positions, and public commitments made by the specified politician. For each promise, provide: title (short), description (2-3 sentences), category (one of: Economy, Healthcare, Environment, Immigration, Education, Infrastructure, Foreign Policy, Justice, Housing, Technology, Other), a suggested status using ONLY these values:
+- KEPT: Promise delivered. Bill signed into law, executive order implemented, goal achieved.
+- FIGHTING: Actively working on it. Introducing bills, voting consistently, pushing hard.
+- STALLED: Made some effort but stopped. Early effort then nothing recent.
+- NOTHING: Zero effort. Never introduced a bill, never voted on it.
+- BROKE: Actively contradicted it. Voted against their own promise, reversed their own action.
+Also provide: the approximate date it was made (YYYY-MM-DD), a source URL, and a suggested weight (1-5 where 5 is a cornerstone campaign promise). Return ONLY a JSON array with no other text.`;
 
-  const userMsg = `Research all major campaign promises and policy positions of ${politicianName} (${party}, ${country}). Focus on their most recent campaign and current term. Return as a JSON array with objects having these exact keys: title, description, category, status, dateMade, sourceUrl, weight.`;
+  const userMsg = `Research all major campaign promises and policy positions of ${politicianName} (${party}, ${country}). Focus on their most recent campaign and current term. Use ONLY these status values: KEPT, FIGHTING, STALLED, NOTHING, BROKE. Return as a JSON array with objects having these exact keys: title, description, category, status, dateMade, sourceUrl, weight.`;
 
   const text = await callAnthropic(system, [{ role: "user", content: userMsg }]);
   const parsed = parseJsonFromResponse(text);
@@ -110,7 +116,7 @@ export async function researchPromises(
     title: String(item.title || ""),
     description: String(item.description || ""),
     category: String(item.category || "Other"),
-    status: String(item.status || "NOT_STARTED"),
+    status: String(item.status || "NOTHING"),
     dateMade: String(item.dateMade || new Date().toISOString().split("T")[0]),
     sourceUrl: String(item.sourceUrl || ""),
     weight: Number(item.weight) || 3,

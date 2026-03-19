@@ -22,10 +22,6 @@ export async function POST(request: NextRequest) {
       data: { reviewed: true, approved: false },
     });
 
-    // Recalculate score — rejecting an event may change it
-    const { recalculatePromiseScore } = await import("@/lib/promise-score");
-    await recalculatePromiseScore(event.promiseId);
-
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Review reject error:", err);

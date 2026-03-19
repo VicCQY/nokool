@@ -52,14 +52,11 @@ const STATUS_COLORS: Record<
   PromiseStatus,
   { fill: string; stroke: string; label: string }
 > = {
-  FULFILLED: { fill: "#22c55e", stroke: "#16a34a", label: "Fulfilled" },
-  PARTIAL: { fill: "#eab308", stroke: "#ca8a04", label: "Partial" },
-  ADVANCING: { fill: "#14b8a6", stroke: "#0d9488", label: "Advancing" },
-  IN_PROGRESS: { fill: "#3b82f6", stroke: "#2563eb", label: "In Progress" },
-  MINIMAL_EFFORT: { fill: "#d1d5db", stroke: "#9ca3af", label: "Minimal" },
-  NOT_STARTED: { fill: "#9ca3af", stroke: "#6b7280", label: "Not Started" },
-  BROKEN: { fill: "#ef4444", stroke: "#dc2626", label: "Broken" },
-  REVERSED: { fill: "#f97316", stroke: "#ea580c", label: "Reversed" },
+  KEPT: { fill: "#22c55e", stroke: "#16a34a", label: "Kept" },
+  FIGHTING: { fill: "#3b82f6", stroke: "#2563eb", label: "Fighting" },
+  STALLED: { fill: "#eab308", stroke: "#ca8a04", label: "Stalled" },
+  NOTHING: { fill: "#9ca3af", stroke: "#6b7280", label: "Nothing" },
+  BROKE: { fill: "#ef4444", stroke: "#dc2626", label: "Broke" },
 };
 
 const ACTION_TYPE_LABELS: Record<string, string> = {
@@ -337,7 +334,7 @@ export function PromiseTimeline({
 
       // Promise was active (not terminal) at range start
       const s = statusAtDate(p, rangeStart);
-      if (s && s !== "FULFILLED" && s !== "BROKEN" && s !== "REVERSED") return true;
+      if (s && s !== "KEPT" && s !== "BROKE") return true;
 
       return false;
     });
@@ -554,7 +551,7 @@ export function PromiseTimeline({
                           : 0;
 
                       const isTerminal =
-                        p.status === "FULFILLED" || p.status === "BROKEN" || p.status === "REVERSED";
+                        p.status === "KEPT" || p.status === "BROKE";
 
                       // If the promise was made before range, draw from left edge
                       const lineStart = madeInRange ? madePct : 0;
@@ -890,9 +887,8 @@ export function PromiseTimeline({
                     </div>
                   )}
                   {hasAction &&
-                    p.status !== "FULFILLED" &&
-                    p.status !== "BROKEN" &&
-                    p.status !== "REVERSED" && (
+                    p.status !== "KEPT" &&
+                    p.status !== "BROKE" && (
                       <div className="relative">
                         <div className="absolute -left-[25px] top-1 h-3 w-3 rounded-full border-2 border-dashed border-gray-300 bg-white" />
                         <p className="text-xs text-gray-400 italic">

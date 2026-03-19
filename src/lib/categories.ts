@@ -1,22 +1,20 @@
 import { PromiseStatus } from "@prisma/client";
-import { calculateGradeFromScores } from "./promise-score";
+import { ISSUE_WEIGHTS, STATUS_VALUES } from "./issue-weights";
 
 export interface CategoryBreakdown {
   category: string;
   total: number;
-  fulfilled: number;
-  partial: number;
-  advancing: number;
-  broken: number;
-  inProgress: number;
-  notStarted: number;
+  kept: number;
+  fighting: number;
+  stalled: number;
+  nothing: number;
+  broke: number;
   fulfillmentPercent: number;
 }
 
 interface PromiseInput {
   category: string;
   status: PromiseStatus;
-  score?: number;
   weight?: number;
 }
 
@@ -25,54 +23,50 @@ export function calculateCategoryBreakdown(
   _termInfo?: unknown,
   issueWeights?: Record<string, number>,
 ): CategoryBreakdown[] {
+  const weights = issueWeights || ISSUE_WEIGHTS;
   const map: Record<
     string,
-    { total: number; fulfilled: number; partial: number; advancing: number; broken: number; inProgress: number; notStarted: number; promises: PromiseInput[] }
+    { total: number; kept: number; fighting: number; stalled: number; nothing: number; broke: number; promises: PromiseInput[] }
   > = {};
 
   for (const p of promises) {
     if (!map[p.category]) {
-      map[p.category] = {
-        total: 0,
-        fulfilled: 0,
-        partial: 0,
-        advancing: 0,
-        broken: 0,
-        inProgress: 0,
-        notStarted: 0,
-        promises: [],
-      };
+      map[p.category] = { total: 0, kept: 0, fighting: 0, stalled: 0, nothing: 0, broke: 0, promises: [] };
     }
     const c = map[p.category];
     c.total++;
     c.promises.push(p);
-    if (p.status === "FULFILLED") c.fulfilled++;
-    else if (p.status === "PARTIAL") c.partial++;
-    else if (p.status === "ADVANCING") c.advancing++;
-    else if (p.status === "BROKEN") c.broken++;
-    else if (p.status === "IN_PROGRESS") c.inProgress++;
-    else if (p.status === "NOT_STARTED") c.notStarted++;
+    if (p.status === "KEPT") c.kept++;
+    else if (p.status === "FIGHTING") c.fighting++;
+    else if (p.status === "STALLED") c.stalled++;
+    else if (p.status === "NOTHING") c.nothing++;
+    else if (p.status === "BROKE") c.broke++;
   }
 
   return Object.entries(map).map(([category, data]) => {
-    const gradePromises = data.promises.map((p) => ({
-      score: p.score ?? 0,
-      weight: p.weight || 3,
-      category: p.category,
-    }));
-
-    const result = calculateGradeFromScores(gradePromises, issueWeights);
+    let numerator = 0;
+    let denominator = 0;
+    for (const p of data.promises) {
+      const severity = p.weight || 3;
+      const issueWeight = weights[p.category] || 1.0;
+      const combinedWeight = severity * issueWeight;
+      const statusValue = STATUS_VALUES[p.status] ?? 0;
+      numerator += statusValue * combinedWeight;
+      denominator += 100 * combinedWeight;
+    }
+    const percent = denominator > 0
+      ? Math.max(0, Math.min(100, Math.round((numerator / denominator) * 100)))
+      : 0;
 
     return {
       category,
       total: data.total,
-      fulfilled: data.fulfilled,
-      partial: data.partial,
-      advancing: data.advancing,
-      broken: data.broken,
-      inProgress: data.inProgress,
-      notStarted: data.notStarted,
-      fulfillmentPercent: result.percent,
+      kept: data.kept,
+      fighting: data.fighting,
+      stalled: data.stalled,
+      nothing: data.nothing,
+      broke: data.broke,
+      fulfillmentPercent: percent,
     };
   });
 }

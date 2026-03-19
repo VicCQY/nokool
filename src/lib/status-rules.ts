@@ -6,25 +6,19 @@ type TransitionResult =
   | { type: "invalid"; reason: string };
 
 const FORWARD_TRANSITIONS: Record<PromiseStatus, PromiseStatus[]> = {
-  NOT_STARTED: ["MINIMAL_EFFORT", "IN_PROGRESS", "ADVANCING", "PARTIAL", "FULFILLED", "BROKEN"],
-  MINIMAL_EFFORT: ["IN_PROGRESS", "ADVANCING", "PARTIAL", "FULFILLED", "BROKEN"],
-  IN_PROGRESS: ["ADVANCING", "PARTIAL", "FULFILLED", "BROKEN", "REVERSED"],
-  ADVANCING: ["PARTIAL", "FULFILLED", "BROKEN", "REVERSED"],
-  PARTIAL: ["FULFILLED", "BROKEN", "REVERSED"],
-  FULFILLED: [],
-  BROKEN: [],
-  REVERSED: [],
+  NOTHING: ["STALLED", "FIGHTING", "KEPT", "BROKE"],
+  STALLED: ["FIGHTING", "KEPT", "BROKE"],
+  FIGHTING: ["KEPT", "BROKE"],
+  KEPT: [],
+  BROKE: [],
 };
 
 const REGRESSION_TRANSITIONS: Record<PromiseStatus, PromiseStatus[]> = {
-  NOT_STARTED: [],
-  MINIMAL_EFFORT: ["NOT_STARTED"],
-  IN_PROGRESS: ["MINIMAL_EFFORT", "NOT_STARTED"],
-  ADVANCING: ["IN_PROGRESS", "MINIMAL_EFFORT", "NOT_STARTED"],
-  PARTIAL: ["ADVANCING", "IN_PROGRESS", "MINIMAL_EFFORT", "NOT_STARTED"],
-  FULFILLED: ["REVERSED", "PARTIAL", "ADVANCING", "IN_PROGRESS", "MINIMAL_EFFORT", "NOT_STARTED"],
-  BROKEN: ["REVERSED"],
-  REVERSED: [],
+  NOTHING: [],
+  STALLED: ["NOTHING"],
+  FIGHTING: ["STALLED", "NOTHING"],
+  KEPT: ["FIGHTING", "STALLED", "NOTHING", "BROKE"],
+  BROKE: [],
 };
 
 /**
@@ -35,19 +29,13 @@ export function canAutoApply(
   newStatus: PromiseStatus,
   confidence?: string | null,
 ): TransitionResult {
-  // Same status — no-op
   if (oldStatus === newStatus) {
     return { type: "invalid", reason: "Status unchanged" };
   }
 
-  // REVERSED is terminal
-  if (oldStatus === "REVERSED") {
-    return { type: "invalid", reason: "REVERSED is a terminal status" };
-  }
-
-  // BROKEN can only go to REVERSED
-  if (oldStatus === "BROKEN" && newStatus !== "REVERSED") {
-    return { type: "invalid", reason: "BROKEN can only transition to REVERSED" };
+  // BROKE is terminal
+  if (oldStatus === "BROKE") {
+    return { type: "invalid", reason: "BROKE is a terminal status" };
   }
 
   // Check forward transitions
@@ -55,7 +43,6 @@ export function canAutoApply(
     if (confidence === "high" || confidence === "medium") {
       return { type: "auto", markReviewed: confidence === "high" };
     }
-    // Low confidence or unspecified — still auto but mark unreviewed
     return { type: "auto", markReviewed: false };
   }
 
@@ -67,21 +54,18 @@ export function canAutoApply(
     };
   }
 
-  // Anything else is invalid
   return { type: "invalid", reason: `Transition ${oldStatus} → ${newStatus} is not allowed` };
 }
 
 /**
  * Check if a transition is valid at all (forward or regression).
- * Human-initiated changes can bypass auto-apply rules but still can't make invalid transitions.
  */
 export function isValidTransition(
   oldStatus: PromiseStatus,
   newStatus: PromiseStatus,
 ): boolean {
   if (oldStatus === newStatus) return false;
-  if (oldStatus === "REVERSED") return false;
-  if (oldStatus === "BROKEN" && newStatus !== "REVERSED") return false;
+  if (oldStatus === "BROKE") return false;
 
   return (
     FORWARD_TRANSITIONS[oldStatus]?.includes(newStatus) ||

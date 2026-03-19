@@ -6,7 +6,7 @@ import { CategoryBarChart } from "./CategoryBarChart";
 import type { PromiseStatus } from "@prisma/client";
 
 interface Props {
-  promises: { category: string; status: PromiseStatus; score?: number; weight?: number }[];
+  promises: { category: string; status: PromiseStatus; weight?: number }[];
   issueWeights?: Record<string, number>;
 }
 
@@ -27,10 +27,8 @@ export function CategoryBreakdownSection({ promises, issueWeights }: Props) {
     return () => mql.removeEventListener("change", handler);
   }, []);
 
-  // Need at least 1 promise with a category
   if (promises.length === 0) return null;
 
-  // Radar needs 3+ categories
   const uniqueCategories = new Set(promises.map((p) => p.category));
   const canShowRadar = uniqueCategories.size >= 3;
 

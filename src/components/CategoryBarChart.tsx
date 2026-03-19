@@ -8,7 +8,7 @@ import {
 import type { PromiseStatus } from "@prisma/client";
 
 interface Props {
-  promises: { category: string; status: PromiseStatus; score?: number; weight?: number }[];
+  promises: { category: string; status: PromiseStatus; weight?: number }[];
   issueWeights?: Record<string, number>;
 }
 
@@ -17,12 +17,11 @@ const SEGMENTS: {
   label: string;
   color: string;
 }[] = [
-  { key: "fulfilled", label: "Fulfilled", color: "#22c55e" },
-  { key: "partial", label: "Partial", color: "#eab308" },
-  { key: "advancing", label: "Advancing", color: "#14b8a6" },
-  { key: "inProgress", label: "In Progress", color: "#3b82f6" },
-  { key: "notStarted", label: "Not Started", color: "#9ca3af" },
-  { key: "broken", label: "Broken", color: "#ef4444" },
+  { key: "kept", label: "Kept", color: "#22c55e" },
+  { key: "fighting", label: "Fighting", color: "#3b82f6" },
+  { key: "stalled", label: "Stalled", color: "#eab308" },
+  { key: "nothing", label: "Nothing", color: "#9ca3af" },
+  { key: "broke", label: "Broke", color: "#ef4444" },
 ];
 
 export function CategoryBarChart({ promises, issueWeights }: Props) {

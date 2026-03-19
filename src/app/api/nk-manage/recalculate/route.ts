@@ -1,30 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  recalculatePromiseScore,
-  recalculateAllScoresForPolitician,
-  recalculateAllScores,
-} from "@/lib/promise-score";
+import { prisma } from "@/lib/prisma";
+import { calculateFulfillment } from "@/lib/grades";
+import { getIssueWeights } from "@/lib/issue-weights-cache";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { promiseId, politicianId } = body;
+    const { politicianId } = body;
 
-    // Single promise
-    if (promiseId) {
-      const result = await recalculatePromiseScore(promiseId);
-      return NextResponse.json({ success: true, promiseId, score: result.score, label: result.label });
-    }
+    const issueWeights = await getIssueWeights();
 
-    // All promises for a politician
     if (politicianId) {
-      const changed = await recalculateAllScoresForPolitician(politicianId);
-      return NextResponse.json({ success: true, politicianId, changed });
+      const promises = await prisma.promise.findMany({
+        where: { politicianId },
+        select: { status: true, weight: true, category: true },
+      });
+      const { percentage, grade } = calculateFulfillment(promises, undefined, issueWeights);
+      return NextResponse.json({ success: true, politicianId, percentage, grade });
     }
 
-    // All promises in the system
-    const result = await recalculateAllScores();
-    return NextResponse.json({ success: true, ...result });
+    // All politicians
+    const politicians = await prisma.politician.findMany({
+      select: {
+        id: true,
+        name: true,
+        promises: { select: { status: true, weight: true, category: true } },
+      },
+    });
+
+    const results = politicians.map((pol) => {
+      const { percentage, grade } = calculateFulfillment(pol.promises, undefined, issueWeights);
+      return { id: pol.id, name: pol.name, percentage, grade, promises: pol.promises.length };
+    });
+
+    return NextResponse.json({ success: true, results });
   } catch (err) {
     console.error("Recalculate error:", err);
     return NextResponse.json(

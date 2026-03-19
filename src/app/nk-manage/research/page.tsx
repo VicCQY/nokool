@@ -29,6 +29,8 @@ interface ResearchedPromise {
   title: string;
   description: string;
   category: string;
+  status: string;
+  statusReason?: string;
   dateMade: string;
   sourceUrl: string;
   severity: number;
@@ -298,6 +300,7 @@ export default function ResearchPage() {
             title: p.title,
             description: p.description,
             category: p.category,
+            status: p.status,
             severity: p.severity,
             expectedMonths: p.expectedMonths,
             billRelated: p.billRelated,
@@ -582,10 +585,10 @@ export default function ResearchPage() {
             {existingPromises.map((p) => (
               <span key={p.id} className="inline-flex items-center gap-1 rounded-full bg-white border border-gray-200 px-3 py-1 text-xs text-gray-600">
                 <span className={`inline-block w-2 h-2 rounded-full ${
-                  p.status === "FULFILLED" ? "bg-green-500" :
-                  p.status === "IN_PROGRESS" ? "bg-blue-500" :
-                  p.status === "BROKEN" ? "bg-red-500" :
-                  p.status === "PARTIAL" ? "bg-amber-500" :
+                  p.status === "KEPT" ? "bg-green-500" :
+                  p.status === "FIGHTING" ? "bg-blue-500" :
+                  p.status === "BROKE" ? "bg-red-500" :
+                  p.status === "STALLED" ? "bg-amber-500" :
                   "bg-gray-300"
                 }`} />
                 {p.title}
