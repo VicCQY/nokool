@@ -152,7 +152,7 @@ export default async function PoliticianPage({
               statusChange: true,
               sourceUrl: true,
             },
-            orderBy: { eventDate: "asc" },
+            orderBy: [{ eventDate: "asc" }, { eventType: "asc" }],
           },
           billLinks: {
             include: {

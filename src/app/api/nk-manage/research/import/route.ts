@@ -57,19 +57,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Create "announcement" event for promise creation
-      await recordPromiseEvent({
-        promiseId: promise.id,
-        eventType: "announcement",
-        eventDate: new Date(p.dateMade || Date.now()),
-        title: `Promise made: ${String(p.title || "").slice(0, 200)}`,
-        sourceUrl: p.sourceUrl || undefined,
-        createdBy: "human",
-        reviewed: true,
-        approved: true,
-      });
-
-      // Process timeline events
+      // Process timeline events (AI already includes a "Promise made" announcement)
       const timeline = Array.isArray(p.timeline) ? p.timeline : [];
 
       for (const evt of timeline) {

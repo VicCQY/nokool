@@ -99,18 +99,6 @@ type TimelineEvent = {
 function buildTimeline(promise: PromiseWithJourney): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
-  // Add the promise-made event as an announcement
-  events.push({
-    type: "announcement",
-    date: promise.dateMade,
-    sortDate: new Date(promise.dateMade).getTime(),
-    title: "Promise Made",
-    description: null,
-    details: null,
-    sourceUrl: promise.sourceUrl,
-    statusChange: null,
-  });
-
   for (const evt of promise.events) {
     if (evt.eventType === "announcement") {
       events.push({
@@ -170,7 +158,9 @@ function buildTimeline(promise: PromiseWithJourney): TimelineEvent[] {
     });
   }
 
-  events.sort((a, b) => a.sortDate - b.sortDate);
+  // Sort by date, announcements first on ties
+  const TYPE_ORDER: Record<string, number> = { announcement: 0, news: 1, legislation: 2, bill_link: 3, action_link: 4 };
+  events.sort((a, b) => a.sortDate - b.sortDate || (TYPE_ORDER[a.type] ?? 9) - (TYPE_ORDER[b.type] ?? 9));
   return events;
 }
 
