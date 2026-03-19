@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface EventData {
   id: string;
@@ -31,7 +32,16 @@ const STATUS_OPTIONS = [
 
 const inputClass = "w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none";
 
+const STATUS_COLORS: Record<string, string> = {
+  KEPT: "bg-green-600 text-white",
+  FIGHTING: "bg-blue-600 text-white",
+  STALLED: "bg-amber-500 text-white",
+  NOTHING: "bg-gray-500 text-white",
+  BROKE: "bg-red-600 text-white",
+};
+
 export function EventEditor({ promiseId }: { promiseId: string }) {
+  const router = useRouter();
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -120,6 +130,7 @@ export function EventEditor({ promiseId }: { promiseId: string }) {
       });
       if (res.ok) {
         setMessage("All events saved");
+        router.refresh(); // refresh server data so PromiseForm shows updated status
       } else {
         const data = await res.json();
         setMessage(data.error || "Save failed");
@@ -256,17 +267,24 @@ export function EventEditor({ promiseId }: { promiseId: string }) {
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-0.5">Status Change at this event</label>
-                  <select
-                    value={evt.statusChange || ""}
-                    onChange={(e) => updateEvent(i, "statusChange", e.target.value || null)}
-                    className={inputClass}
-                  >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={evt.statusChange || ""}
+                      onChange={(e) => updateEvent(i, "statusChange", e.target.value || null)}
+                      className={inputClass}
+                    >
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    {evt.statusChange && (
+                      <span className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-bold ${STATUS_COLORS[evt.statusChange] || "bg-gray-200 text-gray-600"}`}>
+                        → {evt.statusChange}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -192,26 +192,27 @@ export function PromiseForm({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Status
         </label>
+        <p className="text-xs text-gray-400 mb-2">
+          Status is set via timeline events below. Change status by setting it on a specific event.
+        </p>
         <div className="flex flex-wrap gap-2">
           {[
-            { value: "KEPT", label: "KEPT", color: "bg-green-600 hover:bg-green-700 text-white", ring: "ring-green-600" },
-            { value: "FIGHTING", label: "FIGHTING", color: "bg-blue-600 hover:bg-blue-700 text-white", ring: "ring-blue-600" },
-            { value: "STALLED", label: "STALLED", color: "bg-amber-500 hover:bg-amber-600 text-white", ring: "ring-amber-500" },
-            { value: "NOTHING", label: "NOTHING", color: "bg-gray-500 hover:bg-gray-600 text-white", ring: "ring-gray-500" },
-            { value: "BROKE", label: "BROKE", color: "bg-red-600 hover:bg-red-700 text-white", ring: "ring-red-600" },
+            { value: "KEPT", label: "KEPT", color: "bg-green-600 text-white" },
+            { value: "FIGHTING", label: "FIGHTING", color: "bg-blue-600 text-white" },
+            { value: "STALLED", label: "STALLED", color: "bg-amber-500 text-white" },
+            { value: "NOTHING", label: "NOTHING", color: "bg-gray-500 text-white" },
+            { value: "BROKE", label: "BROKE", color: "bg-red-600 text-white" },
           ].map((opt) => (
-            <button
+            <span
               key={opt.value}
-              type="button"
-              onClick={() => setForm({ ...form, status: opt.value })}
-              className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+              className={`rounded-lg px-4 py-2 text-sm font-bold ${
                 form.status === opt.value
-                  ? `${opt.color} ring-2 ${opt.ring} ring-offset-2`
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  ? opt.color
+                  : "bg-gray-100 text-gray-300"
               }`}
             >
               {opt.label}
-            </button>
+            </span>
           ))}
         </div>
       </div>
